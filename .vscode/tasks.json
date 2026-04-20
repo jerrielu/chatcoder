@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "npm",
+      "script": "build",
+      "group": { "kind": "build", "isDefault": true },
+      "detail": "tsc -b across all workspaces",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "rebuild-sqlite",
+      "type": "shell",
+      "command": "export PATH=/usr/local/nvm/versions/node/v24.15.0/bin:$PATH && npm rebuild better-sqlite3",
+      "detail": "recompile native addon for current node version"
+    }
+  ]
+}

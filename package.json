@@ -1,0 +1,35 @@
+{
+  "name": "chatcoder",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Remote codex control via Telegram — monorepo root",
+  "workspaces": [
+    "packages/shared",
+    "packages/bot",
+    "packages/daemon",
+    "packages/dashboard"
+  ],
+  "engines": {
+    "node": ">=20.18.0"
+  },
+  "scripts": {
+    "build": "npm run build -ws --if-present",
+    "clean": "rm -rf packages/*/dist coverage",
+    "lint": "eslint \"packages/*/src/**/*.ts\" \"packages/*/test/**/*.ts\"",
+    "typecheck": "tsc -b packages/shared packages/bot packages/daemon packages/dashboard --pretty",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "dev:bot": "npm run dev -w @chatcoder/bot",
+    "dev:daemon": "npm run dev -w @chatcoder/daemon",
+    "dev:dashboard": "npm run dev -w @chatcoder/dashboard"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "@typescript-eslint/eslint-plugin": "^7.7.0",
+    "@typescript-eslint/parser": "^7.7.0",
+    "@vitest/coverage-v8": "^1.5.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.5.0"
+  }
+}
