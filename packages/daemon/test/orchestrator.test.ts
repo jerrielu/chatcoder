@@ -61,7 +61,7 @@ function makeFetch(scenarios: {
   const fn = (async (input: URL | RequestInfo, init?: RequestInit) => {
     const url = String(input);
     calls.push(`${init?.method ?? "GET"} ${url}`);
-    if (url.endsWith("/v1/poll")) {
+    if (new URL(url).pathname === "/v1/poll") {
       const step = scenarios.poll?.[pi++] ?? { sessions: [] };
       if (step === "401") return new Response('{"error":{"code":"UNAUTHORIZED","message":"x"}}', { status: 401 });
       if (step === "410") return new Response('{"error":{"code":"SESSION_REVOKED","message":"x"}}', { status: 410 });
@@ -176,6 +176,38 @@ describe("Orchestrator", () => {
     await flushMicrotasks();
     await pool.drainAll();
     expect(tool.calls).toEqual([{ profile: "main", message: "ping", resumeLastSession: false }]);
+    await orch.stop();
+  });
+
+  it("asks the API to resume in-progress work on the first poll only", async () => {
+    const tool = new FakeToolExecutor();
+    const { fn, calls } = makeFetch({
+      poll: [
+        { sessions: [] },
+        { sessions: [] }
+      ]
+    });
+    const client = new ApiClient({
+      apiUrl: "https://x.example.com",
+      apiKey: "long-enough-api-key-abcdef",
+      fetchImpl: fn,
+      retries: 0
+    });
+    const c = cfg();
+    const pool = new ProfilePool({
+      profiles: c.profiles,
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async () => undefined
+    });
+    const orch = new Orchestrator({ config: c, client, pool });
+    orch.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(c.pollIntervalMs);
+    await flushMicrotasks();
+
+    const pollCalls = calls.filter((c) => c.includes("/v1/poll"));
+    expect(pollCalls[0]).toContain("resumeInProgress=1");
+    expect(pollCalls[1]).not.toContain("resumeInProgress=1");
     await orch.stop();
   });
 

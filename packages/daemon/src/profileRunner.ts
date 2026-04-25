@@ -31,6 +31,17 @@ export interface ProfileRunnerDeps {
 
 const DEFAULT_RESPONSE_UPDATE_INTERVAL_MS = 5_000;
 const DEFAULT_RESPONSE_CHUNK_MAX_CHARS = 4_095;
+const PROGRESS_WORD_LIMIT = 50;
+
+function firstWords(text: string, limit: number): string {
+  return text.trim().split(/\s+/).filter(Boolean).slice(0, limit).join(" ");
+}
+
+function formatProgressUpdate(text: string): string {
+  const timestamp = new Date().toISOString();
+  const preview = firstWords(text, PROGRESS_WORD_LIMIT);
+  return preview.length > 0 ? `[${timestamp}] ${preview}` : `[${timestamp}]`;
+}
 
 /**
  * Per-profile FIFO runner. Instructions for the same profile are executed in
@@ -71,7 +82,11 @@ export class ProfileRunner {
     this.queue.push(task);
     if (!this.running) {
       this.armIdlePromise();
-      void this.drain();
+      void this.drain().catch((err) => {
+        this.log("profile runner drain failed", { profile: this.profileName, err });
+        this.running = false;
+        this.settleIdle();
+      });
     }
   }
 
@@ -112,14 +127,15 @@ export class ProfileRunner {
   }
 
   private async runOne(task: ProfileRunnerTask): Promise<void> {
-    const release = this.deps.acquireSlot ? await this.deps.acquireSlot() : null;
+    let release: (() => void) | null = null;
     try {
+      release = this.deps.acquireSlot ? await this.deps.acquireSlot() : null;
       this.log("<<< instruction", { profile: this.profileName, session: task.sessionId, content: task.content });
       try {
         await this.executeWithOutputUpdates(task);
       } catch (err) {
         this.log("execution failed", { profile: this.profileName, err });
-        await this.postChunked(task.sessionId, `Error: ${err instanceof Error ? err.message : String(err)}`);
+        await this.tryPostChunked(task.sessionId, `Error: ${err instanceof Error ? err.message : String(err)}`);
       }
     } finally {
       release?.();
@@ -144,7 +160,7 @@ export class ProfileRunner {
     const flushPendingProgress = async (): Promise<void> => {
       const next = collectPending();
       if (next.length === 0) return;
-      await this.postChunked(task.sessionId, next, { final: false });
+      await this.tryPostChunked(task.sessionId, next, { final: false });
     };
 
     const schedule = (): void => {
@@ -159,6 +175,8 @@ export class ProfileRunner {
       flushInFlight = true;
       try {
         await flushPendingProgress();
+      } catch (err) {
+        this.log("progress response failed", { profile: this.profileName, session: task.sessionId, err });
       } finally {
         flushInFlight = false;
       }
@@ -186,7 +204,7 @@ export class ProfileRunner {
       collectPending();
       const finalText = finalOutput.length > 0 ? finalOutput : stripAnsi(rawOutput).trim();
       if (finalText.length > 0) {
-        await this.postChunked(task.sessionId, finalText, { final: true });
+        await this.tryPostChunked(task.sessionId, finalText, { final: true });
       }
     } finally {
       finished = true;
@@ -203,10 +221,23 @@ export class ProfileRunner {
     opts: { final?: boolean } = {}
   ): Promise<void> {
     if (!text) return;
-    for (let i = 0; i < text.length; i += this.chunkMax) {
-      const chunk = text.slice(i, i + this.chunkMax);
+    const outboundText = opts.final === false ? formatProgressUpdate(text) : text;
+    for (let i = 0; i < outboundText.length; i += this.chunkMax) {
+      const chunk = outboundText.slice(i, i + this.chunkMax);
       this.log(">>> response", { profile: this.profileName, session: sessionId, chunk });
       await this.deps.postResponse(sessionId, chunk, opts);
+    }
+  }
+
+  private async tryPostChunked(
+    sessionId: string,
+    text: string,
+    opts: { final?: boolean } = {}
+  ): Promise<void> {
+    try {
+      await this.postChunked(sessionId, text, opts);
+    } catch (err) {
+      this.log("response post failed", { profile: this.profileName, session: sessionId, err });
     }
   }
 }

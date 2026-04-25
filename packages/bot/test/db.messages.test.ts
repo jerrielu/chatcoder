@@ -76,6 +76,26 @@ describe("MessagesRepo drain", () => {
   });
 });
 
+describe("MessagesRepo processing lifecycle", () => {
+  it("claims only one in-progress message per session", async () => {
+    await h.messages.enqueue({ sessionId, content: "A" });
+    await h.messages.enqueue({ sessionId, content: "B" });
+
+    const first = await h.messages.claimNext(sessionId);
+    expect(first?.content).toBe("A");
+    expect(first?.processingStartedAt).toBe(h.now());
+    expect(await h.messages.claimNext(sessionId)).toBeNull();
+    expect(await h.messages.count(sessionId)).toBe(1);
+
+    const processing = await h.messages.getProcessing(sessionId);
+    expect(processing?.content).toBe("A");
+    expect(await h.messages.completeProcessing(sessionId)).toBe(true);
+
+    const second = await h.messages.claimNext(sessionId);
+    expect(second?.content).toBe("B");
+  });
+});
+
 describe("MessagesRepo.purgeSession", () => {
   it("removes all messages for a session", async () => {
     h.advanceTime(1);

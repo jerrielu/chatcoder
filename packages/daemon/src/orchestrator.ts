@@ -32,6 +32,7 @@ export class Orchestrator {
   private readonly clearTimer: typeof clearTimeout;
   private _status: OrchestratorStatus = "idle";
   private stopping = false;
+  private shouldResumeInProgress = true;
 
   constructor(private readonly deps: OrchestratorDeps) {
     this.log = deps.log ?? (() => void 0);
@@ -91,7 +92,10 @@ export class Orchestrator {
   private async tickPoll(): Promise<void> {
     if (this.stopping) return;
     try {
-      const res = await this.deps.client.poll();
+      const res = await this.deps.client.poll({
+        resumeInProgress: this.shouldResumeInProgress
+      });
+      this.shouldResumeInProgress = false;
       for (const s of res.sessions) {
         if (!this.deps.pool.hasProfile(s.profileName)) {
           this.log("poll returned unknown profile — skipping", {

@@ -15,7 +15,8 @@ export async function runMigrations(db: Kysely<Database>, dialect: Dialect): Pro
   const steps: Array<{ v: number; up: () => Promise<void> }> = [
     { v: 1, up: () => applyInitialSchema(db, dialect) },
     { v: 2, up: () => addResumeLastSessionToMessages(db) },
-    { v: 3, up: () => addLatestMessageToSessions(db) }
+    { v: 3, up: () => addLatestMessageToSessions(db) },
+    { v: 4, up: () => addProcessingStartedAtToMessages(db) }
   ];
 
   for (const step of steps) {
@@ -121,6 +122,7 @@ async function applyInitialSchema(db: Kysely<Database>, dialect: Dialect): Promi
     )
     .addColumn("content", "text", (c) => c.notNull())
     .addColumn("resume_last_session", "integer", (c) => c.notNull().defaultTo(1))
+    .addColumn("processing_started_at", "bigint")
     .addColumn("created_at", "bigint", (c) => c.notNull())
     .execute();
 
@@ -154,6 +156,19 @@ async function addLatestMessageToSessions(db: Kysely<Database>): Promise<void> {
     await db.schema
       .alterTable("sessions")
       .addColumn("latest_message", "text")
+      .execute();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();
+    if (msg.includes("duplicate column") || msg.includes("already exists")) return;
+    throw e;
+  }
+}
+
+async function addProcessingStartedAtToMessages(db: Kysely<Database>): Promise<void> {
+  try {
+    await db.schema
+      .alterTable("messages")
+      .addColumn("processing_started_at", "bigint")
       .execute();
   } catch (e) {
     const msg = e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();

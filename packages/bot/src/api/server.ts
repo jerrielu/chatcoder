@@ -37,6 +37,13 @@ export interface BuildServerOptions {
 }
 
 const API_PREFIX = "/v1";
+const RESUME_IN_PROGRESS_CONTENT = "continue";
+
+function wantsResumeInProgress(query: unknown): boolean {
+  if (!query || typeof query !== "object") return false;
+  const value = (query as { resumeInProgress?: unknown }).resumeInProgress;
+  return value === "1" || value === "true" || value === true;
+}
 
 export async function buildServer(opts: BuildServerOptions): Promise<FastifyInstance> {
   const app = Fastify({
@@ -96,24 +103,30 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
 
   app.get(API_PATHS.poll, async (req): Promise<PollResponse> => {
     await opts.apiKeysRepo.updateHeartbeat(req.apiKey.id);
+    const resumeInProgress = wantsResumeInProgress(req.query);
     const sessions = await opts.sessionsRepo.listActiveByApiKey(req.apiKey.id);
     const grouped: PollSession[] = [];
     for (const s of sessions) {
       const profile = await opts.profilesRepo.getById(s.profileId);
       if (!profile) continue;
-      const msgs = await opts.messagesRepo.drain(s.id);
-      if (msgs.length === 0) continue;
+      const inProgress = await opts.messagesRepo.getProcessing(s.id);
+      const msg = inProgress
+        ? resumeInProgress
+          ? { ...inProgress, content: RESUME_IN_PROGRESS_CONTENT, resumeLastSession: true }
+          : null
+        : await opts.messagesRepo.claimNext(s.id);
+      if (!msg) continue;
       grouped.push({
         sessionId: s.id,
         profileName: profile.name,
-        messages: msgs.map((m) =>
+        messages: [
           DaemonMessage.parse({
-            id: m.id,
-            content: m.content,
-            resumeLastSession: m.resumeLastSession,
-            createdAt: m.createdAt
+            id: msg.id,
+            content: msg.content,
+            resumeLastSession: msg.resumeLastSession,
+            createdAt: msg.createdAt
           })
-        )
+        ]
       });
     }
     return { reset: false, sessions: grouped };
@@ -139,6 +152,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       if (mapped) throw mapped;
       throw e;
     }
+    await opts.messagesRepo.completeProcessing(session.id);
     return { ok: true };
   });
 

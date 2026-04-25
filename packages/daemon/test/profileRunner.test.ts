@@ -96,6 +96,7 @@ describe("ProfileRunner", () => {
 
   it("posts streamed output as progress and final output only as final", async () => {
     vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-25T12:34:56.000Z"));
     const tool = {
       execute: async (_profile: Profile, _message: string, opts: { onOutput?: (chunk: string) => void }) => {
         opts.onOutput?.("working");
@@ -117,8 +118,99 @@ describe("ProfileRunner", () => {
     await vi.advanceTimersByTimeAsync(10);
     await runner.whenIdle();
     expect(posted).toEqual([
-      { sessionId: "s1", content: "working", final: false },
+      { sessionId: "s1", content: "[2026-04-25T12:34:56.005Z] working", final: false },
       { sessionId: "s1", content: "done", final: true }
     ]);
+  });
+
+  it("limits progress updates to the first 50 words with a timestamp", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-25T12:34:56.000Z"));
+    const words = Array.from({ length: 55 }, (_, i) => `word${i + 1}`);
+    const tool = {
+      execute: async (_profile: Profile, _message: string, opts: { onOutput?: (chunk: string) => void }) => {
+        opts.onOutput?.(words.join(" "));
+        await new Promise((r) => setTimeout(r, 10));
+        return "done";
+      }
+    };
+    const posted: Array<{ content: string; final?: boolean }> = [];
+    const runner = new ProfileRunner({
+      profile: sampleProfile(),
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async (_sessionId, content, opts) => {
+        posted.push({ content, final: opts?.final });
+      },
+      responseUpdateIntervalMs: 5
+    });
+
+    runner.enqueue({ sessionId: "s1", messageId: "m1", content: "go" });
+    await vi.advanceTimersByTimeAsync(5);
+    await vi.advanceTimersByTimeAsync(10);
+    await runner.whenIdle();
+
+    const expectedProgress = `[2026-04-25T12:34:56.005Z] ${words.slice(0, 50).join(" ")}`;
+    expect(posted).toEqual([
+      { content: expectedProgress, final: false },
+      { content: "done", final: true }
+    ]);
+    expect(posted[0]!.content).not.toContain("word51");
+  });
+
+  it("does not crash or block the queue when posting a response fails", async () => {
+    const tool = {
+      execute: async (_profile: Profile, message: string) => `done-${message}`
+    };
+    const posted: string[] = [];
+    const logs: Array<{ msg: string; extra?: unknown }> = [];
+    let attempts = 0;
+    const runner = new ProfileRunner({
+      profile: sampleProfile(),
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async (_sessionId, content) => {
+        attempts++;
+        if (attempts === 1) throw new Error("bot unavailable");
+        posted.push(content);
+      },
+      log: (msg, extra) => logs.push({ msg, extra })
+    });
+
+    runner.enqueue({ sessionId: "s1", messageId: "m1", content: "first" });
+    runner.enqueue({ sessionId: "s1", messageId: "m2", content: "second" });
+    await runner.whenIdle();
+
+    expect(posted).toEqual(["done-second"]);
+    expect(logs.some((entry) => entry.msg === "response post failed")).toBe(true);
+  });
+
+  it("contains progress post failures from timer ticks", async () => {
+    vi.useFakeTimers();
+    const tool = {
+      execute: async (_profile: Profile, _message: string, opts: { onOutput?: (chunk: string) => void }) => {
+        opts.onOutput?.("working");
+        await new Promise((r) => setTimeout(r, 10));
+        return "done";
+      }
+    };
+    const posted: string[] = [];
+    const logs: Array<{ msg: string; extra?: unknown }> = [];
+    const runner = new ProfileRunner({
+      profile: sampleProfile(),
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async (_sessionId, content, opts) => {
+        if (opts?.final) posted.push(content);
+        else throw new Error("temporary bot post failure");
+      },
+      log: (msg, extra) => logs.push({ msg, extra }),
+      responseUpdateIntervalMs: 5
+    });
+
+    runner.enqueue({ sessionId: "s1", messageId: "m1", content: "go" });
+    await vi.advanceTimersByTimeAsync(5);
+    await vi.advanceTimersByTimeAsync(10);
+    await runner.whenIdle();
+
+    expect(posted).toEqual(["done"]);
+    expect(logs.some((entry) => entry.msg === "response post failed")).toBe(true);
   });
 });

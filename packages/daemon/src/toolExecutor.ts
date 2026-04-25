@@ -1,5 +1,8 @@
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ensureCodexHome } from "./codexHome.js";
 import type { Profile } from "./profile.js";
 import { stripAnsi } from "./ansi.js";
@@ -22,6 +25,32 @@ interface Launch {
   env: NodeJS.ProcessEnv;
   cwd: string;
   stdinText: string | null;
+  finalOutputPath: string | null;
+}
+
+export const CODEX_FINAL_RESPONSE_PROMPT =
+  "Final response: reply only in English; be concise; summarize only what was done and any important verification result; do not include raw logs, command output, stack traces, or verbose build/test output.";
+
+function messageWithCodexFinalResponsePolicy(message: string): string {
+  return `${message}\n\n${CODEX_FINAL_RESPONSE_PROMPT}`;
+}
+
+function codexFinalOutputPath(profileName: string): string {
+  const safeName = profileName.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return join(tmpdir(), `chatcoder-codex-final-${safeName}-${process.pid}-${Date.now()}.txt`);
+}
+
+function readAndRemoveFinalOutput(path: string): string {
+  try {
+    if (!existsSync(path)) return "";
+    return stripAnsi(readFileSync(path, "utf8")).trim();
+  } finally {
+    try {
+      unlinkSync(path);
+    } catch {
+      // Best-effort cleanup only.
+    }
+  }
 }
 
 /**
@@ -64,12 +93,15 @@ export function buildLaunch(
       args,
       env,
       cwd: profile.cwd,
-      stdinText: null
+      stdinText: null,
+      finalOutputPath: null
     };
   }
 
   if (profile.tool === "OPENAI") {
     const c = profile.codex;
+    const finalOutputPath = codexFinalOutputPath(profile.name);
+    const promptedMessage = messageWithCodexFinalResponsePolicy(message);
     if (c.apiKey) env["OPENAI_API_KEY"] = c.apiKey;
     if (c.baseUrl) env["OPENAI_BASE_URL"] = c.baseUrl;
     if (c.apiKey || c.baseUrl) {
@@ -87,13 +119,15 @@ export function buildLaunch(
     }
     if (c.model) args.push("--model", c.model);
     args.push(...c.extraArgs);
-    args.push(message);
+    args.push("-o", finalOutputPath);
+    args.push(promptedMessage);
     return {
       cmd: "codex",
       args,
       env,
       cwd: profile.cwd,
-      stdinText: null
+      stdinText: null,
+      finalOutputPath
     };
   }
 
@@ -122,7 +156,8 @@ export function buildLaunch(
     args,
     env,
     cwd: profile.cwd,
-    stdinText
+    stdinText,
+    finalOutputPath: null
   };
 }
 
@@ -167,6 +202,29 @@ export class ToolExecutor {
 
       let stdout = "";
       let stderr = "";
+      let settled = false;
+
+      const settleResolve = (value: string): void => {
+        if (settled) return;
+        settled = true;
+        execOpts.signal?.removeEventListener("abort", onAbort);
+        resolve(value);
+      };
+
+      const settleReject = (err: Error): void => {
+        if (settled) return;
+        settled = true;
+        execOpts.signal?.removeEventListener("abort", onAbort);
+        reject(err);
+      };
+
+      const emitOutput = (chunk: string): void => {
+        try {
+          execOpts.onOutput?.(chunk);
+        } catch (err) {
+          this.log("output callback failed", { profile: profile.name, err });
+        }
+      };
 
       const onAbort = (): void => {
         if (!child.killed) child.kill("SIGTERM");
@@ -175,14 +233,26 @@ export class ToolExecutor {
 
       child.stdout.on("data", (data) => {
         const chunk = data.toString();
-        execOpts.onOutput?.(chunk);
+        emitOutput(chunk);
         stdout += chunk;
       });
 
       child.stderr.on("data", (data) => {
         const chunk = data.toString();
-        execOpts.onOutput?.(chunk);
+        emitOutput(chunk);
         stderr += chunk;
+      });
+
+      child.stdout.on("error", (err) => {
+        this.log("stdout stream error", { profile: profile.name, err });
+      });
+
+      child.stderr.on("error", (err) => {
+        this.log("stderr stream error", { profile: profile.name, err });
+      });
+
+      child.stdin.on("error", (err) => {
+        this.log("stdin stream error", { profile: profile.name, err });
       });
 
       if (launch.stdinText !== null) {
@@ -192,18 +262,20 @@ export class ToolExecutor {
       }
 
       child.on("close", (code) => {
-        execOpts.signal?.removeEventListener("abort", onAbort);
         const output = stripAnsi(stdout + stderr).trim();
+        const finalOutput = launch.finalOutputPath
+          ? readAndRemoveFinalOutput(launch.finalOutputPath)
+          : "";
+        const responseOutput = finalOutput || output;
         if (code === 0) {
-          resolve(output);
+          settleResolve(responseOutput);
         } else {
-          resolve(output || `Command failed with exit code ${code ?? "null"}`);
+          settleResolve(responseOutput || `Command failed with exit code ${code ?? "null"}`);
         }
       });
 
       child.on("error", (err) => {
-        execOpts.signal?.removeEventListener("abort", onAbort);
-        reject(err);
+        settleReject(err);
       });
     });
   }

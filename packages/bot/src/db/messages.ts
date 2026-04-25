@@ -7,6 +7,7 @@ export interface QueuedMessage {
   sessionId: string;
   content: string;
   resumeLastSession: boolean;
+  processingStartedAt: number | null;
   createdAt: number;
 }
 
@@ -22,14 +23,22 @@ function rowToMessage(row: {
   session_id: string;
   content: string;
   resume_last_session: number | string | bigint | boolean;
+  processing_started_at: number | string | bigint | null;
   created_at: number | string | bigint;
 }): QueuedMessage {
   const raw = typeof row.created_at === "number" ? row.created_at : Number(row.created_at);
+  const processingStartedAt =
+    row.processing_started_at == null
+      ? null
+      : typeof row.processing_started_at === "number"
+        ? row.processing_started_at
+        : Number(row.processing_started_at);
   return {
     id: row.id,
     sessionId: row.session_id,
     content: row.content,
     resumeLastSession: toBool(row.resume_last_session),
+    processingStartedAt,
     // External callers see the millisecond timestamp; the sub-ms seq bits are
     // stripped so comparisons with Date.now()-based clocks stay sane.
     createdAt: Math.floor(raw / 1024)
@@ -78,6 +87,7 @@ export class MessagesRepo {
           session_id: args.sessionId,
           content: args.content,
           resume_last_session: resumeLastSession ? 1 : 0,
+          processing_started_at: null,
           created_at: ts
         })
         .execute();
@@ -86,6 +96,7 @@ export class MessagesRepo {
         .selectFrom("messages")
         .select(["id", "created_at"])
         .where("session_id", "=", args.sessionId)
+        .where("processing_started_at", "is", null)
         .orderBy("created_at", "desc")
         .orderBy("id", "desc")
         .execute();
@@ -106,7 +117,7 @@ export class MessagesRepo {
     });
   }
 
-  /** Pop ALL pending instructions for a session (used by daemon poll). */
+  /** Pop ALL pending instructions for a session (legacy tests/admin helpers). */
   async drain(sessionId: string): Promise<QueuedMessage[]> {
     return this.db.transaction().execute(async (tx) => {
       const rows = await tx
@@ -129,11 +140,73 @@ export class MessagesRepo {
     });
   }
 
+  /**
+   * Claim the next queued instruction for a session. If another instruction is
+   * already in progress, no new work is claimed for that session.
+   */
+  async claimNext(sessionId: string): Promise<QueuedMessage | null> {
+    return this.db.transaction().execute(async (tx) => {
+      const inProgress = await tx
+        .selectFrom("messages")
+        .select("id")
+        .where("session_id", "=", sessionId)
+        .where("processing_started_at", "is not", null)
+        .executeTakeFirst();
+      if (inProgress) return null;
+
+      const row = await tx
+        .selectFrom("messages")
+        .selectAll()
+        .where("session_id", "=", sessionId)
+        .where("processing_started_at", "is", null)
+        .orderBy("created_at", "asc")
+        .orderBy("id", "asc")
+        .executeTakeFirst();
+      if (!row) return null;
+
+      const processingStartedAt = this.now();
+      await tx
+        .updateTable("messages")
+        .set({ processing_started_at: processingStartedAt })
+        .where("id", "=", row.id)
+        .execute();
+
+      return rowToMessage({ ...row, processing_started_at: processingStartedAt });
+    });
+  }
+
+  async getProcessing(sessionId: string): Promise<QueuedMessage | null> {
+    const row = await this.db
+      .selectFrom("messages")
+      .selectAll()
+      .where("session_id", "=", sessionId)
+      .where("processing_started_at", "is not", null)
+      .orderBy("processing_started_at", "asc")
+      .orderBy("created_at", "asc")
+      .executeTakeFirst();
+    return row ? rowToMessage(row) : null;
+  }
+
+  async completeProcessing(sessionId: string): Promise<boolean> {
+    const row = await this.db
+      .selectFrom("messages")
+      .select("id")
+      .where("session_id", "=", sessionId)
+      .where("processing_started_at", "is not", null)
+      .orderBy("processing_started_at", "asc")
+      .orderBy("created_at", "asc")
+      .executeTakeFirst();
+    if (!row) return false;
+    const res = await this.db.deleteFrom("messages").where("id", "=", row.id).executeTakeFirst();
+    return Number(res.numDeletedRows) > 0;
+  }
+
   async count(sessionId: string): Promise<number> {
     const row = await this.db
       .selectFrom("messages")
       .select(({ fn }) => fn.countAll().as("c"))
       .where("session_id", "=", sessionId)
+      .where("processing_started_at", "is", null)
       .executeTakeFirstOrThrow();
     return Number(row.c);
   }

@@ -16,6 +16,7 @@ import {
   splitForTelegram,
   type TelegramSender
 } from "./bot/telegramSend.js";
+import { mainMenu } from "./bot/menus.js";
 
 async function main(): Promise<void> {
   const cfg = loadConfigFromEnv();
@@ -42,7 +43,9 @@ async function main(): Promise<void> {
   const telegram: TelegramSender = {
     async sendResponse(chatId, content) {
       for (const chunk of splitForTelegram(content)) {
-        await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, chunk));
+        await sendTelegramWithRetry(() =>
+          bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu() })
+        );
       }
     }
   };

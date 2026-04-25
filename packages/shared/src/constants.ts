@@ -61,3 +61,6 @@ export const MIN_API_KEY_LENGTH = 16;
 /** Tool kinds supported by a profile. */
 export const TOOL_KINDS = ["CLAUDE_CODE", "OPENAI", "CUSTOM"] as const;
 export type ToolKind = (typeof TOOL_KINDS)[number];
+
+/** Codex slash command used to request token totals. */
+export const CODEX_TOKEN_USAGE_COMMAND = "/token";

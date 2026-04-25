@@ -198,14 +198,20 @@ describe("admin messages", () => {
     });
     expect(enq.statusCode).toBe(200);
     const mid = enq.json().message.id;
+    expect(enq.json().message.processingStartedAt).toBeNull();
 
     const list = await json("GET", `/v1/admin/sessions/${sid}/messages`);
     expect(list.statusCode).toBe(200);
     expect(list.json().messages).toHaveLength(1);
 
+    await h.messages.claimNext(sid);
+    const processingList = await json("GET", `/v1/admin/sessions/${sid}/messages`);
+    expect(processingList.json().messages[0].processingStartedAt).toBe(h.now());
+
     const one = await json("GET", `/v1/admin/messages/${mid}`);
     expect(one.statusCode).toBe(200);
     expect(one.json().content).toBe("do thing");
+    expect(one.json().processingStartedAt).toBe(h.now());
 
     const upd = await json("PATCH", `/v1/admin/messages/${mid}`, { content: "edited" });
     expect(upd.statusCode).toBe(200);

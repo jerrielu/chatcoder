@@ -40,3 +40,5 @@ Thumbs.db
 .eslintcache
 .npm/
 *.db*
+
+nohup.out

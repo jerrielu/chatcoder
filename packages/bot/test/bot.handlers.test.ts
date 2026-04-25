@@ -56,19 +56,19 @@ describe("simple replies", () => {
 });
 
 describe("instruction request flow", () => {
-  it("code request opens force-reply and marks resume=true", () => {
+  it("code request marks resume=true", () => {
     const r = handleCodeRequest(deps(), 42, 100);
-    expect(r.forceReply).toBe(true);
     expect(r.text).toMatch(/resume/i);
+    expect(r.forceReply).toBe(true);
     const state = flows.get(42, 100);
     expect(state.kind).toBe("awaiting_instruction");
     expect(state.kind === "awaiting_instruction" ? state.resumeLastSession : false).toBe(true);
   });
 
-  it("new code request opens force-reply and marks resume=false", () => {
+  it("new code request marks resume=false", () => {
     const r = handleNewCodeRequest(deps(), 42, 100);
-    expect(r.forceReply).toBe(true);
     expect(r.text).toMatch(/fresh/i);
+    expect(r.forceReply).toBe(true);
     const state = flows.get(42, 100);
     expect(state.kind).toBe("awaiting_instruction");
     expect(state.kind === "awaiting_instruction" ? state.resumeLastSession : true).toBe(false);
@@ -124,7 +124,6 @@ describe("new-session flow (api-key → profile picker)", () => {
     const r = handleNewSessionRequest(deps(), 42, 100);
     expect(r.text).toMatch(/Paste the API key/i);
     expect(flows.get(42, 100).kind).toBe("awaiting_api_key");
-    expect(r.forceReply).toBe(true);
   });
 
   it("cancel clears flow", () => {
@@ -145,7 +144,6 @@ describe("new-session flow (api-key → profile picker)", () => {
     const r = await handleApiKeySubmission(deps(), 42, 100, "not-a-known-key-abcdef");
     expect(r).not.toBeNull();
     expect(r!.text).toMatch(/don't know/i);
-    expect(r!.forceReply).toBe(true);
     expect(flows.get(42, 100).kind).toBe("awaiting_api_key");
   });
 

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildLaunch } from "../src/toolExecutor.js";
+import { buildLaunch, CODEX_FINAL_RESPONSE_PROMPT, ToolExecutor } from "../src/toolExecutor.js";
 import { setCodexRootOverride } from "../src/codexHome.js";
 import type { Profile } from "../src/profile.js";
 
@@ -100,7 +100,15 @@ describe("buildLaunch", () => {
     };
     const launch = buildLaunch(profile, "ping");
     expect(launch.cmd).toBe("codex");
-    expect(launch.args).toEqual(["exec", "resume", "--last", "--full-auto", "ping"]);
+    expect(launch.args).toEqual([
+      "exec",
+      "resume",
+      "--last",
+      "--full-auto",
+      "-o",
+      expect.stringMatching(/chatcoder-codex-final-opx-/),
+      `ping\n\n${CODEX_FINAL_RESPONSE_PROMPT}`
+    ]);
     expect(launch.env["CODEX_HOME"]).toMatch(/\/opx$/);
     expect(launch.env["OPENAI_API_KEY"]).toBe("sk");
     expect(launch.env["OPENAI_BASE_URL"]).toBe("https://api.example.com/v1");
@@ -144,7 +152,9 @@ describe("buildLaunch", () => {
       "workspace-write",
       "--ask-for-approval",
       "on-failure",
-      "go"
+      "-o",
+      expect.stringMatching(/chatcoder-codex-final-o2-/),
+      `go\n\n${CODEX_FINAL_RESPONSE_PROMPT}`
     ]);
   });
 
@@ -168,7 +178,9 @@ describe("buildLaunch", () => {
       "resume",
       "--last",
       "--dangerously-bypass-approvals-and-sandbox",
-      "go"
+      "-o",
+      expect.stringMatching(/chatcoder-codex-final-o2-bypass-/),
+      `go\n\n${CODEX_FINAL_RESPONSE_PROMPT}`
     ]);
   });
 
@@ -184,7 +196,13 @@ describe("buildLaunch", () => {
       }
     };
     const launch = buildLaunch(profile, "go", false);
-    expect(launch.args).toEqual(["exec", "--full-auto", "go"]);
+    expect(launch.args).toEqual([
+      "exec",
+      "--full-auto",
+      "-o",
+      expect.stringMatching(/chatcoder-codex-final-o3-/),
+      `go\n\n${CODEX_FINAL_RESPONSE_PROMPT}`
+    ]);
   });
 
   it("CUSTOM appended placement adds message as last arg", () => {
@@ -237,5 +255,92 @@ describe("buildLaunch", () => {
     };
     const launch = buildLaunch(profile, "hi");
     expect(launch.args).toEqual(["-c", "echo hi hi"]);
+  });
+});
+
+describe("ToolExecutor", () => {
+  it("contains onOutput callback errors and still resolves with tool output", async () => {
+    const profile: Profile = {
+      name: "custom-output",
+      cwd: tmpRoot,
+      tool: "CUSTOM",
+      custom: {
+        launchBin: process.execPath,
+        args: ["-e", "process.stdout.write('hello')"],
+        env: {},
+        messagePlacement: "stdin"
+      }
+    };
+    const logs: Array<{ msg: string; extra?: unknown }> = [];
+    const executor = new ToolExecutor({
+      log: (msg, extra) => logs.push({ msg, extra })
+    });
+
+    const output = await executor.execute(profile, "go", {
+      onOutput: () => {
+        throw new Error("observer failed");
+      }
+    });
+
+    expect(output).toBe("hello");
+    expect(logs.some((entry) => entry.msg === "output callback failed")).toBe(true);
+  });
+
+  it("reports child spawn errors as rejected tool execution", async () => {
+    const profile: Profile = {
+      name: "custom-missing-bin",
+      cwd: tmpRoot,
+      tool: "CUSTOM",
+      custom: {
+        launchBin: path.join(tmpRoot, "missing-tool"),
+        args: [],
+        env: {},
+        messagePlacement: "stdin"
+      }
+    };
+    const executor = new ToolExecutor();
+
+    await expect(executor.execute(profile, "go")).rejects.toThrow();
+  });
+
+  it("returns only Codex last-message output when Codex writes one", async () => {
+    const fakeBin = path.join(tmpRoot, "codex");
+    fs.writeFileSync(
+      fakeBin,
+      [
+        "#!/bin/sh",
+        "out=''",
+        "prev=''",
+        "for arg in \"$@\"; do",
+        "  if [ \"$prev\" = '-o' ]; then out=\"$arg\"; fi",
+        "  prev=\"$arg\"",
+        "done",
+        "printf '%s' '- concise final response' > \"$out\"",
+        "printf '%s\\n' 'OpenAI Codex noisy transcript'",
+        "printf '%s\\n' 'tokens used 123'",
+        ""
+      ].join("\n"),
+      { mode: 0o755 }
+    );
+    const originalPath = process.env.PATH;
+    process.env.PATH = `${tmpRoot}${path.delimiter}${originalPath ?? ""}`;
+    const profile: Profile = {
+      name: "codex-final",
+      cwd: tmpRoot,
+      tool: "OPENAI",
+      codex: {
+        fullAuto: true,
+        extraArgs: []
+      }
+    };
+    const executor = new ToolExecutor();
+
+    try {
+      const output = await executor.execute(profile, "go");
+
+      expect(output).toBe("- concise final response");
+    } finally {
+      process.env.PATH = originalPath;
+    }
   });
 });

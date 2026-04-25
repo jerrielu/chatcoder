@@ -117,9 +117,14 @@ describe("wireBot instruction menu flow", () => {
     const seed = await h.seedSession({ chatId: 1 });
     await bot.handleUpdate(cbUpdate(1, 1, CB.code, 1));
     await bot.handleUpdate(msgUpdate(1, 1, "run tests", 2));
-    const texts = sends().map((m) => (m.payload as { text: string }).text);
+    const sent = sends();
+    const texts = sent.map((m) => (m.payload as { text: string }).text);
     expect(texts.some((t) => t.includes("resume"))).toBe(true);
     expect(texts.some((t) => t.includes("Queued"))).toBe(true);
+    const queued = sent.find((m) =>
+      (m.payload as { text: string }).text.includes("Queued")
+    )!;
+    expect((queued.payload as { reply_markup: unknown }).reply_markup).toBeDefined();
     const [msg] = await h.messages.drain(seed.session.id);
     expect(msg?.resumeLastSession).toBe(true);
   });
@@ -167,12 +172,12 @@ describe("wireBot callback flow", () => {
     expect(flows.get(1, 1).kind).toBe("idle");
   });
 
-  it("new session opens force-reply input for api key", async () => {
+  it("new session prompt includes a menu", async () => {
     await bot.handleUpdate(cbUpdate(1, 1, CB.newSession, 1));
     const last = sends().at(-1)!;
     const markup = (last.payload as { reply_markup?: Record<string, unknown> }).reply_markup;
     expect(markup).toBeDefined();
-    expect(markup?.["force_reply"]).toBe(true);
+    expect(markup?.["inline_keyboard"]).toBeDefined();
   });
 
   it("status shows session info", async () => {
@@ -188,12 +193,22 @@ describe("wireBot callback flow", () => {
     expect((last.payload as { text: string }).text).toMatch(/menu/i);
   });
 
-  it("code callback opens force-reply input", async () => {
+  it("code callback prompt opens a force-reply input", async () => {
     await bot.handleUpdate(cbUpdate(1, 1, CB.code, 1));
     const last = sends().at(-1)!;
     const markup = (last.payload as { reply_markup?: Record<string, unknown> }).reply_markup;
     expect(markup).toBeDefined();
     expect(markup?.["force_reply"]).toBe(true);
+    expect(markup?.["selective"]).toBeUndefined();
+  });
+
+  it("new code callback prompt opens a force-reply input", async () => {
+    await bot.handleUpdate(cbUpdate(1, 1, CB.newCode, 1));
+    const last = sends().at(-1)!;
+    const markup = (last.payload as { reply_markup?: Record<string, unknown> }).reply_markup;
+    expect(markup).toBeDefined();
+    expect(markup?.["force_reply"]).toBe(true);
+    expect(markup?.["selective"]).toBeUndefined();
   });
 });
 

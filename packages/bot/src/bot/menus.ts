@@ -5,6 +5,7 @@ export const CB = {
   code: "cc:code",
   newCode: "cc:newcode",
   latestProgress: "cc:latest",
+  tokenUsage: "cc:tokens",
   newSession: "cc:new",
   newSessionCancel: "cc:new:cancel",
   status: "cc:status",
@@ -19,6 +20,7 @@ export function mainMenu(): InlineKeyboard {
     .text("🆕 New Code", CB.newCode)
     .row()
     .text("📋 Latest Progress", CB.latestProgress)
+    .text("🧮 Token Usage", CB.tokenUsage)
     .row()
     .text("🆕 New Session", CB.newSession)
     .text("📡 Status", CB.status);

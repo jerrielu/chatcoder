@@ -53,6 +53,7 @@ export const AdminMessage = z.object({
   sessionId: z.string(),
   content: z.string(),
   resumeLastSession: z.boolean().default(true),
+  processingStartedAt: z.number().int().nullable().default(null),
   createdAt: z.number().int()
 });
 export type AdminMessage = z.infer<typeof AdminMessage>;

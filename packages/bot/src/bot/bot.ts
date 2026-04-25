@@ -13,9 +13,10 @@ import {
   handlePlainText,
   handleProfilePicked,
   handleStart,
-  handleStatus
+  handleStatus,
+  handleTokenUsage
 } from "./handlers.js";
-import { CB, parseProfileCallback } from "./menus.js";
+import { CB, mainMenu, parseProfileCallback } from "./menus.js";
 import { sendTelegramWithRetry } from "./telegramSend.js";
 
 export interface CreateBotOptions extends HandlerDeps {
@@ -54,6 +55,12 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
     await ctx.answerCallbackQuery();
     if (!ctx.chat) return;
     await send(ctx, await handleLatestProgress(deps, ctx.chat.id));
+  });
+
+  bot.callbackQuery(CB.tokenUsage, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!ctx.chat) return;
+    await send(ctx, await handleTokenUsage(deps, ctx.chat.id));
   });
 
   bot.callbackQuery(CB.newSession, async (ctx) => {
@@ -122,7 +129,9 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
       const chatId = ctx.chat?.id;
       if (chatId) {
         await sendTelegramWithRetry(() =>
-          ctx.api.sendMessage(chatId, formatUnexpectedError(error))
+          ctx.api.sendMessage(chatId, formatUnexpectedError(error), {
+            reply_markup: mainMenu()
+          })
         );
       }
     } catch (sendErr) {
@@ -152,10 +161,10 @@ async function send(ctx: Context, r: Reply): Promise<void> {
   if (!chatId) return;
   const replyMarkup = r.forceReply
     ? {
-      force_reply: true as const,
-      input_field_placeholder: r.inputFieldPlaceholder
-    }
-    : r.keyboard;
+        force_reply: true as const,
+        input_field_placeholder: "Describe the code change"
+      }
+    : r.keyboard ?? mainMenu();
   await sendTelegramWithRetry(() =>
     ctx.api.sendMessage(chatId, r.text, {
       reply_markup: replyMarkup,

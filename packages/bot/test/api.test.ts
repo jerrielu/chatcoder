@@ -140,7 +140,7 @@ describe("POST /v1/heartbeat", () => {
 });
 
 describe("GET /v1/poll", () => {
-  it("returns grouped sessions with drained messages", async () => {
+  it("returns one claimed message per session and keeps later messages pending", async () => {
     await h.messages.enqueue({ sessionId, content: "do a" });
     await h.messages.enqueue({ sessionId, content: "do b" });
     const res = await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
@@ -152,17 +152,30 @@ describe("GET /v1/poll", () => {
     expect(group.sessionId).toBe(sessionId);
     expect(group.profileName).toBe("main");
     expect(group.messages.map((m: { content: string }) => m.content)).toEqual([
-      "do a",
-      "do b"
+      "do a"
     ]);
     expect(group.messages.map((m: { resumeLastSession: boolean }) => m.resumeLastSession)).toEqual([
-      true,
       true
     ]);
 
-    // Drained on second poll
+    // Same session has one in progress, so new work is not claimed yet.
     const again = await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
     expect(again.json().sessions).toEqual([]);
+  });
+
+  it("resumes in-progress sessions with a continue instruction when requested", async () => {
+    await h.messages.enqueue({ sessionId, content: "original instruction" });
+    await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/poll?resumeInProgress=1",
+      headers: auth()
+    });
+    const [group] = res.json().sessions;
+    expect(group.messages).toHaveLength(1);
+    expect(group.messages[0].content).toBe("continue");
+    expect(group.messages[0].resumeLastSession).toBe(true);
   });
 
   it("groups per profile when api_key has multiple sessions", async () => {
@@ -193,6 +206,8 @@ describe("GET /v1/poll", () => {
 
 describe("POST /v1/responses", () => {
   it("forwards to Telegram with the session's chat id", async () => {
+    await h.messages.enqueue({ sessionId, content: "in progress" });
+    await h.messages.claimNext(sessionId);
     const res = await app.inject({
       method: "POST",
       url: "/v1/responses",
@@ -202,6 +217,7 @@ describe("POST /v1/responses", () => {
     expect(res.statusCode).toBe(200);
     expect(sendResponse).toHaveBeenCalledTimes(1);
     expect(sendResponse).toHaveBeenCalledWith(42, "hello world");
+    expect(await h.messages.getProcessing(sessionId)).toBeNull();
   });
 
   it("stores non-final responses as latest progress without sending Telegram", async () => {

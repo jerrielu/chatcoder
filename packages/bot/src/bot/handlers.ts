@@ -6,6 +6,7 @@ import type { InlineKeyboard } from "grammy";
 import {
   API_KEY_PREFIX,
   ApiError,
+  CODEX_TOKEN_USAGE_COMMAND,
   MAX_INSTRUCTION_BYTES,
   MAX_QUEUE_DEPTH
 } from "@chatcoder/shared";
@@ -26,7 +27,6 @@ export interface Reply {
   text: string;
   keyboard?: InlineKeyboard;
   forceReply?: boolean;
-  inputFieldPlaceholder?: string;
   parseMode?: "Markdown" | "HTML";
 }
 
@@ -47,6 +47,14 @@ const WELCOME =
   "• Tap *New Session* to link this chat to a daemon profile.\n" +
   "• Tap *Code* to run with session resume, or *New Code* for a fresh run.\n" +
   "• Tap *Latest Progress* to check the current in-progress output.\n";
+
+function firstWords(text: string, limit: number): string {
+  return text.trim().split(/\s+/).filter(Boolean).slice(0, limit).join(" ");
+}
+
+function escapeMarkdown(text: string): string {
+  return text.replace(/([_*`[\]])/g, "\\$1");
+}
 
 /* =============== /start =============== */
 
@@ -84,6 +92,54 @@ export async function handleLatestProgress(
   };
 }
 
+export async function handleTokenUsage(
+  deps: HandlerDeps,
+  chatId: number
+): Promise<Reply> {
+  const session = await deps.sessions.getLatestActiveByChatId(chatId);
+  if (!session) {
+    return {
+      text: "No active session. Tap *New Session* first.",
+      keyboard: mainMenu(),
+      parseMode: "Markdown"
+    };
+  }
+  const profile = await deps.profiles.getById(session.profileId);
+  if (!profile) {
+    return {
+      text: "❌ Session profile not found. Tap *New Session* to relink.",
+      keyboard: mainMenu(),
+      parseMode: "Markdown"
+    };
+  }
+  if (profile.tool !== "OPENAI") {
+    return {
+      text:
+        "🧮 Token usage is only available for Codex profiles.\n\n" +
+        `${toolIcon(profile.tool)} Current profile: \`${profile.name}\``,
+      keyboard: mainMenu(),
+      parseMode: "Markdown"
+    };
+  }
+  const pending = await deps.messages.count(session.id);
+  if (pending >= MAX_QUEUE_DEPTH) {
+    return {
+      text: `❌ Queue full (${MAX_QUEUE_DEPTH} pending). Wait for your daemon to drain it.`,
+      keyboard: mainMenu()
+    };
+  }
+  await deps.messages.enqueue({
+    sessionId: session.id,
+    content: CODEX_TOKEN_USAGE_COMMAND,
+    resumeLastSession: true
+  });
+  return {
+    text: `🧮 Token usage request queued for \`${profile.name}\`.`,
+    keyboard: mainMenu(),
+    parseMode: "Markdown"
+  };
+}
+
 /* =============== Status =============== */
 
 export async function handleStatus(
@@ -102,10 +158,11 @@ export async function handleStatus(
   const staleMs = deps.heartbeatStaleMs ?? 60_000;
   const lines: string[] = [];
   for (const s of sessions) {
-    const [profile, apiKey, pending] = await Promise.all([
+    const [profile, apiKey, pending, processing] = await Promise.all([
       deps.profiles.getById(s.profileId),
       deps.apiKeys.getById(s.apiKeyId),
-      deps.messages.count(s.id)
+      deps.messages.count(s.id),
+      deps.messages.getProcessing(s.id)
     ]);
     if (!profile || !apiKey) continue;
     const hbMs = apiKey.lastHeartbeat;
@@ -114,9 +171,13 @@ export async function handleStatus(
     const hbText = hbMs
       ? `${Math.round((now - hbMs) / 1000)}s ago`
       : "never";
+    const processingText = processing
+      ? `\n  processing: _${escapeMarkdown(firstWords(processing.content, 20))}_`
+      : "";
     lines.push(
       `${toolIcon(profile.tool)} *${profile.name}* \`${apiKey.apiKeyPrefix}…\`\n` +
-        `  ${alive} (heartbeat ${hbText}) · pending *${pending}*/${MAX_QUEUE_DEPTH}`
+        `  ${alive} (heartbeat ${hbText}) · pending *${pending}*/${MAX_QUEUE_DEPTH}` +
+        processingText
     );
   }
   const text =
@@ -138,10 +199,8 @@ export function handleNewSessionRequest(
     text:
       "🔗 *Link a daemon session*\n\n" +
       "Paste the API key from your `chatcoder-daemon` setup (starts with `cc_`).\n" +
-      "Use the reply input box that just opened.\n\n" +
+      "Reply with the API key.\n\n" +
       "Send `/cancel` to abort.",
-    forceReply: true,
-    inputFieldPlaceholder: "Paste API key (cc_...)",
     parseMode: "Markdown"
   };
 }
@@ -182,8 +241,6 @@ export async function handleApiKeySubmission(
   } catch (e) {
     return {
       text: `❌ ${(e as Error).message}\n\nPaste a valid key in the reply box, or send \`/cancel\`.`,
-      forceReply: true,
-      inputFieldPlaceholder: "Paste API key (cc_...)",
       parseMode: "Markdown"
     };
   }
@@ -194,8 +251,6 @@ export async function handleApiKeySubmission(
         "❌ I don't know that API key.\n" +
         "Make sure your daemon has run `chatcoder-daemon setup` and connected at least once.\n\n" +
         "Try again in the reply box, or send `/cancel`.",
-      forceReply: true,
-      inputFieldPlaceholder: "Paste API key (cc_...)",
       parseMode: "Markdown"
     };
   }
@@ -204,8 +259,6 @@ export async function handleApiKeySubmission(
       text:
         "❌ That API key has been revoked. Generate a new one in the daemon.\n\n" +
         "Paste another key in the reply box, or send `/cancel`.",
-      forceReply: true,
-      inputFieldPlaceholder: "Paste API key (cc_...)",
       parseMode: "Markdown"
     };
   }
@@ -216,8 +269,6 @@ export async function handleApiKeySubmission(
         "⚠️ This daemon hasn't registered any profiles yet. " +
         "Run `chatcoder-daemon setup` and add at least one profile.\n\n" +
         "Paste another key in the reply box, or send `/cancel`.",
-      forceReply: true,
-      inputFieldPlaceholder: "Paste API key (cc_...)",
       parseMode: "Markdown"
     };
   }
@@ -306,9 +357,8 @@ export function handleCodeRequest(
     text:
       "💻 *Code (resume)*\n\n" +
       "Enter the instruction for your daemon. This will resume the last CLI session.\n\n" +
-      "Send `/cancel` to abort.",
+      "Reply with the instruction, or send `/cancel` to abort.",
     forceReply: true,
-    inputFieldPlaceholder: "Instruction (resume last session)",
     parseMode: "Markdown"
   };
 }
@@ -326,9 +376,8 @@ export function handleNewCodeRequest(
     text:
       "🆕 *New Code (fresh)*\n\n" +
       "Enter the instruction for your daemon. This will start a fresh CLI run.\n\n" +
-      "Send `/cancel` to abort.",
+      "Reply with the instruction, or send `/cancel` to abort.",
     forceReply: true,
-    inputFieldPlaceholder: "Instruction (fresh run)",
     parseMode: "Markdown"
   };
 }
@@ -346,10 +395,6 @@ export async function handleInstructionSubmission(
   if (instruction.length === 0) {
     return {
       text: "❌ Instruction cannot be empty. Enter a message or send `/cancel`.",
-      forceReply: true,
-      inputFieldPlaceholder: state.resumeLastSession
-        ? "Instruction (resume last session)"
-        : "Instruction (fresh run)",
       parseMode: "Markdown"
     };
   }
@@ -358,10 +403,6 @@ export async function handleInstructionSubmission(
       text:
         `❌ Instruction exceeds ${MAX_INSTRUCTION_BYTES} bytes.\n` +
         "Send a shorter instruction or `/cancel`.",
-      forceReply: true,
-      inputFieldPlaceholder: state.resumeLastSession
-        ? "Instruction (resume last session)"
-        : "Instruction (fresh run)",
       parseMode: "Markdown"
     };
   }

@@ -73,6 +73,7 @@ function toAdminMessage(m: QueuedMessage): AdminMessage {
     sessionId: m.sessionId,
     content: m.content,
     resumeLastSession: m.resumeLastSession,
+    processingStartedAt: m.processingStartedAt,
     createdAt: m.createdAt
   });
 }

@@ -40,7 +40,7 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "dev": "tsc -b && node dist/main.js",
+    "dev": "node ../../scripts/dev-runner.mjs dist/main.js",
     "start": "node dist/main.js"
   },
   "dependencies": {

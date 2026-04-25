@@ -79,6 +79,7 @@ function rowToMessage(row: {
   session_id: string;
   content: string;
   resume_last_session: NumLike | boolean;
+  processing_started_at: NumLike | null;
   created_at: NumLike;
 }): QueuedMessage {
   const raw = typeof row.created_at === "number" ? row.created_at : Number(row.created_at);
@@ -92,6 +93,7 @@ function rowToMessage(row: {
     sessionId: row.session_id,
     content: row.content,
     resumeLastSession: resume,
+    processingStartedAt: toNum(row.processing_started_at),
     createdAt: Math.floor(raw / 1024)
   };
 }

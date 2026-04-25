@@ -58,8 +58,11 @@ export class ApiClient {
     return this.request<HeartbeatResponse>("POST", API_PATHS.heartbeat, body);
   }
 
-  async poll(): Promise<PollResponse> {
-    const res = await this.request<unknown>("GET", API_PATHS.poll);
+  async poll(opts: { resumeInProgress?: boolean } = {}): Promise<PollResponse> {
+    const path = opts.resumeInProgress
+      ? `${API_PATHS.poll}?resumeInProgress=1`
+      : API_PATHS.poll;
+    const res = await this.request<unknown>("GET", path);
     return PollResponse.parse(res);
   }
 
