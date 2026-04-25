@@ -93,7 +93,8 @@ async function runDaemon(): Promise<void> {
   const pool = new ProfilePool({
     profiles: cfg.profiles,
     tool,
-    postResponse: (sessionId, content) => client.postResponse({ sessionId, content }).then(() => undefined),
+    postResponse: (sessionId, content, opts) =>
+      client.postResponse({ sessionId, content, final: opts?.final ?? true }).then(() => undefined),
     log,
     maxConcurrency: cfg.maxConcurrency
   });

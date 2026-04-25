@@ -4,6 +4,7 @@ import type { ProfileRecord } from "../db/profiles.js";
 export const CB = {
   code: "cc:code",
   newCode: "cc:newcode",
+  latestProgress: "cc:latest",
   newSession: "cc:new",
   newSessionCancel: "cc:new:cancel",
   status: "cc:status",
@@ -16,6 +17,8 @@ export function mainMenu(): InlineKeyboard {
   return new InlineKeyboard()
     .text("💻 Code", CB.code)
     .text("🆕 New Code", CB.newCode)
+    .row()
+    .text("📋 Latest Progress", CB.latestProgress)
     .row()
     .text("🆕 New Session", CB.newSession)
     .text("📡 Status", CB.status);

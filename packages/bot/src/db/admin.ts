@@ -25,6 +25,7 @@ interface JoinedRow {
   s_created_at: NumLike;
   s_revoked_at: NumLike | null;
   s_last_code_at: NumLike;
+  s_latest_message: string | null;
   p_id: string;
   p_api_key_id: string;
   p_name: string;
@@ -50,7 +51,8 @@ function rowToJoined(row: JoinedRow): SessionJoined {
       status: row.s_status,
       createdAt: toNum(row.s_created_at) as number,
       revokedAt: toNum(row.s_revoked_at),
-      lastCodeAt: toNum(row.s_last_code_at) as number
+      lastCodeAt: toNum(row.s_last_code_at) as number,
+      latestMessage: row.s_latest_message
     },
     profile: {
       id: row.p_id,
@@ -123,6 +125,7 @@ export class AdminRepo {
         "s.created_at as s_created_at",
         "s.revoked_at as s_revoked_at",
         "s.last_code_at as s_last_code_at",
+        "s.latest_message as s_latest_message",
         "p.id as p_id",
         "p.api_key_id as p_api_key_id",
         "p.name as p_name",

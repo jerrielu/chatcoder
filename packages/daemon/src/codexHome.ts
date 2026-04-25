@@ -57,6 +57,9 @@ export function renderCodexConfigToml(codex: CodexConfig): string {
 
 /** Template for the per-profile auth.json. */
 export function renderCodexAuthJson(codex: CodexConfig): string {
+  if (!codex.apiKey) {
+    throw new Error("Cannot render Codex auth.json without an API key");
+  }
   return (
     JSON.stringify(
       {
@@ -83,13 +86,13 @@ export function ensureCodexHome(profileName: string, codex: CodexConfig): WriteR
   fs.mkdirSync(codexHome, { recursive: true, mode: 0o700 });
 
   const configContent = renderCodexConfigToml(codex);
-  const authContent = renderCodexAuthJson(codex);
+  const authContent = codex.apiKey ? renderCodexAuthJson(codex) : null;
 
   const marker = path.join(codexHome, ".chatcoder-hash");
   const hash = createHash("sha256")
     .update(configContent)
     .update("\0")
-    .update(authContent)
+    .update(authContent ?? "")
     .digest("hex");
 
   let existingHash: string | null = null;
@@ -104,7 +107,12 @@ export function ensureCodexHome(profileName: string, codex: CodexConfig): WriteR
   }
 
   fs.writeFileSync(path.join(codexHome, "config.toml"), configContent, { mode: 0o600 });
-  fs.writeFileSync(path.join(codexHome, "auth.json"), authContent, { mode: 0o600 });
+  const authPath = path.join(codexHome, "auth.json");
+  if (authContent !== null) {
+    fs.writeFileSync(authPath, authContent, { mode: 0o600 });
+  } else if (fs.existsSync(authPath)) {
+    fs.rmSync(authPath);
+  }
   fs.writeFileSync(marker, hash + "\n", { mode: 0o600 });
   return { codexHome, changed: true };
 }

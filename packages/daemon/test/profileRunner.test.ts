@@ -93,4 +93,32 @@ describe("ProfileRunner", () => {
     expect(posted).toHaveLength(3);
     expect(posted.map((p) => p.content).join("")).toBe(big);
   });
+
+  it("posts streamed output as progress and final output only as final", async () => {
+    vi.useFakeTimers();
+    const tool = {
+      execute: async (_profile: Profile, _message: string, opts: { onOutput?: (chunk: string) => void }) => {
+        opts.onOutput?.("working");
+        await new Promise((r) => setTimeout(r, 10));
+        return "done";
+      }
+    };
+    const posted: Array<{ sessionId: string; content: string; final?: boolean }> = [];
+    const runner = new ProfileRunner({
+      profile: sampleProfile(),
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async (sessionId, content, opts) => {
+        posted.push({ sessionId, content, final: opts?.final });
+      },
+      responseUpdateIntervalMs: 5
+    });
+    runner.enqueue({ sessionId: "s1", messageId: "m1", content: "go" });
+    await vi.advanceTimersByTimeAsync(5);
+    await vi.advanceTimersByTimeAsync(10);
+    await runner.whenIdle();
+    expect(posted).toEqual([
+      { sessionId: "s1", content: "working", final: false },
+      { sessionId: "s1", content: "done", final: true }
+    ]);
+  });
 });

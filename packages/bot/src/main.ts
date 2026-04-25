@@ -11,7 +11,11 @@ import { buildServer } from "./api/server.js";
 import { createBot } from "./bot/bot.js";
 import { FlowStore } from "./bot/flows.js";
 import { deriveLocalApiUrl } from "./apiUrl.js";
-import { splitForTelegram, type TelegramSender } from "./bot/telegramSend.js";
+import {
+  sendTelegramWithRetry,
+  splitForTelegram,
+  type TelegramSender
+} from "./bot/telegramSend.js";
 
 async function main(): Promise<void> {
   const cfg = loadConfigFromEnv();
@@ -38,7 +42,7 @@ async function main(): Promise<void> {
   const telegram: TelegramSender = {
     async sendResponse(chatId, content) {
       for (const chunk of splitForTelegram(content)) {
-        await bot.api.sendMessage(chatId, chunk);
+        await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, chunk));
       }
     }
   };

@@ -35,6 +35,8 @@ export type PollResponse = z.infer<typeof PollResponse>;
 export const PostResponseBody = z.object({
   sessionId: z.string().min(1),
   content: z.string().min(1).max(MAX_RESPONSE_BYTES),
+  /** false = progress update only; true = send final result to client. */
+  final: z.boolean().default(true),
   /** Optional echo of originating instruction id for tracing. */
   replyTo: z.string().min(1).optional()
 });

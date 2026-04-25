@@ -5,6 +5,7 @@ import {
   handleApiKeySubmission,
   handleCodeRequest,
   handleInstructionSubmission,
+  handleLatestProgress,
   handleMenu,
   handleNewCodeRequest,
   handleNewSessionCancel,
@@ -15,6 +16,7 @@ import {
   handleStatus
 } from "./handlers.js";
 import { CB, parseProfileCallback } from "./menus.js";
+import { sendTelegramWithRetry } from "./telegramSend.js";
 
 export interface CreateBotOptions extends HandlerDeps {
   telegramBotToken: string;
@@ -46,6 +48,12 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
     await ctx.answerCallbackQuery();
     if (!ctx.chat) return;
     await send(ctx, await handleStatus(deps, ctx.chat.id));
+  });
+
+  bot.callbackQuery(CB.latestProgress, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!ctx.chat) return;
+    await send(ctx, await handleLatestProgress(deps, ctx.chat.id));
   });
 
   bot.callbackQuery(CB.newSession, async (ctx) => {
@@ -113,7 +121,9 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
     try {
       const chatId = ctx.chat?.id;
       if (chatId) {
-        await ctx.api.sendMessage(chatId, formatUnexpectedError(error));
+        await sendTelegramWithRetry(() =>
+          ctx.api.sendMessage(chatId, formatUnexpectedError(error))
+        );
       }
     } catch (sendErr) {
       // eslint-disable-next-line no-console
@@ -146,10 +156,12 @@ async function send(ctx: Context, r: Reply): Promise<void> {
       input_field_placeholder: r.inputFieldPlaceholder
     }
     : r.keyboard;
-  await ctx.api.sendMessage(chatId, r.text, {
-    reply_markup: replyMarkup,
-    parse_mode: r.parseMode
-  });
+  await sendTelegramWithRetry(() =>
+    ctx.api.sendMessage(chatId, r.text, {
+      reply_markup: replyMarkup,
+      parse_mode: r.parseMode
+    })
+  );
 }
 
 export function formatUnexpectedError(e: unknown): string {

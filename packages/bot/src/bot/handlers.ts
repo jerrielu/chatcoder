@@ -46,7 +46,7 @@ const WELCOME =
   "I relay instructions to a `chatcoder-daemon` running on your own machine.\n\n" +
   "• Tap *New Session* to link this chat to a daemon profile.\n" +
   "• Tap *Code* to run with session resume, or *New Code* for a fresh run.\n" +
-  "• Your daemon's replies arrive here as messages.\n";
+  "• Tap *Latest Progress* to check the current in-progress output.\n";
 
 /* =============== /start =============== */
 
@@ -58,6 +58,30 @@ export function handleStart(): Reply {
 
 export function handleMenu(): Reply {
   return { text: "Main menu", keyboard: mainMenu() };
+}
+
+export async function handleLatestProgress(
+  deps: HandlerDeps,
+  chatId: number
+): Promise<Reply> {
+  const session = await deps.sessions.getLatestActiveByChatId(chatId);
+  if (!session) {
+    return {
+      text: "No active session. Tap *New Session* first.",
+      keyboard: mainMenu(),
+      parseMode: "Markdown"
+    };
+  }
+  if (!session.latestMessage) {
+    return {
+      text: "No progress recorded yet.",
+      keyboard: mainMenu()
+    };
+  }
+  return {
+    text: session.latestMessage,
+    keyboard: mainMenu()
+  };
 }
 
 /* =============== Status =============== */
@@ -384,6 +408,7 @@ export async function handleCode(
     content: instruction,
     resumeLastSession
   });
+  await deps.sessions.setLatestMessage(session.id, null);
   const profile = await deps.profiles.getById(session.profileId);
   const suffix = profile ? ` → \`${profile.name}\`` : "";
   const mode = resumeLastSession ? "resume" : "fresh";

@@ -62,9 +62,12 @@ describe("runSetup", () => {
           tool: "CLAUDE_CODE",
           metadata: ""
         },
+        { editAuthentication: true },
         {
           apiKey: "sk-ant-x",
-          baseUrl: "",
+          baseUrl: ""
+        },
+        {
           model: "",
           skipPermissions: true,
           outputFormat: "text"
@@ -76,6 +79,39 @@ describe("runSetup", () => {
     );
     expect(written).toBe(p);
     expect(fs.existsSync(p)).toBe(true);
+  });
+
+  it("can create a Codex profile without editing auth", async () => {
+    const dir = tmp();
+    const p = path.join(dir, "config.yml");
+    const written = await runSetup(
+      undefined,
+      scriptedPrompt([
+        { apiUrl: "https://bot.example.com", keyMode: "existing" },
+        { apiKey: "long-enough-api-key-abcdef" },
+        { action: "add" },
+        {
+          name: "codex-main",
+          cwd: "/tmp",
+          tool: "OPENAI",
+          metadata: ""
+        },
+        { editAuthentication: false },
+        {
+          model: "",
+          fullAuto: true,
+          bypassApprovalsAndSandbox: true
+        },
+        { action: "continue" },
+        { maxConcurrency: 4 }
+      ]),
+      p
+    );
+    expect(written).toBe(p);
+    const body = fs.readFileSync(p, "utf8");
+    expect(body).toContain("tool: OPENAI");
+    expect(body).toContain("bypassApprovalsAndSandbox: true");
+    expect(body).not.toContain("      apiKey:");
   });
 
   it("aborts if the user skips the apiUrl", async () => {

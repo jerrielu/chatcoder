@@ -128,6 +128,10 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     if (session.status !== "active") {
       throw ApiError.sessionRevoked();
     }
+    if (!body.final) {
+      await opts.sessionsRepo.setLatestMessage(session.id, body.content);
+      return { ok: true };
+    }
     try {
       await opts.telegram.sendResponse(session.chatId, body.content);
     } catch (e) {

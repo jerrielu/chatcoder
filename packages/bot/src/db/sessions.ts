@@ -11,6 +11,7 @@ export interface Session {
   createdAt: number;
   revokedAt: number | null;
   lastCodeAt: number;
+  latestMessage: string | null;
 }
 
 function rowToSession(row: {
@@ -22,6 +23,7 @@ function rowToSession(row: {
   created_at: number | string | bigint;
   revoked_at: number | string | bigint | null;
   last_code_at: number | string | bigint;
+  latest_message: string | null;
 }): Session {
   const n = (v: number | string | bigint | null): number | null =>
     v == null ? null : typeof v === "number" ? v : Number(v);
@@ -33,7 +35,8 @@ function rowToSession(row: {
     status: row.status,
     createdAt: n(row.created_at) as number,
     revokedAt: n(row.revoked_at),
-    lastCodeAt: n(row.last_code_at) as number
+    lastCodeAt: n(row.last_code_at) as number,
+    latestMessage: row.latest_message
   };
 }
 
@@ -76,7 +79,8 @@ export class SessionsRepo {
           status: "active",
           created_at: ts,
           revoked_at: null,
-          last_code_at: 0
+          last_code_at: 0,
+          latest_message: null
         })
         .execute();
       const row = await tx
@@ -161,6 +165,15 @@ export class SessionsRepo {
       .set({ last_code_at: ts })
       .where("id", "=", sessionId)
       .where("last_code_at", "<", ts - CODE_RATE_LIMIT_MS + 1)
+      .executeTakeFirst();
+    return Number(res.numUpdatedRows ?? 0) === 1;
+  }
+
+  async setLatestMessage(sessionId: string, content: string | null): Promise<boolean> {
+    const res = await this.db
+      .updateTable("sessions")
+      .set({ latest_message: content })
+      .where("id", "=", sessionId)
       .executeTakeFirst();
     return Number(res.numUpdatedRows ?? 0) === 1;
   }

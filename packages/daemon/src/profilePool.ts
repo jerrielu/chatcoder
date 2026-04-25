@@ -5,7 +5,11 @@ import type { ToolExecutor } from "./toolExecutor.js";
 export interface ProfilePoolDeps {
   profiles: Profile[];
   tool: ToolExecutor;
-  postResponse: (sessionId: string, content: string) => Promise<void>;
+  postResponse: (
+    sessionId: string,
+    content: string,
+    opts?: { final?: boolean }
+  ) => Promise<void>;
   log?: (msg: string, extra?: unknown) => void;
   /** Max concurrent child processes across all runners. */
   maxConcurrency?: number;

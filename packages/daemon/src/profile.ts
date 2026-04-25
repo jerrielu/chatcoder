@@ -14,7 +14,7 @@ const BaseProfile = {
 } as const;
 
 export const ClaudeCodeConfig = z.object({
-  apiKey: z.string().min(1),
+  apiKey: z.string().min(1).optional(),
   baseUrl: z.string().url().optional(),
   model: z.string().optional(),
   skipPermissions: z.boolean().default(false),
@@ -24,7 +24,7 @@ export const ClaudeCodeConfig = z.object({
 export type ClaudeCodeConfig = z.infer<typeof ClaudeCodeConfig>;
 
 export const CodexConfig = z.object({
-  apiKey: z.string().min(1),
+  apiKey: z.string().min(1).optional(),
   baseUrl: z.string().url().optional(),
   model: z.string().optional(),
   sandboxMode: z
@@ -34,6 +34,7 @@ export const CodexConfig = z.object({
     .enum(["never", "on-request", "on-failure", "untrusted"])
     .optional(),
   fullAuto: z.boolean().default(false),
+  bypassApprovalsAndSandbox: z.boolean().default(false),
   extraArgs: z.array(z.string()).default([])
 });
 export type CodexConfig = z.infer<typeof CodexConfig>;

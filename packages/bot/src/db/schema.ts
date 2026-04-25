@@ -28,6 +28,7 @@ export interface SessionsTable {
   created_at: number;
   revoked_at: number | null;
   last_code_at: number;
+  latest_message: string | null;
 }
 
 export interface MessagesTable {

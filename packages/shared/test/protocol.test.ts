@@ -48,6 +48,10 @@ describe("protocol schemas", () => {
       PostResponseBody.parse({ sessionId: "s", content: "x".repeat(MAX_RESPONSE_BYTES + 1) })
     ).toThrow();
   });
+  it("defaults PostResponseBody to final responses", () => {
+    expect(PostResponseBody.parse({ sessionId: "s", content: "hi" }).final).toBe(true);
+    expect(PostResponseBody.parse({ sessionId: "s", content: "hi", final: false }).final).toBe(false);
+  });
   it("requires sessionId on PostResponseBody", () => {
     expect(() => PostResponseBody.parse({ content: "hi" })).toThrow();
   });

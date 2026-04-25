@@ -204,6 +204,19 @@ describe("POST /v1/responses", () => {
     expect(sendResponse).toHaveBeenCalledWith(42, "hello world");
   });
 
+  it("stores non-final responses as latest progress without sending Telegram", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/responses",
+      headers: auth(),
+      payload: { sessionId, content: "working...", final: false }
+    });
+    expect(res.statusCode).toBe(200);
+    expect(sendResponse).not.toHaveBeenCalled();
+    const session = await h.sessions.getById(sessionId);
+    expect(session?.latestMessage).toBe("working...");
+  });
+
   it("rejects >MAX_RESPONSE_BYTES", async () => {
     const res = await app.inject({
       method: "POST",

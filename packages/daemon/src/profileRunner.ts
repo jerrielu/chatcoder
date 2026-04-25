@@ -12,8 +12,12 @@ export interface ProfileRunnerTask {
 export interface ProfileRunnerDeps {
   profile: Profile;
   tool: ToolExecutor;
-  /** Posts a response chunk back to the bot for a given session. */
-  postResponse: (sessionId: string, content: string) => Promise<void>;
+  /** Posts a final response or progress update back to the bot for a given session. */
+  postResponse: (
+    sessionId: string,
+    content: string,
+    opts?: { final?: boolean }
+  ) => Promise<void>;
   /** Logging. */
   log?: (msg: string, extra?: unknown) => void;
   /** Acquire a slot in the global concurrency pool; returns a release fn. */
@@ -128,7 +132,6 @@ export class ProfileRunner {
     let flushInFlight = false;
     let rawOutput = "";
     let emittedChars = 0;
-    let postedAny = false;
 
     const collectPending = (): string => {
       const sanitized = stripAnsi(rawOutput);
@@ -138,11 +141,10 @@ export class ProfileRunner {
       return next;
     };
 
-    const flushPending = async (): Promise<void> => {
+    const flushPendingProgress = async (): Promise<void> => {
       const next = collectPending();
       if (next.length === 0) return;
-      await this.postChunked(task.sessionId, next);
-      postedAny = true;
+      await this.postChunked(task.sessionId, next, { final: false });
     };
 
     const schedule = (): void => {
@@ -156,7 +158,7 @@ export class ProfileRunner {
       if (flushInFlight) return;
       flushInFlight = true;
       try {
-        await flushPending();
+        await flushPendingProgress();
       } finally {
         flushInFlight = false;
       }
@@ -181,9 +183,10 @@ export class ProfileRunner {
         await new Promise((r) => this.setTimer(() => r(undefined), 10));
       }
 
-      await flushPending();
-      if (!postedAny && finalOutput.length > 0) {
-        await this.postChunked(task.sessionId, finalOutput);
+      collectPending();
+      const finalText = finalOutput.length > 0 ? finalOutput : stripAnsi(rawOutput).trim();
+      if (finalText.length > 0) {
+        await this.postChunked(task.sessionId, finalText, { final: true });
       }
     } finally {
       finished = true;
@@ -194,12 +197,16 @@ export class ProfileRunner {
     }
   }
 
-  private async postChunked(sessionId: string, text: string): Promise<void> {
+  private async postChunked(
+    sessionId: string,
+    text: string,
+    opts: { final?: boolean } = {}
+  ): Promise<void> {
     if (!text) return;
     for (let i = 0; i < text.length; i += this.chunkMax) {
       const chunk = text.slice(i, i + this.chunkMax);
       this.log(">>> response", { profile: this.profileName, session: sessionId, chunk });
-      await this.deps.postResponse(sessionId, chunk);
+      await this.deps.postResponse(sessionId, chunk, opts);
     }
   }
 }

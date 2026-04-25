@@ -414,20 +414,38 @@ type OpenAiCfg = Extract<Profile, { tool: "OPENAI" }>["codex"];
 type CustomCfg = Extract<Profile, { tool: "CUSTOM" }>["custom"];
 
 async function promptClaude(ui: CoderUi, prev?: ClaudeCfg): Promise<ClaudeCfg | null> {
-  const apiKey = await askValidated(ui, "ANTHROPIC_API_KEY: ", prev?.apiKey ?? "", validators.nonEmpty);
-  if (apiKey === null) return null;
-  const baseUrl = await askWithDefault(
+  const editAuth = await askYesNo(
     ui,
-    "ANTHROPIC_BASE_URL (blank = default): ",
-    prev?.baseUrl ?? ""
+    "Edit authentication for this profile?",
+    prev?.apiKey === undefined
   );
-  if (baseUrl === null) return null;
-  if (baseUrl.length > 0) {
-    const ok = validators.apiUrl(baseUrl);
-    if (ok !== true) {
-      printWarning(ui, ok);
-      return promptClaude(ui, { ...prev, apiKey, baseUrl } as ClaudeCfg);
+  if (editAuth === null) return null;
+
+  let apiKey = prev?.apiKey;
+  let baseUrl = prev?.baseUrl;
+  if (editAuth) {
+    const nextApiKey = await askValidated(
+      ui,
+      "ANTHROPIC_API_KEY: ",
+      prev?.apiKey ?? "",
+      validators.nonEmpty
+    );
+    if (nextApiKey === null) return null;
+    apiKey = nextApiKey;
+    const nextBaseUrl = await askWithDefault(
+      ui,
+      "ANTHROPIC_BASE_URL (blank = default): ",
+      prev?.baseUrl ?? ""
+    );
+    if (nextBaseUrl === null) return null;
+    if (nextBaseUrl.length > 0) {
+      const ok = validators.apiUrl(nextBaseUrl);
+      if (ok !== true) {
+        printWarning(ui, ok);
+        return promptClaude(ui, { ...prev, apiKey, baseUrl: nextBaseUrl } as ClaudeCfg);
+      }
     }
+    baseUrl = nextBaseUrl || undefined;
   }
 
   const model = await askWithDefault(ui, "Model (blank = Claude default): ", prev?.model ?? "");
@@ -455,7 +473,7 @@ async function promptClaude(ui: CoderUi, prev?: ClaudeCfg): Promise<ClaudeCfg | 
 
   return {
     apiKey,
-    baseUrl: baseUrl || undefined,
+    baseUrl,
     model: model || undefined,
     skipPermissions,
     outputFormat,
@@ -464,20 +482,38 @@ async function promptClaude(ui: CoderUi, prev?: ClaudeCfg): Promise<ClaudeCfg | 
 }
 
 async function promptOpenAi(ui: CoderUi, prev?: OpenAiCfg): Promise<OpenAiCfg | null> {
-  const apiKey = await askValidated(ui, "OPENAI_API_KEY: ", prev?.apiKey ?? "", validators.nonEmpty);
-  if (apiKey === null) return null;
-  const baseUrl = await askWithDefault(
+  const editAuth = await askYesNo(
     ui,
-    "OPENAI_BASE_URL (blank = OpenAI default): ",
-    prev?.baseUrl ?? ""
+    "Edit authentication for this profile?",
+    prev?.apiKey === undefined
   );
-  if (baseUrl === null) return null;
-  if (baseUrl.length > 0) {
-    const ok = validators.apiUrl(baseUrl);
-    if (ok !== true) {
-      printWarning(ui, ok);
-      return promptOpenAi(ui, { ...prev, apiKey, baseUrl } as OpenAiCfg);
+  if (editAuth === null) return null;
+
+  let apiKey = prev?.apiKey;
+  let baseUrl = prev?.baseUrl;
+  if (editAuth) {
+    const nextApiKey = await askValidated(
+      ui,
+      "OPENAI_API_KEY: ",
+      prev?.apiKey ?? "",
+      validators.nonEmpty
+    );
+    if (nextApiKey === null) return null;
+    apiKey = nextApiKey;
+    const nextBaseUrl = await askWithDefault(
+      ui,
+      "OPENAI_BASE_URL (blank = OpenAI default): ",
+      prev?.baseUrl ?? ""
+    );
+    if (nextBaseUrl === null) return null;
+    if (nextBaseUrl.length > 0) {
+      const ok = validators.apiUrl(nextBaseUrl);
+      if (ok !== true) {
+        printWarning(ui, ok);
+        return promptOpenAi(ui, { ...prev, apiKey, baseUrl: nextBaseUrl } as OpenAiCfg);
+      }
     }
+    baseUrl = nextBaseUrl || undefined;
   }
 
   const model = await askWithDefault(ui, "Model (blank = codex default): ", prev?.model ?? "");
@@ -490,13 +526,21 @@ async function promptOpenAi(ui: CoderUi, prev?: OpenAiCfg): Promise<OpenAiCfg | 
   );
   if (fullAuto === null) return null;
 
+  const bypassApprovalsAndSandbox = await askYesNo(
+    ui,
+    "Use --dangerously-bypass-approvals-and-sandbox?",
+    prev?.bypassApprovalsAndSandbox ?? false
+  );
+  if (bypassApprovalsAndSandbox === null) return null;
+
   return {
     apiKey,
-    baseUrl: baseUrl || undefined,
+    baseUrl,
     model: model || undefined,
     sandboxMode: prev?.sandboxMode,
     approvalMode: prev?.approvalMode,
     fullAuto,
+    bypassApprovalsAndSandbox,
     extraArgs: prev?.extraArgs ?? []
   };
 }
@@ -982,20 +1026,38 @@ async function promptOneProfilePromptWizard(
 
   if (base.tool === "CLAUDE_CODE") {
     const prev = existing?.tool === "CLAUDE_CODE" ? existing.claudeCode : undefined;
+    const auth = await io.prompt({
+      type: "toggle",
+      name: "editAuthentication",
+      message: "Edit authentication for this profile?",
+      initial: prev?.apiKey === undefined,
+      active: "yes",
+      inactive: "no"
+    });
+    if (auth.editAuthentication === undefined) return null;
+    let apiKey = prev?.apiKey;
+    let baseUrl = prev?.baseUrl;
+    if (auth.editAuthentication) {
+      const a = await io.prompt([
+        {
+          type: "password",
+          name: "apiKey",
+          message: "ANTHROPIC_API_KEY",
+          initial: prev?.apiKey ?? "",
+          validate: validators.nonEmpty
+        },
+        {
+          type: "text",
+          name: "baseUrl",
+          message: "ANTHROPIC_BASE_URL (blank = default)",
+          initial: prev?.baseUrl ?? ""
+        }
+      ]);
+      if (!a.apiKey) return null;
+      apiKey = a.apiKey;
+      baseUrl = a.baseUrl || undefined;
+    }
     const c = await io.prompt([
-      {
-        type: "password",
-        name: "apiKey",
-        message: "ANTHROPIC_API_KEY",
-        initial: prev?.apiKey ?? "",
-        validate: validators.nonEmpty
-      },
-      {
-        type: "text",
-        name: "baseUrl",
-        message: "ANTHROPIC_BASE_URL (blank = default)",
-        initial: prev?.baseUrl ?? ""
-      },
       {
         type: "text",
         name: "model",
@@ -1021,15 +1083,14 @@ async function promptOneProfilePromptWizard(
         initial: outputFormatChoiceIndex(prev?.outputFormat)
       }
     ]);
-    if (!c.apiKey) return null;
     return {
       name: base.name,
       cwd: base.cwd,
       tool: "CLAUDE_CODE",
       metadata: base.metadata || undefined,
       claudeCode: {
-        apiKey: c.apiKey,
-        baseUrl: c.baseUrl || undefined,
+        apiKey,
+        baseUrl,
         model: c.model || undefined,
         skipPermissions: !!c.skipPermissions,
         outputFormat: c.outputFormat ?? "text",
@@ -1040,20 +1101,38 @@ async function promptOneProfilePromptWizard(
 
   if (base.tool === "OPENAI") {
     const prev = existing?.tool === "OPENAI" ? existing.codex : undefined;
+    const auth = await io.prompt({
+      type: "toggle",
+      name: "editAuthentication",
+      message: "Edit authentication for this profile?",
+      initial: prev?.apiKey === undefined,
+      active: "yes",
+      inactive: "no"
+    });
+    if (auth.editAuthentication === undefined) return null;
+    let apiKey = prev?.apiKey;
+    let baseUrl = prev?.baseUrl;
+    if (auth.editAuthentication) {
+      const a = await io.prompt([
+        {
+          type: "password",
+          name: "apiKey",
+          message: "OPENAI_API_KEY",
+          initial: prev?.apiKey ?? "",
+          validate: validators.nonEmpty
+        },
+        {
+          type: "text",
+          name: "baseUrl",
+          message: "OPENAI_BASE_URL (blank = OpenAI default)",
+          initial: prev?.baseUrl ?? ""
+        }
+      ]);
+      if (!a.apiKey) return null;
+      apiKey = a.apiKey;
+      baseUrl = a.baseUrl || undefined;
+    }
     const c = await io.prompt([
-      {
-        type: "password",
-        name: "apiKey",
-        message: "OPENAI_API_KEY",
-        initial: prev?.apiKey ?? "",
-        validate: validators.nonEmpty
-      },
-      {
-        type: "text",
-        name: "baseUrl",
-        message: "OPENAI_BASE_URL (blank = OpenAI default)",
-        initial: prev?.baseUrl ?? ""
-      },
       {
         type: "text",
         name: "model",
@@ -1067,19 +1146,27 @@ async function promptOneProfilePromptWizard(
         initial: prev?.fullAuto ?? true,
         active: "yes",
         inactive: "no"
+      },
+      {
+        type: "toggle",
+        name: "bypassApprovalsAndSandbox",
+        message: "Use --dangerously-bypass-approvals-and-sandbox?",
+        initial: prev?.bypassApprovalsAndSandbox ?? false,
+        active: "yes",
+        inactive: "no"
       }
     ]);
-    if (!c.apiKey) return null;
     return {
       name: base.name,
       cwd: base.cwd,
       tool: "OPENAI",
       metadata: base.metadata || undefined,
       codex: {
-        apiKey: c.apiKey,
-        baseUrl: c.baseUrl || undefined,
+        apiKey,
+        baseUrl,
         model: c.model || undefined,
         fullAuto: !!c.fullAuto,
+        bypassApprovalsAndSandbox: !!c.bypassApprovalsAndSandbox,
         sandboxMode: prev?.sandboxMode,
         approvalMode: prev?.approvalMode,
         extraArgs: prev?.extraArgs ?? []

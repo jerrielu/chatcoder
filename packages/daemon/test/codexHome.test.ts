@@ -56,6 +56,12 @@ describe("renderCodexAuthJson", () => {
     expect(parsed.auth_mode).toBe("apikey");
     expect(parsed.OPENAI_API_KEY).toBe("sk-x");
   });
+
+  it("rejects auth rendering without an API key", () => {
+    expect(() => renderCodexAuthJson({ fullAuto: false, extraArgs: [] })).toThrow(
+      /without an API key/
+    );
+  });
 });
 
 describe("ensureCodexHome", () => {
@@ -106,5 +112,21 @@ describe("ensureCodexHome", () => {
     const bAuth = JSON.parse(fs.readFileSync(path.join(b.codexHome, "auth.json"), "utf8"));
     expect(aAuth.OPENAI_API_KEY).toBe("1");
     expect(bAuth.OPENAI_API_KEY).toBe("2");
+  });
+
+  it("does not write auth.json when Codex profile auth is omitted", () => {
+    const first = ensureCodexHome("host-auth", {
+      fullAuto: false,
+      extraArgs: []
+    });
+    expect(first.changed).toBe(true);
+    expect(fs.existsSync(path.join(first.codexHome, "config.toml"))).toBe(true);
+    expect(fs.existsSync(path.join(first.codexHome, "auth.json"))).toBe(false);
+
+    const second = ensureCodexHome("host-auth", {
+      fullAuto: false,
+      extraArgs: []
+    });
+    expect(second.changed).toBe(false);
   });
 });

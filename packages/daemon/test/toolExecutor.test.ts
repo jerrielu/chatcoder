@@ -63,6 +63,18 @@ describe("buildLaunch", () => {
     expect(launch.args).not.toContain("--dangerously-skip-permissions");
   });
 
+  it("does not inject Claude auth env when profile auth is omitted", () => {
+    const profile: Profile = {
+      name: "p",
+      cwd: "/tmp",
+      tool: "CLAUDE_CODE",
+      claudeCode: { skipPermissions: false, outputFormat: "text", extraArgs: [] }
+    };
+    const launch = buildLaunch(profile, "m");
+    expect(launch.env["ANTHROPIC_API_KEY"]).toBeUndefined();
+    expect(launch.env["ANTHROPIC_BASE_URL"]).toBeUndefined();
+  });
+
   it("omits Claude resume flag when resumeLastSession is false", () => {
     const profile: Profile = {
       name: "p",
@@ -88,10 +100,26 @@ describe("buildLaunch", () => {
     };
     const launch = buildLaunch(profile, "ping");
     expect(launch.cmd).toBe("codex");
-    expect(launch.args).toEqual(["exec", "--resume", "--full-auto", "ping"]);
+    expect(launch.args).toEqual(["exec", "resume", "--last", "--full-auto", "ping"]);
     expect(launch.env["CODEX_HOME"]).toMatch(/\/opx$/);
     expect(launch.env["OPENAI_API_KEY"]).toBe("sk");
     expect(launch.env["OPENAI_BASE_URL"]).toBe("https://api.example.com/v1");
+  });
+
+  it("does not inject OpenAI auth env when profile auth is omitted", () => {
+    const profile: Profile = {
+      name: "opx-no-auth",
+      cwd: "/tmp",
+      tool: "OPENAI",
+      codex: {
+        fullAuto: true,
+        extraArgs: []
+      }
+    };
+    const launch = buildLaunch(profile, "ping");
+    expect(launch.env["CODEX_HOME"]).toBeUndefined();
+    expect(launch.env["OPENAI_API_KEY"]).toBeUndefined();
+    expect(launch.env["OPENAI_BASE_URL"]).toBeUndefined();
   });
 
   it("codex without fullAuto uses sandbox + approval flags", () => {
@@ -108,14 +136,40 @@ describe("buildLaunch", () => {
       }
     };
     const launch = buildLaunch(profile, "go");
-    expect(launch.args.slice(0, 5)).toEqual([
+    expect(launch.args).toEqual([
       "exec",
-      "--resume",
+      "resume",
+      "--last",
       "--sandbox",
       "workspace-write",
-      "--ask-for-approval"
+      "--ask-for-approval",
+      "on-failure",
+      "go"
     ]);
-    expect(launch.args[5]).toBe("on-failure");
+  });
+
+  it("Codex bypass flag takes precedence over other execution policy flags", () => {
+    const profile: Profile = {
+      name: "o2-bypass",
+      cwd: "/tmp",
+      tool: "OPENAI",
+      codex: {
+        apiKey: "k",
+        fullAuto: true,
+        bypassApprovalsAndSandbox: true,
+        sandboxMode: "workspace-write",
+        approvalMode: "on-failure",
+        extraArgs: []
+      }
+    };
+    const launch = buildLaunch(profile, "go");
+    expect(launch.args).toEqual([
+      "exec",
+      "resume",
+      "--last",
+      "--dangerously-bypass-approvals-and-sandbox",
+      "go"
+    ]);
   });
 
   it("omits Codex resume flag when resumeLastSession is false", () => {

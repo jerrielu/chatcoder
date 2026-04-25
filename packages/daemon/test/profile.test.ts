@@ -27,7 +27,25 @@ describe("Profile zod schema", () => {
     expect(p.tool).toBe("OPENAI");
     if (p.tool === "OPENAI") {
       expect(p.codex.fullAuto).toBe(true);
+      expect(p.codex.bypassApprovalsAndSandbox).toBe(false);
     }
+  });
+
+  it("parses Claude and Codex profiles without explicit auth", () => {
+    const claude = Profile.parse({
+      name: "claude-host-auth",
+      cwd: "/tmp",
+      tool: "CLAUDE_CODE",
+      claudeCode: {}
+    });
+    const codex = Profile.parse({
+      name: "codex-host-auth",
+      cwd: "/tmp",
+      tool: "OPENAI",
+      codex: {}
+    });
+    expect(claude.tool).toBe("CLAUDE_CODE");
+    expect(codex.tool).toBe("OPENAI");
   });
 
   it("parses a CUSTOM profile with defaults", () => {

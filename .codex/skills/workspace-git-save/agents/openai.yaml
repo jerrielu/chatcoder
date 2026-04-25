@@ -1,0 +1,4 @@
+interface:
+  display_name: "Workspace Git Save"
+  short_description: "Pull latest, commit, and push workspace changes"
+  default_prompt: "Use $workspace-git-save to pull latest changes or save this workspace's changes to dev unless I name another branch."

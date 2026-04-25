@@ -5,6 +5,7 @@ import {
   handleApiKeySubmission,
   handleCodeRequest,
   handleInstructionSubmission,
+  handleLatestProgress,
   handleCode,
   handleMenu,
   handleNewCodeRequest,
@@ -99,6 +100,22 @@ describe("handleStatus", () => {
     await h.seedSession({ chatId: 1, profileName: "myprof", tool: "OPENAI" });
     const r = await handleStatus(deps(), 1);
     expect(r.text).toMatch(/myprof/);
+  });
+});
+
+describe("handleLatestProgress", () => {
+  it("no-session path", async () => {
+    const r = await handleLatestProgress(deps(), 1);
+    expect(r.text).toMatch(/No active session/);
+  });
+
+  it("returns latest message for the most recent active session", async () => {
+    await h.seedSession({ chatId: 1, profileName: "a" });
+    h.advanceTime(10_000);
+    const seed = await h.seedSession({ chatId: 1, profileName: "b" });
+    await h.sessions.setLatestMessage(seed.session.id, "half done");
+    const r = await handleLatestProgress(deps(), 1);
+    expect(r.text).toBe("half done");
   });
 });
 

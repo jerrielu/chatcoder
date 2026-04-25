@@ -48,7 +48,7 @@ export function buildLaunch(
 
   if (profile.tool === "CLAUDE_CODE") {
     const c = profile.claudeCode;
-    env["ANTHROPIC_API_KEY"] = c.apiKey;
+    if (c.apiKey) env["ANTHROPIC_API_KEY"] = c.apiKey;
     if (c.baseUrl) env["ANTHROPIC_BASE_URL"] = c.baseUrl;
     const args: string[] = ["--print"];
     if (resumeLastSession) args.push("-c");
@@ -70,13 +70,16 @@ export function buildLaunch(
 
   if (profile.tool === "OPENAI") {
     const c = profile.codex;
-    env["OPENAI_API_KEY"] = c.apiKey;
+    if (c.apiKey) env["OPENAI_API_KEY"] = c.apiKey;
     if (c.baseUrl) env["OPENAI_BASE_URL"] = c.baseUrl;
-    const { codexHome } = ensureCodexHome(profile.name, c);
-    env["CODEX_HOME"] = codexHome;
-    const args: string[] = ["exec"];
-    if (resumeLastSession) args.push("--resume");
-    if (c.fullAuto) {
+    if (c.apiKey || c.baseUrl) {
+      const { codexHome } = ensureCodexHome(profile.name, c);
+      env["CODEX_HOME"] = codexHome;
+    }
+    const args: string[] = resumeLastSession ? ["exec", "resume", "--last"] : ["exec"];
+    if (c.bypassApprovalsAndSandbox) {
+      args.push("--dangerously-bypass-approvals-and-sandbox");
+    } else if (c.fullAuto) {
       args.push("--full-auto");
     } else {
       if (c.sandboxMode) args.push("--sandbox", c.sandboxMode);
