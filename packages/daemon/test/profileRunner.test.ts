@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 describe("ProfileRunner", () => {
-  it("processes enqueued tasks serially (FIFO) within one profile", async () => {
+  it("processes normal code tasks serially (FIFO) within one profile", async () => {
     const order: string[] = [];
     const tool = {
       execute: async (_profile: Profile, message: string) => {
@@ -48,10 +48,83 @@ describe("ProfileRunner", () => {
     runner.enqueue({ sessionId: "s1", messageId: "m3", content: "c" });
     await runner.whenIdle();
 
-    // FIFO: task b starts only after a ends
     expect(order.indexOf("end:a")).toBeLessThan(order.indexOf("start:b"));
     expect(order.indexOf("end:b")).toBeLessThan(order.indexOf("start:c"));
     expect(posted.map((p) => p.content)).toEqual(["done-a", "done-b", "done-c"]);
+  });
+
+  it("runs only the latest interrupt task when pending tasks are superseded before execution starts", async () => {
+    const calls: string[] = [];
+    let releaseFirstSlot: (() => void) | null = null;
+    let slotCalls = 0;
+    const tool = {
+      execute: async (_profile: Profile, message: string) => {
+        calls.push(message);
+        return `done-${message}`;
+      }
+    };
+    const posted: string[] = [];
+    const runner = new ProfileRunner({
+      profile: sampleProfile(),
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async (_sessionId, content) => {
+        posted.push(content);
+      },
+      acquireSlot: async () => {
+        slotCalls++;
+        if (slotCalls === 1) {
+          await new Promise<void>((resolve) => {
+            releaseFirstSlot = resolve;
+          });
+        }
+        return () => undefined;
+      }
+    });
+    runner.enqueue({ sessionId: "s1", messageId: "m1", content: "a" });
+    await new Promise((r) => setTimeout(r, 0));
+    runner.enqueue({ sessionId: "s1", messageId: "m2", content: "b", interrupt: true });
+    runner.enqueue({ sessionId: "s1", messageId: "m3", content: "c", interrupt: true });
+    releaseFirstSlot?.();
+    await runner.whenIdle();
+
+    expect(calls).toEqual(["c"]);
+    expect(posted).toEqual(["done-c"]);
+  });
+
+  it("aborts active execution when an interrupt task arrives", async () => {
+    const calls: string[] = [];
+    const tool = {
+      execute: async (
+        _profile: Profile,
+        message: string,
+        opts: { signal?: AbortSignal }
+      ) => {
+        calls.push(message);
+        if (message === "first") {
+          await new Promise<void>((resolve) => {
+            opts.signal?.addEventListener("abort", resolve, { once: true });
+          });
+          return "should-not-post";
+        }
+        return `done-${message}`;
+      }
+    };
+    const posted: string[] = [];
+    const runner = new ProfileRunner({
+      profile: sampleProfile(),
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async (_sessionId, content) => {
+        posted.push(content);
+      }
+    });
+
+    runner.enqueue({ sessionId: "s1", messageId: "m1", content: "first" });
+    await new Promise((r) => setTimeout(r, 0));
+    runner.enqueue({ sessionId: "s1", messageId: "m2", content: "second", interrupt: true });
+    await runner.whenIdle();
+
+    expect(calls).toEqual(["first", "second"]);
+    expect(posted).toEqual(["done-second"]);
   });
 
   it("posts an Error-prefixed response when the tool rejects", async () => {
@@ -176,6 +249,7 @@ describe("ProfileRunner", () => {
     });
 
     runner.enqueue({ sessionId: "s1", messageId: "m1", content: "first" });
+    await runner.whenIdle();
     runner.enqueue({ sessionId: "s1", messageId: "m2", content: "second" });
     await runner.whenIdle();
 

@@ -94,6 +94,32 @@ describe("MessagesRepo processing lifecycle", () => {
     const second = await h.messages.claimNext(sessionId);
     expect(second?.content).toBe("B");
   });
+
+  it("claims the latest new-code message and clears older plus in-progress work", async () => {
+    await h.messages.enqueue({ sessionId, content: "A" });
+    const first = await h.messages.claimNext(sessionId);
+    expect(first?.content).toBe("A");
+
+    h.advanceTime(1);
+    await h.messages.enqueue({ sessionId, content: "B" });
+    h.advanceTime(1);
+    await h.messages.enqueue({ sessionId, content: "C", resumeLastSession: false });
+    h.advanceTime(1);
+    await h.messages.enqueue({ sessionId, content: "D" });
+
+    const latest = await h.messages.claimLatestNewCodeAndClearBefore(sessionId);
+    expect(latest?.content).toBe("C");
+    expect(await h.messages.count(sessionId)).toBe(1);
+    expect((await h.messages.getProcessing(sessionId))?.content).toBe("C");
+    expect(await h.messages.completeProcessing(sessionId)).toBe(true);
+    expect((await h.messages.claimNext(sessionId))?.content).toBe("D");
+  });
+
+  it("returns null when no pending new-code message exists", async () => {
+    await h.messages.enqueue({ sessionId, content: "A" });
+    expect(await h.messages.claimLatestNewCodeAndClearBefore(sessionId)).toBeNull();
+    expect((await h.messages.claimNext(sessionId))?.content).toBe("A");
+  });
 });
 
 describe("MessagesRepo.purgeSession", () => {

@@ -47,6 +47,11 @@ async function main(): Promise<void> {
           bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu() })
         );
       }
+    },
+    async sendProcessed(chatId) {
+      await sendTelegramWithRetry(() =>
+        bot.api.sendMessage(chatId, "✅ Message processed.", { reply_markup: mainMenu() })
+      );
     }
   };
 

@@ -109,12 +109,16 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     for (const s of sessions) {
       const profile = await opts.profilesRepo.getById(s.profileId);
       if (!profile) continue;
-      const inProgress = await opts.messagesRepo.getProcessing(s.id);
-      const msg = inProgress
-        ? resumeInProgress
-          ? { ...inProgress, content: RESUME_IN_PROGRESS_CONTENT, resumeLastSession: true }
-          : null
-        : await opts.messagesRepo.claimNext(s.id);
+      const newCode = await opts.messagesRepo.claimLatestNewCodeAndClearBefore(s.id);
+      const msg =
+        newCode ??
+        (resumeInProgress
+          ? await opts.messagesRepo.getProcessing(s.id).then((inProgress) =>
+              inProgress
+                ? { ...inProgress, content: RESUME_IN_PROGRESS_CONTENT, resumeLastSession: true }
+                : null
+            )
+          : await opts.messagesRepo.claimNext(s.id));
       if (!msg) continue;
       grouped.push({
         sessionId: s.id,
@@ -152,7 +156,16 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       if (mapped) throw mapped;
       throw e;
     }
-    await opts.messagesRepo.completeProcessing(session.id);
+    const completed = await opts.messagesRepo.completeProcessing(session.id);
+    if (completed && opts.telegram.sendProcessed) {
+      try {
+        await opts.telegram.sendProcessed(session.chatId);
+      } catch {
+        // The final response was delivered and the queue item was completed.
+        // Do not make the daemon retry and duplicate the final response just
+        // because the best-effort acknowledgement failed.
+      }
+    }
     return { ok: true };
   });
 

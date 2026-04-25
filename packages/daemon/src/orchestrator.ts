@@ -109,7 +109,8 @@ export class Orchestrator {
             sessionId: s.sessionId,
             messageId: msg.id,
             content: msg.content,
-            resumeLastSession: msg.resumeLastSession ?? true
+            resumeLastSession: msg.resumeLastSession ?? true,
+            interrupt: msg.resumeLastSession === false
           });
         }
       }

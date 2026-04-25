@@ -36,6 +36,7 @@ export function splitForTelegram(s: string): string[] {
  */
 export interface TelegramSender {
   sendResponse(chatId: number, content: string): Promise<void>;
+  sendProcessed?(chatId: number): Promise<void>;
 }
 
 /**

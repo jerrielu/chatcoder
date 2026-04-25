@@ -12,6 +12,7 @@ let apiKeyId: string;
 let profileId: string;
 let sessionId: string;
 let sendResponse: ReturnType<typeof vi.fn>;
+let sendProcessed: ReturnType<typeof vi.fn>;
 
 beforeEach(async () => {
   h = await makeHarness();
@@ -21,13 +22,14 @@ beforeEach(async () => {
   profileId = seed.profile.id;
   sessionId = seed.session.id;
   sendResponse = vi.fn().mockResolvedValue(undefined);
+  sendProcessed = vi.fn().mockResolvedValue(undefined);
   app = await buildServer({
     apiKeysRepo: h.apiKeys,
     profilesRepo: h.profiles,
     sessionsRepo: h.sessions,
     messagesRepo: h.messages,
     adminRepo: h.admin,
-    telegram: { sendResponse }
+    telegram: { sendResponse, sendProcessed }
   });
 });
 afterEach(async () => {
@@ -140,7 +142,7 @@ describe("POST /v1/heartbeat", () => {
 });
 
 describe("GET /v1/poll", () => {
-  it("returns one claimed message per session and keeps later messages pending", async () => {
+  it("returns normal code messages in FIFO order", async () => {
     await h.messages.enqueue({ sessionId, content: "do a" });
     await h.messages.enqueue({ sessionId, content: "do b" });
     const res = await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
@@ -158,9 +160,28 @@ describe("GET /v1/poll", () => {
       true
     ]);
 
-    // Same session has one in progress, so new work is not claimed yet.
     const again = await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
     expect(again.json().sessions).toEqual([]);
+  });
+
+  it("replaces in-progress work only when a newer new-code message is queued", async () => {
+    await h.messages.enqueue({ sessionId, content: "old work" });
+    await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
+    await h.messages.enqueue({ sessionId, content: "normal queued work" });
+
+    const blocked = await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
+    expect(blocked.json().sessions).toEqual([]);
+
+    await h.messages.enqueue({ sessionId, content: "fresh work", resumeLastSession: false });
+    await h.messages.enqueue({ sessionId, content: "after fresh work" });
+
+    const res = await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
+    const [group] = res.json().sessions;
+    expect(group.messages).toHaveLength(1);
+    expect(group.messages[0].content).toBe("fresh work");
+    expect(group.messages[0].resumeLastSession).toBe(false);
+    expect((await h.messages.getProcessing(sessionId))?.content).toBe("fresh work");
+    expect(await h.messages.count(sessionId)).toBe(1);
   });
 
   it("resumes in-progress sessions with a continue instruction when requested", async () => {
@@ -217,6 +238,8 @@ describe("POST /v1/responses", () => {
     expect(res.statusCode).toBe(200);
     expect(sendResponse).toHaveBeenCalledTimes(1);
     expect(sendResponse).toHaveBeenCalledWith(42, "hello world");
+    expect(sendProcessed).toHaveBeenCalledTimes(1);
+    expect(sendProcessed).toHaveBeenCalledWith(42);
     expect(await h.messages.getProcessing(sessionId)).toBeNull();
   });
 
@@ -229,8 +252,21 @@ describe("POST /v1/responses", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(sendResponse).not.toHaveBeenCalled();
+    expect(sendProcessed).not.toHaveBeenCalled();
     const session = await h.sessions.getById(sessionId);
     expect(session?.latestMessage).toBe("working...");
+  });
+
+  it("does not send processed acknowledgement without a processing message", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/responses",
+      headers: auth(),
+      payload: { sessionId, content: "hello world" }
+    });
+    expect(res.statusCode).toBe(200);
+    expect(sendResponse).toHaveBeenCalledTimes(1);
+    expect(sendProcessed).not.toHaveBeenCalled();
   });
 
   it("rejects >MAX_RESPONSE_BYTES", async () => {

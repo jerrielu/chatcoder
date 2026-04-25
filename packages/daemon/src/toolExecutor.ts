@@ -203,11 +203,13 @@ export class ToolExecutor {
       let stdout = "";
       let stderr = "";
       let settled = false;
+      let abortKillTimer: ReturnType<typeof setTimeout> | null = null;
 
       const settleResolve = (value: string): void => {
         if (settled) return;
         settled = true;
         execOpts.signal?.removeEventListener("abort", onAbort);
+        if (abortKillTimer) clearTimeout(abortKillTimer);
         resolve(value);
       };
 
@@ -215,6 +217,7 @@ export class ToolExecutor {
         if (settled) return;
         settled = true;
         execOpts.signal?.removeEventListener("abort", onAbort);
+        if (abortKillTimer) clearTimeout(abortKillTimer);
         reject(err);
       };
 
@@ -228,8 +231,14 @@ export class ToolExecutor {
 
       const onAbort = (): void => {
         if (!child.killed) child.kill("SIGTERM");
+        abortKillTimer ??= setTimeout(() => {
+          if (child.exitCode === null && child.signalCode === null) {
+            child.kill("SIGKILL");
+          }
+        }, 2_000);
       };
       execOpts.signal?.addEventListener("abort", onAbort);
+      if (execOpts.signal?.aborted) onAbort();
 
       child.stdout.on("data", (data) => {
         const chunk = data.toString();

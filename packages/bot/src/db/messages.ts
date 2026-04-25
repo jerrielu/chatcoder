@@ -175,6 +175,51 @@ export class MessagesRepo {
     });
   }
 
+  /**
+   * Claim the newest queued "New Code" instruction for a session. Everything
+   * older than it is cleared, including any currently in-progress instruction.
+   * Newer queued instructions remain pending and will run after it.
+   */
+  async claimLatestNewCodeAndClearBefore(sessionId: string): Promise<QueuedMessage | null> {
+    return this.db.transaction().execute(async (tx) => {
+      const row = await tx
+        .selectFrom("messages")
+        .selectAll()
+        .where("session_id", "=", sessionId)
+        .where("processing_started_at", "is", null)
+        .where("resume_last_session", "=", 0)
+        .orderBy("created_at", "desc")
+        .orderBy("id", "desc")
+        .executeTakeFirst();
+      if (!row) return null;
+
+      await tx
+        .deleteFrom("messages")
+        .where("session_id", "=", sessionId)
+        .where("id", "!=", row.id)
+        .where((eb) =>
+          eb.or([
+            eb("processing_started_at", "is not", null),
+            eb("created_at", "<", row.created_at),
+            eb.and([
+              eb("created_at", "=", row.created_at),
+              eb("id", "<", row.id)
+            ])
+          ])
+        )
+        .execute();
+
+      const processingStartedAt = this.now();
+      await tx
+        .updateTable("messages")
+        .set({ processing_started_at: processingStartedAt })
+        .where("id", "=", row.id)
+        .execute();
+
+      return rowToMessage({ ...row, processing_started_at: processingStartedAt });
+    });
+  }
+
   async getProcessing(sessionId: string): Promise<QueuedMessage | null> {
     const row = await this.db
       .selectFrom("messages")
