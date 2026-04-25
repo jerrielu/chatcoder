@@ -2,6 +2,8 @@
 import pino from "pino";
 import { loadConfigFromEnv } from "./config.js";
 import { openDb } from "./db/index.js";
+import { ApiKeysRepo } from "./db/apiKeys.js";
+import { ProfilesRepo } from "./db/profiles.js";
 import { SessionsRepo } from "./db/sessions.js";
 import { MessagesRepo } from "./db/messages.js";
 import { AdminRepo } from "./db/admin.js";
@@ -9,31 +11,46 @@ import { buildServer } from "./api/server.js";
 import { createBot } from "./bot/bot.js";
 import { FlowStore } from "./bot/flows.js";
 import { deriveLocalApiUrl } from "./apiUrl.js";
+import { splitForTelegram, type TelegramSender } from "./bot/telegramSend.js";
 
 async function main(): Promise<void> {
   const cfg = loadConfigFromEnv();
   const log = pino({ level: cfg.logLevel });
 
   const handle = await openDb(cfg.databaseUrl);
+  const apiKeys = new ApiKeysRepo(handle.db);
+  const profiles = new ProfilesRepo(handle.db);
   const sessions = new SessionsRepo(handle.db);
   const messages = new MessagesRepo(handle.db);
   const admin = new AdminRepo(handle.db);
   const flows = new FlowStore();
 
-  const app = await buildServer({
-    sessionsRepo: sessions,
-    messagesRepo: messages,
-    adminRepo: admin,
-    logger: { level: cfg.logLevel }
-  });
-
   const bot = createBot({
     telegramBotToken: cfg.telegramBotToken,
+    apiKeys,
+    profiles,
     sessions,
     messages,
     flows,
-    publicApiUrl: cfg.publicUrl ?? deriveLocalApiUrl(cfg.listenHost, cfg.listenPort),
     heartbeatStaleMs: cfg.heartbeatStaleMs
+  });
+
+  const telegram: TelegramSender = {
+    async sendResponse(chatId, content) {
+      for (const chunk of splitForTelegram(content)) {
+        await bot.api.sendMessage(chatId, chunk);
+      }
+    }
+  };
+
+  const app = await buildServer({
+    apiKeysRepo: apiKeys,
+    profilesRepo: profiles,
+    sessionsRepo: sessions,
+    messagesRepo: messages,
+    adminRepo: admin,
+    telegram,
+    logger: { level: cfg.logLevel }
   });
 
   await app.listen({ host: cfg.listenHost, port: cfg.listenPort });

@@ -1,26 +1,39 @@
 import { z } from "zod";
-import { MAX_INSTRUCTION_BYTES, MAX_RESPONSE_BYTES } from "./constants.js";
+import {
+  MAX_INSTRUCTION_BYTES,
+  MAX_PROFILES_PER_DAEMON,
+  MAX_PROFILE_NAME_LENGTH,
+  MAX_RESPONSE_BYTES,
+  TOOL_KINDS
+} from "./constants.js";
 
 /* ===================== Wire types ===================== */
-
-export const MessageDirection = z.enum(["to_daemon", "to_user"]);
-export type MessageDirection = z.infer<typeof MessageDirection>;
 
 export const DaemonMessage = z.object({
   id: z.string().min(1),
   content: z.string().min(1).max(MAX_INSTRUCTION_BYTES),
+  /** true = daemon should resume last CLI session; false = start fresh. */
+  resumeLastSession: z.boolean().default(true),
   createdAt: z.number().int().nonnegative()
 });
 export type DaemonMessage = z.infer<typeof DaemonMessage>;
 
+/** Shape of one session returned by GET /v1/poll. */
+export const PollSession = z.object({
+  sessionId: z.string().min(1),
+  profileName: z.string().min(1).max(MAX_PROFILE_NAME_LENGTH),
+  messages: z.array(DaemonMessage)
+});
+export type PollSession = z.infer<typeof PollSession>;
+
 export const PollResponse = z.object({
   reset: z.boolean(),
-  sessionValid: z.boolean(),
-  messages: z.array(DaemonMessage)
+  sessions: z.array(PollSession)
 });
 export type PollResponse = z.infer<typeof PollResponse>;
 
 export const PostResponseBody = z.object({
+  sessionId: z.string().min(1),
   content: z.string().min(1).max(MAX_RESPONSE_BYTES),
   /** Optional echo of originating instruction id for tracing. */
   replyTo: z.string().min(1).optional()
@@ -42,13 +55,34 @@ export const HeartbeatResponse = z.object({
 });
 export type HeartbeatResponse = z.infer<typeof HeartbeatResponse>;
 
-export const SessionInfoResponse = z.object({
-  sessionId: z.string(),
-  apiKeyPrefix: z.string(),
-  createdAt: z.number().int(),
-  status: z.enum(["active", "revoked"]),
-  pendingInstructions: z.number().int().nonnegative(),
-  pendingResponses: z.number().int().nonnegative(),
-  lastHeartbeat: z.number().int().nullable()
+/* ===================== Daemon registration ===================== */
+
+const ProfileName = z
+  .string()
+  .min(1)
+  .max(MAX_PROFILE_NAME_LENGTH)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*$/, "Profile name must be slug-like");
+
+export const RegisteredProfile = z.object({
+  name: ProfileName,
+  tool: z.enum(TOOL_KINDS),
+  metadata: z.string().max(500).optional()
 });
-export type SessionInfoResponse = z.infer<typeof SessionInfoResponse>;
+export type RegisteredProfile = z.infer<typeof RegisteredProfile>;
+
+export const DaemonRegisterBody = z.object({
+  profiles: z.array(RegisteredProfile).max(MAX_PROFILES_PER_DAEMON)
+});
+export type DaemonRegisterBody = z.infer<typeof DaemonRegisterBody>;
+
+export const DaemonRegisterResponse = z.object({
+  apiKeyId: z.string().min(1),
+  profiles: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: ProfileName,
+      tool: z.enum(TOOL_KINDS)
+    })
+  )
+});
+export type DaemonRegisterResponse = z.infer<typeof DaemonRegisterResponse>;

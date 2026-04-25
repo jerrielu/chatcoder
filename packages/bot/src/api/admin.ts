@@ -1,41 +1,69 @@
 import type { FastifyInstance } from "fastify";
 import {
   ADMIN_API_PATHS,
+  AdminApiKey,
   AdminMessage,
+  AdminProfile,
   AdminSession,
-  CreateSessionBody,
-  CreateSessionResponse,
+  ApiKeyDetailResponse,
   EnqueueMessageBody,
   EnqueueMessageResponse,
-  ListMessagesQuery,
+  ListApiKeysResponse,
   ListMessagesResponse,
   ListSessionsQuery,
   ListSessionsResponse,
-  RotateSessionBody,
   SessionDetailResponse,
-  UpdateMessageBody,
-  UpdateSessionBody
+  UpdateMessageBody
 } from "@chatcoder/shared";
-import type { AdminRepo } from "../db/admin.js";
-import type { MessagesRepo } from "../db/messages.js";
-import type { Session, SessionsRepo } from "../db/sessions.js";
-import type { QueuedMessage } from "../db/messages.js";
+import type { AdminRepo, SessionJoined } from "../db/admin.js";
+import type { MessagesRepo, QueuedMessage } from "../db/messages.js";
+import type { SessionsRepo } from "../db/sessions.js";
+import type { ApiKeysRepo, ApiKeyRecord } from "../db/apiKeys.js";
+import type { ProfilesRepo, ProfileRecord } from "../db/profiles.js";
 
 export interface AdminRoutesDeps {
+  apiKeys: ApiKeysRepo;
+  profiles: ProfilesRepo;
   sessions: SessionsRepo;
   messages: MessagesRepo;
   admin: AdminRepo;
 }
 
-function toAdminSession(s: Session): AdminSession {
+function toAdminApiKey(a: ApiKeyRecord): AdminApiKey {
+  return AdminApiKey.parse({
+    id: a.id,
+    apiKeyPrefix: a.apiKeyPrefix,
+    status: a.status,
+    createdAt: a.createdAt,
+    revokedAt: a.revokedAt,
+    lastHeartbeat: a.lastHeartbeat
+  });
+}
+
+function toAdminProfile(p: ProfileRecord): AdminProfile {
+  return AdminProfile.parse({
+    id: p.id,
+    apiKeyId: p.apiKeyId,
+    name: p.name,
+    tool: p.tool,
+    metadata: p.metadata,
+    createdAt: p.createdAt
+  });
+}
+
+function toAdminSession(j: SessionJoined): AdminSession {
   return AdminSession.parse({
-    id: s.id,
-    chatId: s.chatId,
-    apiKeyPrefix: s.apiKeyPrefix,
-    status: s.status,
-    createdAt: s.createdAt,
-    revokedAt: s.revokedAt,
-    lastHeartbeat: s.lastHeartbeat
+    id: j.session.id,
+    chatId: j.session.chatId,
+    apiKeyId: j.session.apiKeyId,
+    apiKeyPrefix: j.apiKey.apiKeyPrefix,
+    apiKeyLastHeartbeat: j.apiKey.lastHeartbeat,
+    profileId: j.session.profileId,
+    profileName: j.profile.name,
+    profileTool: j.profile.tool,
+    status: j.session.status,
+    createdAt: j.session.createdAt,
+    revokedAt: j.session.revokedAt
   });
 }
 
@@ -43,13 +71,71 @@ function toAdminMessage(m: QueuedMessage): AdminMessage {
   return AdminMessage.parse({
     id: m.id,
     sessionId: m.sessionId,
-    direction: m.direction,
     content: m.content,
+    resumeLastSession: m.resumeLastSession,
     createdAt: m.createdAt
   });
 }
 
 export function registerAdminRoutes(app: FastifyInstance, deps: AdminRoutesDeps): void {
+  /* ---------- API keys ---------- */
+
+  app.get(ADMIN_API_PATHS.apiKeys, async (): Promise<ListApiKeysResponse> => {
+    const [keys, total] = await Promise.all([
+      deps.apiKeys.list({}),
+      deps.apiKeys.count({})
+    ]);
+    return {
+      apiKeys: keys.map(toAdminApiKey),
+      total
+    };
+  });
+
+  app.get(
+    "/v1/admin/api-keys/:id",
+    async (req, reply): Promise<ApiKeyDetailResponse | void> => {
+      const { id } = req.params as { id: string };
+      const key = await deps.apiKeys.getById(id);
+      if (!key) {
+        reply.code(404).send({ error: { code: "NOT_FOUND", message: "API key not found" } });
+        return;
+      }
+      const [profiles, sessions] = await Promise.all([
+        deps.profiles.listByApiKey(id),
+        deps.admin.listSessions({ apiKeyId: id })
+      ]);
+      return {
+        apiKey: toAdminApiKey(key),
+        profiles: profiles.map(toAdminProfile),
+        sessions: sessions.map(toAdminSession)
+      };
+    }
+  );
+
+  app.delete("/v1/admin/api-keys/:id", async (req, reply): Promise<{ ok: true } | void> => {
+    const { id } = req.params as { id: string };
+    const ok = await deps.apiKeys.delete(id);
+    if (!ok) {
+      reply.code(404).send({ error: { code: "NOT_FOUND", message: "API key not found" } });
+      return;
+    }
+    return { ok: true };
+  });
+
+  app.post(
+    "/v1/admin/api-keys/:id/revoke",
+    async (req, reply): Promise<{ ok: true } | void> => {
+      const { id } = req.params as { id: string };
+      const existed = await deps.apiKeys.getById(id);
+      if (!existed) {
+        reply.code(404).send({ error: { code: "NOT_FOUND", message: "API key not found" } });
+        return;
+      }
+      await deps.apiKeys.revoke(id);
+      return { ok: true };
+    }
+  );
+
   /* ---------- Sessions ---------- */
 
   app.get(ADMIN_API_PATHS.sessions, async (req): Promise<ListSessionsResponse> => {
@@ -64,24 +150,6 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminRoutesDeps)
     };
   });
 
-  app.post(ADMIN_API_PATHS.sessions, async (req, reply): Promise<CreateSessionResponse | void> => {
-    const body = CreateSessionBody.parse(req.body ?? {});
-    try {
-      const { session, rawApiKey } = await deps.sessions.rotate({
-        chatId: body.chatId,
-        ...(body.rawApiKey ? { rawApiKey: body.rawApiKey } : {})
-      });
-      return { session: toAdminSession(session), rawApiKey };
-    } catch (err) {
-      reply.code(400).send({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: (err as Error).message
-        }
-      });
-    }
-  });
-
   app.get(
     "/v1/admin/sessions/:id/detail",
     async (req, reply): Promise<SessionDetailResponse | void> => {
@@ -91,30 +159,17 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminRoutesDeps)
         reply.code(404).send({ error: { code: "NOT_FOUND", message: "Session not found" } });
         return;
       }
-      const [messages, pendingToDaemon, pendingToUser] = await Promise.all([
+      const [messages, pending] = await Promise.all([
         deps.admin.listMessages(id),
-        deps.messages.count(id, "to_daemon"),
-        deps.messages.count(id, "to_user")
+        deps.messages.count(id)
       ]);
       return {
         session: toAdminSession(s),
-        pendingToDaemon,
-        pendingToUser,
+        pending,
         messages: messages.map(toAdminMessage)
       };
     }
   );
-
-  app.patch("/v1/admin/sessions/:id", async (req, reply): Promise<{ ok: true } | void> => {
-    const { id } = req.params as { id: string };
-    const body = UpdateSessionBody.parse(req.body ?? {});
-    const ok = await deps.admin.updateSession(id, { chatId: body.chatId });
-    if (!ok) {
-      reply.code(404).send({ error: { code: "NOT_FOUND", message: "Session not found" } });
-      return;
-    }
-    return { ok: true };
-  });
 
   app.delete("/v1/admin/sessions/:id", async (req, reply): Promise<{ ok: true } | void> => {
     const { id } = req.params as { id: string };
@@ -126,33 +181,6 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminRoutesDeps)
     return { ok: true };
   });
 
-  app.post(
-    "/v1/admin/sessions/:id/rotate",
-    async (req, reply): Promise<CreateSessionResponse | void> => {
-      const { id } = req.params as { id: string };
-      const existing = await deps.admin.getSessionById(id);
-      if (!existing) {
-        reply.code(404).send({ error: { code: "NOT_FOUND", message: "Session not found" } });
-        return;
-      }
-      const body = RotateSessionBody.parse(req.body ?? {});
-      try {
-        const { session, rawApiKey } = await deps.sessions.rotate({
-          chatId: existing.chatId,
-          ...(body.rawApiKey ? { rawApiKey: body.rawApiKey } : {})
-        });
-        return { session: toAdminSession(session), rawApiKey };
-      } catch (err) {
-        reply.code(400).send({
-          error: {
-            code: "VALIDATION_ERROR",
-            message: (err as Error).message
-          }
-        });
-      }
-    }
-  );
-
   app.post("/v1/admin/sessions/:id/revoke", async (req, reply): Promise<{ ok: true } | void> => {
     const { id } = req.params as { id: string };
     const existed = await deps.admin.getSessionById(id);
@@ -160,7 +188,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminRoutesDeps)
       reply.code(404).send({ error: { code: "NOT_FOUND", message: "Session not found" } });
       return;
     }
-    await deps.admin.revokeSession(id);
+    await deps.sessions.revoke(id);
     return { ok: true };
   });
 
@@ -181,8 +209,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminRoutesDeps)
     "/v1/admin/sessions/:id/messages",
     async (req): Promise<ListMessagesResponse> => {
       const { id } = req.params as { id: string };
-      const q = ListMessagesQuery.parse(req.query ?? {});
-      const messages = await deps.admin.listMessages(id, q.direction);
+      const messages = await deps.admin.listMessages(id);
       return { messages: messages.map(toAdminMessage) };
     }
   );
@@ -199,8 +226,8 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminRoutesDeps)
       const body = EnqueueMessageBody.parse(req.body ?? {});
       const { message, droppedOldestId } = await deps.messages.enqueue({
         sessionId: id,
-        direction: body.direction,
-        content: body.content
+        content: body.content,
+        resumeLastSession: body.resumeLastSession
       });
       return {
         message: toAdminMessage(message),

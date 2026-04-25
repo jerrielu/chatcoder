@@ -1,39 +1,83 @@
 import { z } from "zod";
-import { MAX_INSTRUCTION_BYTES, MAX_RESPONSE_BYTES, MIN_API_KEY_LENGTH } from "./constants.js";
-import { MessageDirection } from "./protocol.js";
+import {
+  MAX_INSTRUCTION_BYTES,
+  MAX_PROFILE_NAME_LENGTH,
+  MIN_API_KEY_LENGTH,
+  TOOL_KINDS
+} from "./constants.js";
 
 /* ===================== Admin wire types =====================
  *
  * Consumed by the local dashboard over /v1/admin/*. The dashboard is the only
- * intended caller; these shapes intentionally omit internal fields like
- * api_key_hash and last_code_at that the UI never needs.
+ * intended caller; these shapes omit internal fields like api_key_hash that
+ * the UI never needs.
  */
 
-export const AdminSession = z.object({
+export const AdminApiKey = z.object({
   id: z.string(),
-  chatId: z.number().int(),
   apiKeyPrefix: z.string(),
   status: z.enum(["active", "revoked"]),
   createdAt: z.number().int(),
   revokedAt: z.number().int().nullable(),
   lastHeartbeat: z.number().int().nullable()
 });
+export type AdminApiKey = z.infer<typeof AdminApiKey>;
+
+export const AdminProfile = z.object({
+  id: z.string(),
+  apiKeyId: z.string(),
+  name: z.string().min(1).max(MAX_PROFILE_NAME_LENGTH),
+  tool: z.enum(TOOL_KINDS),
+  metadata: z.string().nullable(),
+  createdAt: z.number().int()
+});
+export type AdminProfile = z.infer<typeof AdminProfile>;
+
+export const AdminSession = z.object({
+  id: z.string(),
+  chatId: z.number().int(),
+  apiKeyId: z.string(),
+  apiKeyPrefix: z.string(),
+  apiKeyLastHeartbeat: z.number().int().nullable(),
+  profileId: z.string(),
+  profileName: z.string(),
+  profileTool: z.enum(TOOL_KINDS),
+  status: z.enum(["active", "revoked"]),
+  createdAt: z.number().int(),
+  revokedAt: z.number().int().nullable()
+});
 export type AdminSession = z.infer<typeof AdminSession>;
 
 export const AdminMessage = z.object({
   id: z.string(),
   sessionId: z.string(),
-  direction: MessageDirection,
   content: z.string(),
+  resumeLastSession: z.boolean().default(true),
   createdAt: z.number().int()
 });
 export type AdminMessage = z.infer<typeof AdminMessage>;
+
+/* ----- API keys: list ----- */
+
+export const ListApiKeysResponse = z.object({
+  apiKeys: z.array(AdminApiKey),
+  total: z.number().int().nonnegative()
+});
+export type ListApiKeysResponse = z.infer<typeof ListApiKeysResponse>;
+
+export const ApiKeyDetailResponse = z.object({
+  apiKey: AdminApiKey,
+  profiles: z.array(AdminProfile),
+  sessions: z.array(AdminSession)
+});
+export type ApiKeyDetailResponse = z.infer<typeof ApiKeyDetailResponse>;
 
 /* ----- Sessions: list + filters ----- */
 
 export const ListSessionsQuery = z.object({
   status: z.enum(["active", "revoked"]).optional(),
   chatId: z.coerce.number().int().optional(),
+  apiKeyId: z.string().optional(),
   limit: z.coerce.number().int().positive().optional(),
   offset: z.coerce.number().int().nonnegative().optional()
 });
@@ -45,7 +89,16 @@ export const ListSessionsResponse = z.object({
 });
 export type ListSessionsResponse = z.infer<typeof ListSessionsResponse>;
 
-/* ----- Sessions: create / rotate ----- */
+/* ----- Session detail ----- */
+
+export const SessionDetailResponse = z.object({
+  session: AdminSession,
+  pending: z.number().int().nonnegative(),
+  messages: z.array(AdminMessage)
+});
+export type SessionDetailResponse = z.infer<typeof SessionDetailResponse>;
+
+/* ----- Messages ----- */
 
 const optionalKey = z
   .string()
@@ -53,54 +106,13 @@ const optionalKey = z
   .optional()
   .or(z.literal("").transform(() => undefined));
 
-export const CreateSessionBody = z.object({
-  chatId: z.coerce.number().int(),
-  rawApiKey: optionalKey
+/** Kept for test compatibility with the old admin transport contract. */
+export const ReservedOptionalKey = optionalKey;
+
+export const EnqueueMessageBody = z.object({
+  content: z.string().min(1).max(MAX_INSTRUCTION_BYTES),
+  resumeLastSession: z.boolean().optional()
 });
-export type CreateSessionBody = z.infer<typeof CreateSessionBody>;
-
-export const RotateSessionBody = z.object({
-  rawApiKey: optionalKey
-});
-export type RotateSessionBody = z.infer<typeof RotateSessionBody>;
-
-export const CreateSessionResponse = z.object({
-  session: AdminSession,
-  rawApiKey: z.string()
-});
-export type CreateSessionResponse = z.infer<typeof CreateSessionResponse>;
-
-/* ----- Sessions: update ----- */
-
-export const UpdateSessionBody = z.object({
-  chatId: z.coerce.number().int()
-});
-export type UpdateSessionBody = z.infer<typeof UpdateSessionBody>;
-
-/* ----- Session detail: single call backing the detail page ----- */
-
-export const SessionDetailResponse = z.object({
-  session: AdminSession,
-  pendingToDaemon: z.number().int().nonnegative(),
-  pendingToUser: z.number().int().nonnegative(),
-  messages: z.array(AdminMessage)
-});
-export type SessionDetailResponse = z.infer<typeof SessionDetailResponse>;
-
-/* ----- Messages ----- */
-
-export const EnqueueMessageBody = z
-  .object({
-    direction: MessageDirection,
-    content: z.string().min(1)
-  })
-  .refine(
-    (b) =>
-      b.direction === "to_daemon"
-        ? b.content.length <= MAX_INSTRUCTION_BYTES
-        : b.content.length <= MAX_RESPONSE_BYTES,
-    { message: "content exceeds max bytes for direction", path: ["content"] }
-  );
 export type EnqueueMessageBody = z.infer<typeof EnqueueMessageBody>;
 
 export const EnqueueMessageResponse = z.object({
@@ -110,14 +122,9 @@ export const EnqueueMessageResponse = z.object({
 export type EnqueueMessageResponse = z.infer<typeof EnqueueMessageResponse>;
 
 export const UpdateMessageBody = z.object({
-  content: z.string().min(1).max(MAX_RESPONSE_BYTES)
+  content: z.string().min(1).max(MAX_INSTRUCTION_BYTES)
 });
 export type UpdateMessageBody = z.infer<typeof UpdateMessageBody>;
-
-export const ListMessagesQuery = z.object({
-  direction: MessageDirection.optional()
-});
-export type ListMessagesQuery = z.infer<typeof ListMessagesQuery>;
 
 export const ListMessagesResponse = z.object({
   messages: z.array(AdminMessage)

@@ -1,7 +1,7 @@
 /**
  * Covers the defensive branches in bot.ts: callback_query without ctx.chat,
- * bot.catch (unexpected handler error), and a raw /code that throws a
- * non-rate-limit ApiError.
+ * bot.catch (unexpected handler error), and slash-command filtering in
+ * message:text for idle chats.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Bot, type ApiResponse } from "grammy";
@@ -39,10 +39,11 @@ function makeBot(deps: ReturnType<typeof buildDeps>, outbound: Outbound[]) {
 
 function buildDeps(h: TestHarness, flows: FlowStore) {
   return {
+    apiKeys: h.apiKeys,
+    profiles: h.profiles,
     sessions: h.sessions,
     messages: h.messages,
     flows,
-    publicApiUrl: undefined,
     now: h.now
   };
 }

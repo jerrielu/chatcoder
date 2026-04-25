@@ -30,7 +30,6 @@ function makeBot(deps: ReturnType<typeof buildDeps>, outbound: Outbound[]): Bot 
   });
   bot.api.config.use(async (_prev, method, payload) => {
     outbound.push({ method, payload: payload as Record<string, unknown> });
-    // Minimal "ok" response; we don't inspect specifics beyond the call record.
     return { ok: true, result: true } as ApiResponse<boolean>;
   });
   wireBot(bot, deps);
@@ -39,10 +38,11 @@ function makeBot(deps: ReturnType<typeof buildDeps>, outbound: Outbound[]): Bot 
 
 function buildDeps(h: TestHarness, flows: FlowStore) {
   return {
+    apiKeys: h.apiKeys,
+    profiles: h.profiles,
     sessions: h.sessions,
     messages: h.messages,
     flows,
-    publicApiUrl: "https://bot.example.com",
     now: h.now
   };
 }
@@ -112,53 +112,74 @@ describe("wireBot /start", () => {
   });
 });
 
-describe("wireBot /code", () => {
-  it("rate-limits second call within 1s with 'Too fast'", async () => {
-    await h.sessions.rotate({ chatId: 1 });
-    await bot.handleUpdate(msgUpdate(1, 1, "/code first", 1));
-    await bot.handleUpdate(msgUpdate(1, 1, "/code second", 2));
+describe("wireBot instruction menu flow", () => {
+  it("Code callback opens input and queues a resume instruction", async () => {
+    const seed = await h.seedSession({ chatId: 1 });
+    await bot.handleUpdate(cbUpdate(1, 1, CB.code, 1));
+    await bot.handleUpdate(msgUpdate(1, 1, "run tests", 2));
     const texts = sends().map((m) => (m.payload as { text: string }).text);
-    expect(texts.some((t) => t.includes("Too fast"))).toBe(true);
+    expect(texts.some((t) => t.includes("resume"))).toBe(true);
+    expect(texts.some((t) => t.includes("Queued"))).toBe(true);
+    const [msg] = await h.messages.drain(seed.session.id);
+    expect(msg?.resumeLastSession).toBe(true);
   });
 
-  it("queues when under rate", async () => {
-    await h.sessions.rotate({ chatId: 1 });
-    await bot.handleUpdate(msgUpdate(1, 1, "/code run tests"));
+  it("New Code callback opens input and queues a fresh instruction", async () => {
+    const seed = await h.seedSession({ chatId: 1 });
+    await bot.handleUpdate(cbUpdate(1, 1, CB.newCode, 1));
+    await bot.handleUpdate(msgUpdate(1, 1, "run tests", 2));
     const texts = sends().map((m) => (m.payload as { text: string }).text);
+    expect(texts.some((t) => t.includes("fresh"))).toBe(true);
     expect(texts.some((t) => t.includes("Queued"))).toBe(true);
+    const [msg] = await h.messages.drain(seed.session.id);
+    expect(msg?.resumeLastSession).toBe(false);
+  });
+
+  it("rate-limits second instruction within 1s", async () => {
+    await h.seedSession({ chatId: 1 });
+    await bot.handleUpdate(cbUpdate(1, 1, CB.code, 1));
+    await bot.handleUpdate(msgUpdate(1, 1, "first", 2));
+    await bot.handleUpdate(cbUpdate(1, 1, CB.code, 3));
+    await bot.handleUpdate(msgUpdate(1, 1, "second", 4));
+    const texts = sends().map((m) => (m.payload as { text: string }).text);
+    expect(texts.some((t) => t.includes("Too fast"))).toBe(true);
   });
 });
 
 describe("wireBot callback flow", () => {
-  it("new session → confirm → generate → new session visible", async () => {
+  it("new session → paste key → pick profile → session linked", async () => {
+    const seed = await h.seedSession({ chatId: 99, profileName: "main" });
+
     await bot.handleUpdate(cbUpdate(1, 1, CB.newSession, 1));
-    await bot.handleUpdate(cbUpdate(1, 1, CB.newSessionConfirm, 2));
-    await bot.handleUpdate(cbUpdate(1, 1, CB.generateKey, 3));
+    await bot.handleUpdate(msgUpdate(1, 1, seed.rawApiKey, 2));
+    await bot.handleUpdate(cbUpdate(1, 1, CB.profilePrefix + seed.profile.id, 3));
+
     const texts = sends().map((m) => (m.payload as { text: string }).text);
-    expect(texts.join("\n")).toMatch(/Session created/);
-    const active = await h.sessions.getActiveByChatId(1);
+    expect(texts.join("\n")).toMatch(/Session linked/);
+    const active = await h.sessions.getLatestActiveByChatId(1);
     expect(active).not.toBeNull();
+    expect(active!.profileId).toBe(seed.profile.id);
   });
 
   it("cancel clears flow", async () => {
     await bot.handleUpdate(cbUpdate(1, 1, CB.newSession, 1));
     await bot.handleUpdate(cbUpdate(1, 1, CB.newSessionCancel, 2));
-    expect(flows.get(1).kind).toBe("idle");
+    expect(flows.get(1, 1).kind).toBe("idle");
+  });
+
+  it("new session opens force-reply input for api key", async () => {
+    await bot.handleUpdate(cbUpdate(1, 1, CB.newSession, 1));
+    const last = sends().at(-1)!;
+    const markup = (last.payload as { reply_markup?: Record<string, unknown> }).reply_markup;
+    expect(markup).toBeDefined();
+    expect(markup?.["force_reply"]).toBe(true);
   });
 
   it("status shows session info", async () => {
-    await h.sessions.rotate({ chatId: 1 });
+    await h.seedSession({ chatId: 1, profileName: "main" });
     await bot.handleUpdate(cbUpdate(1, 1, CB.status, 1));
     const last = sends().at(-1)!;
-    expect((last.payload as { text: string }).text).toMatch(/Session/);
-  });
-
-  it("response callback delivers pending response", async () => {
-    const { session } = await h.sessions.rotate({ chatId: 1 });
-    await h.messages.enqueue({ sessionId: session.id, direction: "to_user", content: "yay" });
-    await bot.handleUpdate(cbUpdate(1, 1, CB.response, 1));
-    const last = sends().at(-1)!;
-    expect((last.payload as { text: string }).text).toContain("yay");
+    expect((last.payload as { text: string }).text).toMatch(/main/);
   });
 
   it("menu callback shows main menu", async () => {
@@ -166,20 +187,59 @@ describe("wireBot callback flow", () => {
     const last = sends().at(-1)!;
     expect((last.payload as { text: string }).text).toMatch(/menu/i);
   });
+
+  it("code callback opens force-reply input", async () => {
+    await bot.handleUpdate(cbUpdate(1, 1, CB.code, 1));
+    const last = sends().at(-1)!;
+    const markup = (last.payload as { reply_markup?: Record<string, unknown> }).reply_markup;
+    expect(markup).toBeDefined();
+    expect(markup?.["force_reply"]).toBe(true);
+  });
 });
 
 describe("wireBot plain text", () => {
-  it("nudges toward /code outside of any flow", async () => {
+  it("nudges toward Code/New Code outside of any flow", async () => {
     await bot.handleUpdate(msgUpdate(1, 1, "random words"));
     const last = sends().at(-1)!;
-    expect((last.payload as { text: string }).text).toMatch(/\/code/);
+    expect((last.payload as { text: string }).text).toMatch(/New Code/);
   });
 
-  it("treats text as the user-supplied key when awaiting one", async () => {
-    await bot.handleUpdate(cbUpdate(1, 1, CB.newSession, 1));
-    await bot.handleUpdate(cbUpdate(1, 1, CB.newSessionConfirm, 2));
-    await bot.handleUpdate(msgUpdate(1, 1, "mysupersecretkey-xxxxxxxxxxxx"));
+  it("accepts key paste outside of an explicit new-session flow", async () => {
+    const seed = await h.seedSession({ chatId: 99, profileName: "main" });
+    await bot.handleUpdate(msgUpdate(1, 1, seed.rawApiKey, 1));
     const last = sends().at(-1)!;
-    expect((last.payload as { text: string }).text).toMatch(/Session created/);
+    expect((last.payload as { text: string }).text).toMatch(/Pick a profile/);
+  });
+
+  it("treats text as the API key when awaiting one and advances to profile picker", async () => {
+    const seed = await h.seedSession({ chatId: 99, profileName: "main" });
+    await bot.handleUpdate(cbUpdate(1, 1, CB.newSession, 1));
+    await bot.handleUpdate(msgUpdate(1, 1, seed.rawApiKey, 2));
+    const last = sends().at(-1)!;
+    expect((last.payload as { text: string }).text).toMatch(/Pick a profile/);
+  });
+
+  it("accepts '/cc_...' text while awaiting an api key", async () => {
+    const seed = await h.seedSession({ chatId: 99, profileName: "main" });
+    await bot.handleUpdate(cbUpdate(1, 1, CB.newSession, 1));
+    await bot.handleUpdate(msgUpdate(1, 1, `/${seed.rawApiKey}`, 2));
+    const last = sends().at(-1)!;
+    expect((last.payload as { text: string }).text).toMatch(/Pick a profile/);
+  });
+
+  it("supports /cancel command to exit api-key flow", async () => {
+    await bot.handleUpdate(cbUpdate(1, 1, CB.newSession, 1));
+    await bot.handleUpdate(msgUpdate(1, 1, "/cancel", 2));
+    expect(flows.get(1, 1).kind).toBe("idle");
+    const last = sends().at(-1)!;
+    expect((last.payload as { text: string }).text).toMatch(/Cancelled/i);
+  });
+
+  it("supports /cancel command to exit code-input flow", async () => {
+    await bot.handleUpdate(cbUpdate(1, 1, CB.code, 1));
+    await bot.handleUpdate(msgUpdate(1, 1, "/cancel", 2));
+    expect(flows.get(1, 1).kind).toBe("idle");
+    const last = sends().at(-1)!;
+    expect((last.payload as { text: string }).text).toMatch(/Cancelled/i);
   });
 });

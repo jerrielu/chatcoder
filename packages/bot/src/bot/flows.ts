@@ -1,15 +1,15 @@
 /**
  * Per-chat flow state for the grammY bot.
  *
- * The flows are short (≤3 steps) so we keep them in-process. If we ever run
- * multiple bot replicas we'll need to move this to the DB — but telegram
- * long-polling already constrains us to a single bot replica, so this is fine.
+ * The "new session" flow is now a two-step: ask for the daemon's API key,
+ * then present a profile picker tied to that api_key.
  */
 
 export type FlowState =
   | { kind: "idle" }
-  | { kind: "confirming_rotation" }
-  | { kind: "awaiting_rotation_key" };
+  | { kind: "awaiting_api_key" }
+  | { kind: "awaiting_profile"; apiKeyId: string }
+  | { kind: "awaiting_instruction"; resumeLastSession: boolean };
 
 export class FlowStore {
   private readonly map = new Map<string, FlowState>();

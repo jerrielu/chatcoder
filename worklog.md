@@ -257,3 +257,38 @@ functions 98.13% / branches 90.9%. Above thresholds.
   failures in `bot.edgecases2.test.ts`), coverage at
   99.51% stmt / 90.61% branch / 98.76% func / 99.51% lines — above
   thresholds.
+
+## Phase 11 — Push responses directly to Telegram (2026-04-20)
+
+- **Problem**: daemon→user responses were queued in `messages` with
+  `direction='to_user'`; user had to tap a "📨 Response" button to drain
+  them. Latency + friction for no benefit.
+- **Change**: `POST /v1/responses` now calls `bot.api.sendMessage(chatId,
+  chunk)` synchronously via a `TelegramSender` dep injected into the bot's
+  Fastify server. Chunking (`splitForTelegram`) moved into
+  `packages/bot/src/bot/telegramSend.ts` so both the sender adapter and the
+  old (now deleted) handler can't accidentally fork.
+- **Schema**: dropped `direction` column entirely; `messages` is now an
+  instruction queue. Removed `MessageDirection` from shared; removed
+  `pendingResponses` from `SessionInfoResponse`; removed `pendingToUser`
+  from `SessionDetailResponse`; `EnqueueMessageBody` collapses to
+  `{content}` capped at `MAX_INSTRUCTION_BYTES`. Did not add a migration
+  per request — existing dev DBs must be dropped.
+- **Telegram UX**: removed the "📨 Response" button, `CB.response`, and
+  `handleResponse`; trimmed WELCOME and `handleStatus` to drop response
+  copy.
+- **Error model**: Telegram permanent failures (error_code 400/403 — bot
+  blocked, chat not found) map to `ApiError.validation(…)` → 400, which
+  fails fast in the daemon's `ApiClient` (4xx = no retry). Transient
+  failures propagate as 500, which the daemon retries.
+- **Dashboard**: dropped the direction `<select>` in `EnqueueForm`, the
+  "Pending → user" row in `SessionInfoCard`, and the Direction column /
+  badge in `MessagesTable`.
+- **Docs**: design.md §2.1 schema, §4 queue model, §5 UX flow; guide.md
+  §3 Telegram flow + §4 dashboard wording.
+- **Tests**: updated api.test.ts to spy on `telegram.sendResponse`
+  (including permanent-vs-transient failure cases); trimmed
+  `direction`/`pendingResponses`/`handleResponse` from
+  `api.admin.test.ts`, `db.messages.test.ts`, `db.admin.test.ts`,
+  `bot.handlers.test.ts`, `bot.wired.test.ts`, and
+  `daemon/test/system.test.ts`.

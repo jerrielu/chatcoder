@@ -1,55 +1,26 @@
-import { randomUUID, randomBytes, createHash } from "node:crypto";
-import {
-  API_KEY_PREFIX,
-  API_KEY_RAND_BYTES,
-  CODE_RATE_LIMIT_MS,
-  MIN_API_KEY_LENGTH
-} from "@chatcoder/shared";
+import { randomUUID } from "node:crypto";
+import { CODE_RATE_LIMIT_MS } from "@chatcoder/shared";
 import type { Db } from "./index.js";
 
 export interface Session {
   id: string;
   chatId: number;
-  apiKeyHash: string;
-  apiKeyPrefix: string;
+  apiKeyId: string;
+  profileId: string;
   status: "active" | "revoked";
   createdAt: number;
   revokedAt: number | null;
-  lastHeartbeat: number | null;
   lastCodeAt: number;
-}
-
-export interface GeneratedKey {
-  rawApiKey: string;
-  hash: string;
-  prefix: string;
-}
-
-export function hashApiKey(raw: string): string {
-  return createHash("sha256").update(raw).digest("hex");
-}
-
-export function generateApiKey(): GeneratedKey {
-  const raw = API_KEY_PREFIX + randomBytes(API_KEY_RAND_BYTES).toString("base64url");
-  return { rawApiKey: raw, hash: hashApiKey(raw), prefix: raw.slice(0, 8) };
-}
-
-export function validateUserSuppliedKey(raw: string): void {
-  if (!raw || raw.length < MIN_API_KEY_LENGTH) {
-    throw new Error(`API key must be at least ${MIN_API_KEY_LENGTH} characters.`);
-  }
-  if (/\s/.test(raw)) throw new Error("API key may not contain whitespace.");
 }
 
 function rowToSession(row: {
   id: string;
   chat_id: number | string | bigint;
-  api_key_hash: string;
-  api_key_prefix: string;
+  api_key_id: string;
+  profile_id: string;
   status: "active" | "revoked";
   created_at: number | string | bigint;
   revoked_at: number | string | bigint | null;
-  last_heartbeat: number | string | bigint | null;
   last_code_at: number | string | bigint;
 }): Session {
   const n = (v: number | string | bigint | null): number | null =>
@@ -57,12 +28,11 @@ function rowToSession(row: {
   return {
     id: row.id,
     chatId: n(row.chat_id) as number,
-    apiKeyHash: row.api_key_hash,
-    apiKeyPrefix: row.api_key_prefix,
+    apiKeyId: row.api_key_id,
+    profileId: row.profile_id,
     status: row.status,
     createdAt: n(row.created_at) as number,
     revokedAt: n(row.revoked_at),
-    lastHeartbeat: n(row.last_heartbeat),
     lastCodeAt: n(row.last_code_at) as number
   };
 }
@@ -71,104 +41,118 @@ export class SessionsRepo {
   constructor(private readonly db: Db, private readonly now: () => number = Date.now) {}
 
   /**
-   * Create a new session for a telegram user, revoking any existing active one.
-   * Accepts either a raw API key or generates one.
+   * Create a session for (chat_id, api_key_id, profile_id). If an active
+   * session already exists for the same triple, return it unchanged — the
+   * user tapping the same profile twice is a no-op. If an active session
+   * exists for (chat_id, api_key_id) with a DIFFERENT profile, that older
+   * session stays active: a chat may hold multiple concurrent sessions
+   * across profiles.
    */
-  async rotate(args: {
+  async create(args: {
     chatId: number;
-    rawApiKey?: string;
-  }): Promise<{ session: Session; rawApiKey: string }> {
-    let raw: string;
-    let hash: string;
-    let prefix: string;
-    if (args.rawApiKey) {
-      validateUserSuppliedKey(args.rawApiKey);
-      raw = args.rawApiKey;
-      hash = hashApiKey(raw);
-      prefix = raw.slice(0, 8);
-    } else {
-      const gen = generateApiKey();
-      raw = gen.rawApiKey;
-      hash = gen.hash;
-      prefix = gen.prefix;
-    }
-
-    const ts = this.now();
-
+    apiKeyId: string;
+    profileId: string;
+  }): Promise<Session> {
     return this.db.transaction().execute(async (tx) => {
-      // Revoke existing active sessions for this chat.
-      await tx
-        .updateTable("sessions")
-        .set({ status: "revoked", revoked_at: ts })
-        .where("chat_id", "=", args.chatId)
-        .where("status", "=", "active")
-        .execute();
-
-      // Make sure this hash isn't colliding with any historical session.
       const existing = await tx
         .selectFrom("sessions")
-        .select("id")
-        .where("api_key_hash", "=", hash)
+        .selectAll()
+        .where("chat_id", "=", args.chatId)
+        .where("api_key_id", "=", args.apiKeyId)
+        .where("profile_id", "=", args.profileId)
+        .where("status", "=", "active")
         .executeTakeFirst();
-      if (existing) {
-        throw new Error("API key already in use — choose a different key.");
-      }
+      if (existing) return rowToSession(existing);
 
       const id = randomUUID();
+      const ts = this.now();
       await tx
         .insertInto("sessions")
         .values({
           id,
           chat_id: args.chatId,
-          api_key_hash: hash,
-          api_key_prefix: prefix,
+          api_key_id: args.apiKeyId,
+          profile_id: args.profileId,
           status: "active",
           created_at: ts,
           revoked_at: null,
-          last_heartbeat: null,
           last_code_at: 0
         })
         .execute();
-
       const row = await tx
         .selectFrom("sessions")
         .selectAll()
         .where("id", "=", id)
         .executeTakeFirstOrThrow();
-      return { session: rowToSession(row), rawApiKey: raw };
+      return rowToSession(row);
     });
   }
 
-  async getByApiKeyHash(hash: string): Promise<Session | null> {
+  async getById(id: string): Promise<Session | null> {
     const row = await this.db
       .selectFrom("sessions")
       .selectAll()
-      .where("api_key_hash", "=", hash)
+      .where("id", "=", id)
       .executeTakeFirst();
     return row ? rowToSession(row) : null;
   }
 
-  async getActiveByChatId(chatId: number): Promise<Session | null> {
+  /** Most-recently created active session for a chat, across all profiles. */
+  async getLatestActiveByChatId(chatId: number): Promise<Session | null> {
     const row = await this.db
       .selectFrom("sessions")
       .selectAll()
       .where("chat_id", "=", chatId)
       .where("status", "=", "active")
+      .orderBy("created_at", "desc")
       .executeTakeFirst();
     return row ? rowToSession(row) : null;
   }
 
-  async updateHeartbeat(sessionId: string): Promise<void> {
-    await this.db
-      .updateTable("sessions")
-      .set({ last_heartbeat: this.now() })
-      .where("id", "=", sessionId)
+  async listActiveByApiKey(apiKeyId: string): Promise<Session[]> {
+    const rows = await this.db
+      .selectFrom("sessions")
+      .selectAll()
+      .where("api_key_id", "=", apiKeyId)
+      .where("status", "=", "active")
+      .orderBy("created_at", "asc")
       .execute();
+    return rows.map(rowToSession);
+  }
+
+  async listActiveByChatId(chatId: number): Promise<Session[]> {
+    const rows = await this.db
+      .selectFrom("sessions")
+      .selectAll()
+      .where("chat_id", "=", chatId)
+      .where("status", "=", "active")
+      .orderBy("created_at", "desc")
+      .execute();
+    return rows.map(rowToSession);
+  }
+
+  async revoke(id: string): Promise<boolean> {
+    const res = await this.db
+      .updateTable("sessions")
+      .set({ status: "revoked", revoked_at: this.now() })
+      .where("id", "=", id)
+      .where("status", "=", "active")
+      .executeTakeFirst();
+    return Number(res.numUpdatedRows) > 0;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const res = await this.db
+      .deleteFrom("sessions")
+      .where("id", "=", id)
+      .executeTakeFirst();
+    return Number(res.numDeletedRows) > 0;
   }
 
   /**
    * Atomic rate limit check. Returns true if accepted (row updated),
-   * false if the caller is within the 1-second window.
+   * false if the caller is within the 1-second window. Rate-limit is
+   * per-session so different profiles aren't throttled by each other.
    */
   async tryConsumeRate(sessionId: string): Promise<boolean> {
     const ts = this.now();

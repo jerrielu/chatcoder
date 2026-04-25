@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   DaemonMessage,
+  DaemonRegisterBody,
+  DaemonRegisterResponse,
   PollResponse,
   PostResponseBody,
   HeartbeatBody,
-  SessionInfoResponse,
   MAX_INSTRUCTION_BYTES,
   MAX_RESPONSE_BYTES,
   API_PATHS,
@@ -18,6 +19,7 @@ describe("protocol schemas", () => {
   it("parses a valid DaemonMessage", () => {
     const m = DaemonMessage.parse({ id: "a", content: "hi", createdAt: 100 });
     expect(m.content).toBe("hi");
+    expect(m.resumeLastSession).toBe(true);
   });
   it("rejects empty content", () => {
     expect(() => DaemonMessage.parse({ id: "a", content: "", createdAt: 0 })).toThrow();
@@ -27,33 +29,57 @@ describe("protocol schemas", () => {
       DaemonMessage.parse({ id: "a", content: "x".repeat(MAX_INSTRUCTION_BYTES + 1), createdAt: 0 })
     ).toThrow();
   });
-  it("parses PollResponse", () => {
-    const r = PollResponse.parse({ reset: false, sessionValid: true, messages: [] });
-    expect(r.messages).toEqual([]);
+  it("parses PollResponse with grouped sessions", () => {
+    const r = PollResponse.parse({
+      reset: false,
+      sessions: [
+        {
+          sessionId: "s1",
+          profileName: "main",
+          messages: [{ id: "m1", content: "hi", createdAt: 100 }]
+        }
+      ]
+    });
+    expect(r.sessions).toHaveLength(1);
+    expect(r.sessions[0]!.profileName).toBe("main");
   });
   it("rejects PostResponseBody over MAX_RESPONSE_BYTES", () => {
     expect(() =>
-      PostResponseBody.parse({ content: "x".repeat(MAX_RESPONSE_BYTES + 1) })
+      PostResponseBody.parse({ sessionId: "s", content: "x".repeat(MAX_RESPONSE_BYTES + 1) })
     ).toThrow();
+  });
+  it("requires sessionId on PostResponseBody", () => {
+    expect(() => PostResponseBody.parse({ content: "hi" })).toThrow();
   });
   it("accepts HeartbeatBody with optional fields", () => {
     expect(HeartbeatBody.parse({})).toEqual({});
     expect(HeartbeatBody.parse({ version: "0.1.0", note: "ok" }).note).toBe("ok");
   });
-  it("parses SessionInfoResponse", () => {
-    const s = SessionInfoResponse.parse({
-      sessionId: "s",
-      apiKeyPrefix: "cc_abcd",
-      createdAt: 0,
-      status: "active",
-      pendingInstructions: 0,
-      pendingResponses: 0,
-      lastHeartbeat: null
+  it("parses DaemonRegisterBody", () => {
+    const r = DaemonRegisterBody.parse({
+      profiles: [
+        { name: "main", tool: "CLAUDE_CODE" },
+        { name: "ops", tool: "OPENAI", metadata: "server work" }
+      ]
     });
-    expect(s.status).toBe("active");
+    expect(r.profiles).toHaveLength(2);
+    expect(r.profiles[1]!.metadata).toBe("server work");
+  });
+  it("rejects invalid profile names in register body", () => {
+    expect(() =>
+      DaemonRegisterBody.parse({ profiles: [{ name: "bad name", tool: "CUSTOM" }] })
+    ).toThrow();
+  });
+  it("parses DaemonRegisterResponse", () => {
+    const r = DaemonRegisterResponse.parse({
+      apiKeyId: "a1",
+      profiles: [{ id: "p1", name: "main", tool: "CLAUDE_CODE" }]
+    });
+    expect(r.profiles[0]!.id).toBe("p1");
   });
   it("exposes API_PATHS and queue depth constants", () => {
     expect(API_PATHS.heartbeat).toBe("/v1/heartbeat");
+    expect(API_PATHS.daemonRegister).toBe("/v1/daemon/register");
     expect(MAX_QUEUE_DEPTH).toBe(10);
     expect(MIN_API_KEY_LENGTH).toBeGreaterThan(0);
   });

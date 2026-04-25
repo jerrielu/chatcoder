@@ -5,24 +5,31 @@ import type { Db } from "./index.js";
 export interface QueuedMessage {
   id: string;
   sessionId: string;
-  direction: "to_daemon" | "to_user";
   content: string;
+  resumeLastSession: boolean;
   createdAt: number;
+}
+
+function toBool(v: number | string | bigint | boolean): boolean {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  if (typeof v === "bigint") return v !== 0n;
+  return v !== "0" && v.toLowerCase() !== "false";
 }
 
 function rowToMessage(row: {
   id: string;
   session_id: string;
-  direction: "to_daemon" | "to_user";
   content: string;
+  resume_last_session: number | string | bigint | boolean;
   created_at: number | string | bigint;
 }): QueuedMessage {
   const raw = typeof row.created_at === "number" ? row.created_at : Number(row.created_at);
   return {
     id: row.id,
     sessionId: row.session_id,
-    direction: row.direction,
     content: row.content,
+    resumeLastSession: toBool(row.resume_last_session),
     // External callers see the millisecond timestamp; the sub-ms seq bits are
     // stripped so comparisons with Date.now()-based clocks stay sane.
     createdAt: Math.floor(raw / 1024)
@@ -52,34 +59,33 @@ export class MessagesRepo {
   }
 
   /**
-   * Enqueue a message; enforces per-(session,direction) cap of MAX_QUEUE_DEPTH
-   * by dropping the oldest.
+   * Enqueue an instruction for the daemon; enforces per-session cap of
+   * MAX_QUEUE_DEPTH by dropping the oldest.
    */
   async enqueue(args: {
     sessionId: string;
-    direction: "to_daemon" | "to_user";
     content: string;
+    resumeLastSession?: boolean;
   }): Promise<EnqueueResult> {
     const ts = this.nextStamp();
     const id = randomUUID();
+    const resumeLastSession = args.resumeLastSession ?? true;
     return this.db.transaction().execute(async (tx) => {
       await tx
         .insertInto("messages")
         .values({
           id,
           session_id: args.sessionId,
-          direction: args.direction,
           content: args.content,
+          resume_last_session: resumeLastSession ? 1 : 0,
           created_at: ts
         })
         .execute();
 
-      // Fetch all ids for this queue ordered by newest first.
       const all = await tx
         .selectFrom("messages")
         .select(["id", "created_at"])
         .where("session_id", "=", args.sessionId)
-        .where("direction", "=", args.direction)
         .orderBy("created_at", "desc")
         .orderBy("id", "desc")
         .execute();
@@ -100,35 +106,13 @@ export class MessagesRepo {
     });
   }
 
-  /** Pop oldest message of a given direction, delivering (deleting) it. */
-  async dequeueOldest(
-    sessionId: string,
-    direction: "to_daemon" | "to_user"
-  ): Promise<QueuedMessage | null> {
-    return this.db.transaction().execute(async (tx) => {
-      const row = await tx
-        .selectFrom("messages")
-        .selectAll()
-        .where("session_id", "=", sessionId)
-        .where("direction", "=", direction)
-        .orderBy("created_at", "asc")
-        .orderBy("id", "asc")
-        .limit(1)
-        .executeTakeFirst();
-      if (!row) return null;
-      await tx.deleteFrom("messages").where("id", "=", row.id).execute();
-      return rowToMessage(row);
-    });
-  }
-
-  /** Pop ALL pending messages of a given direction (used by daemon poll). */
-  async drain(sessionId: string, direction: "to_daemon" | "to_user"): Promise<QueuedMessage[]> {
+  /** Pop ALL pending instructions for a session (used by daemon poll). */
+  async drain(sessionId: string): Promise<QueuedMessage[]> {
     return this.db.transaction().execute(async (tx) => {
       const rows = await tx
         .selectFrom("messages")
         .selectAll()
         .where("session_id", "=", sessionId)
-        .where("direction", "=", direction)
         .orderBy("created_at", "asc")
         .orderBy("id", "asc")
         .execute();
@@ -145,12 +129,11 @@ export class MessagesRepo {
     });
   }
 
-  async count(sessionId: string, direction: "to_daemon" | "to_user"): Promise<number> {
+  async count(sessionId: string): Promise<number> {
     const row = await this.db
       .selectFrom("messages")
       .select(({ fn }) => fn.countAll().as("c"))
       .where("session_id", "=", sessionId)
-      .where("direction", "=", direction)
       .executeTakeFirstOrThrow();
     return Number(row.c);
   }

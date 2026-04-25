@@ -1,37 +1,41 @@
 /**
  * Pure handlers for the Telegram bot. Each receives `deps` + the relevant
  * pieces of the incoming update and returns the reply(s) the bot should send.
- *
- * Decoupling handlers from grammY's Context object makes them trivial to unit
- * test and re-target (e.g. to a future webhook mode).
  */
 import type { InlineKeyboard } from "grammy";
 import {
+  API_KEY_PREFIX,
   ApiError,
   MAX_INSTRUCTION_BYTES,
   MAX_QUEUE_DEPTH
 } from "@chatcoder/shared";
+import { hashApiKey, validateUserSuppliedKey } from "../db/crypto.js";
+import type { ApiKeysRepo } from "../db/apiKeys.js";
+import type { ProfilesRepo } from "../db/profiles.js";
 import type { SessionsRepo } from "../db/sessions.js";
 import type { MessagesRepo } from "../db/messages.js";
 import type { FlowStore } from "./flows.js";
 import {
   backToMenu,
-  confirmRotationMenu,
-  keyChoiceMenu,
-  mainMenu
+  mainMenu,
+  profilePickerMenu,
+  toolIcon
 } from "./menus.js";
 
 export interface Reply {
   text: string;
   keyboard?: InlineKeyboard;
+  forceReply?: boolean;
+  inputFieldPlaceholder?: string;
   parseMode?: "Markdown" | "HTML";
 }
 
 export interface HandlerDeps {
+  apiKeys: ApiKeysRepo;
+  profiles: ProfilesRepo;
   sessions: SessionsRepo;
   messages: MessagesRepo;
   flows: FlowStore;
-  publicApiUrl: string | undefined;
   /** Heartbeat age (ms) above which the daemon is shown as offline. */
   heartbeatStaleMs?: number;
   now?: () => number;
@@ -40,9 +44,9 @@ export interface HandlerDeps {
 const WELCOME =
   "👋 *Chatcoder*\n\n" +
   "I relay instructions to a `chatcoder-daemon` running on your own machine.\n\n" +
-  "• Tap *New Session* to generate credentials.\n" +
-  "• Send `/code <your instruction>` to queue work.\n" +
-  "• Tap *Response* to read what your daemon replied.\n";
+  "• Tap *New Session* to link this chat to a daemon profile.\n" +
+  "• Tap *Code* to run with session resume, or *New Code* for a fresh run.\n" +
+  "• Your daemon's replies arrive here as messages.\n";
 
 /* =============== /start =============== */
 
@@ -62,105 +66,58 @@ export async function handleStatus(
   deps: HandlerDeps,
   chatId: number
 ): Promise<Reply> {
-  const session = await deps.sessions.getActiveByChatId(chatId);
-  if (!session) {
+  const sessions = await deps.sessions.listActiveByChatId(chatId);
+  if (sessions.length === 0) {
     return {
-      text: "You have no active session. Tap *New Session* to create one.",
+      text: "You have no active sessions. Tap *New Session* to create one.",
       keyboard: mainMenu(),
       parseMode: "Markdown"
     };
   }
-  const [pendInstr, pendResp] = await Promise.all([
-    deps.messages.count(session.id, "to_daemon"),
-    deps.messages.count(session.id, "to_user")
-  ]);
   const now = (deps.now ?? Date.now)();
   const staleMs = deps.heartbeatStaleMs ?? 60_000;
-  const hb = session.lastHeartbeat
-    ? `${Math.round((now - session.lastHeartbeat) / 1000)}s ago`
-    : "never";
-  const alive = session.lastHeartbeat && now - session.lastHeartbeat < staleMs ? "🟢 online" : "🔴 offline";
+  const lines: string[] = [];
+  for (const s of sessions) {
+    const [profile, apiKey, pending] = await Promise.all([
+      deps.profiles.getById(s.profileId),
+      deps.apiKeys.getById(s.apiKeyId),
+      deps.messages.count(s.id)
+    ]);
+    if (!profile || !apiKey) continue;
+    const hbMs = apiKey.lastHeartbeat;
+    const alive =
+      hbMs && now - hbMs < staleMs ? "🟢 online" : "🔴 offline";
+    const hbText = hbMs
+      ? `${Math.round((now - hbMs) / 1000)}s ago`
+      : "never";
+    lines.push(
+      `${toolIcon(profile.tool)} *${profile.name}* \`${apiKey.apiKeyPrefix}…\`\n` +
+        `  ${alive} (heartbeat ${hbText}) · pending *${pending}*/${MAX_QUEUE_DEPTH}`
+    );
+  }
   const text =
-    `*Session* \`${session.apiKeyPrefix}…\`\n` +
-    `Daemon: ${alive} (last heartbeat ${hb})\n` +
-    `Pending instructions → daemon: *${pendInstr}* / ${MAX_QUEUE_DEPTH}\n` +
-    `Pending responses → you: *${pendResp}* / ${MAX_QUEUE_DEPTH}`;
+    `*Active sessions for this chat*\n\n` +
+    lines.join("\n\n") +
+    `\n\nUse *Code* (resume) or *New Code* (fresh) from the menu.`;
   return { text, keyboard: mainMenu(), parseMode: "Markdown" };
 }
 
-/* =============== Response =============== */
-
-export async function handleResponse(
-  deps: HandlerDeps,
-  chatId: number
-): Promise<Reply[]> {
-  const session = await deps.sessions.getActiveByChatId(chatId);
-  if (!session) {
-    return [
-      {
-        text: "No active session. Tap *New Session*.",
-        keyboard: mainMenu(),
-        parseMode: "Markdown"
-      }
-    ];
-  }
-  const msgs = await deps.messages.drain(session.id, "to_user");
-  if (msgs.length === 0) {
-    return [
-      {
-        text: "No pending responses. Your daemon hasn't posted anything back yet.",
-        keyboard: mainMenu()
-      }
-    ];
-  }
-
-  const combined = msgs.map((m) => m.content).join("\n---\n");
-  const chunks = splitForTelegram(combined);
-
-  return chunks.map((chunk, i) => ({
-    text: i === 0 ? `📨 *Response*\n\n\`\`\`\n${chunk}\n\`\`\`` : `\`\`\`\n${chunk}\n\`\`\``,
-    keyboard: i === chunks.length - 1 ? mainMenu() : undefined,
-    parseMode: "Markdown"
-  }));
-}
-
-/* =============== New Session (two-step) =============== */
+/* =============== New Session flow =============== */
 
 export function handleNewSessionRequest(
   deps: HandlerDeps,
   chatId: number,
   telegramUser: number
 ): Reply {
-  deps.flows.set(chatId, telegramUser, { kind: "confirming_rotation" });
+  deps.flows.set(chatId, telegramUser, { kind: "awaiting_api_key" });
   return {
     text:
-      "⚠️ *Creating a new session will REVOKE your current session.*\n" +
-      "Your daemon will stop accepting commands until you reconfigure it.\n\n" +
-      "Are you sure?",
-    keyboard: confirmRotationMenu(),
-    parseMode: "Markdown"
-  };
-}
-
-export function handleNewSessionConfirm(
-  deps: HandlerDeps,
-  chatId: number,
-  telegramUser: number
-): Reply {
-  const s = deps.flows.get(chatId, telegramUser);
-  if (s.kind !== "confirming_rotation") {
-    return {
-      text: "This confirmation expired. Tap *New Session* again.",
-      keyboard: mainMenu(),
-      parseMode: "Markdown"
-    };
-  }
-  deps.flows.set(chatId, telegramUser, { kind: "awaiting_rotation_key" });
-  return {
-    text:
-      "Send me an API key of your own (≥16 chars, no spaces), " +
-      "or tap *Generate for me* and I'll make one.",
-    keyboard: keyChoiceMenu(),
+      "🔗 *Link a daemon session*\n\n" +
+      "Paste the API key from your `chatcoder-daemon` setup (starts with `cc_`).\n" +
+      "Use the reply input box that just opened.\n\n" +
+      "Send `/cancel` to abort.",
+    forceReply: true,
+    inputFieldPlaceholder: "Paste API key (cc_...)",
     parseMode: "Markdown"
   };
 }
@@ -174,93 +131,237 @@ export function handleNewSessionCancel(
   return { text: "Cancelled.", keyboard: mainMenu() };
 }
 
-export async function handleGenerateKey(
+/**
+ * Called when the user sends a text message while in the `awaiting_api_key`
+ * state. Looks up the daemon by api_key hash, validates it has profiles,
+ * and transitions to `awaiting_profile` with a picker.
+ *
+ * Returns null if the user isn't in this flow (so the plain-text fallback
+ * can take over).
+ */
+export async function handleApiKeySubmission(
   deps: HandlerDeps,
   chatId: number,
-  telegramUser: number
-): Promise<Reply> {
-  const s = deps.flows.get(chatId, telegramUser);
-  if (s.kind !== "awaiting_rotation_key") {
+  telegramUser: number,
+  text: string
+): Promise<Reply | null> {
+  const state = deps.flows.get(chatId, telegramUser);
+  const raw = normalizeApiKeyInput(text);
+  if (state.kind !== "awaiting_api_key") {
+    // Recover gracefully if the bot restarted mid-flow or the user pasted
+    // the daemon key directly without tapping "New Session" first.
+    if (!looksLikeDaemonApiKey(raw)) return null;
+    deps.flows.set(chatId, telegramUser, { kind: "awaiting_api_key" });
+  }
+  try {
+    validateUserSuppliedKey(raw);
+  } catch (e) {
     return {
-      text: "Flow expired. Tap *New Session* to start over.",
+      text: `❌ ${(e as Error).message}\n\nPaste a valid key in the reply box, or send \`/cancel\`.`,
+      forceReply: true,
+      inputFieldPlaceholder: "Paste API key (cc_...)",
+      parseMode: "Markdown"
+    };
+  }
+  const apiKey = await deps.apiKeys.getByHash(hashApiKey(raw));
+  if (!apiKey) {
+    return {
+      text:
+        "❌ I don't know that API key.\n" +
+        "Make sure your daemon has run `chatcoder-daemon setup` and connected at least once.\n\n" +
+        "Try again in the reply box, or send `/cancel`.",
+      forceReply: true,
+      inputFieldPlaceholder: "Paste API key (cc_...)",
+      parseMode: "Markdown"
+    };
+  }
+  if (apiKey.status === "revoked") {
+    return {
+      text:
+        "❌ That API key has been revoked. Generate a new one in the daemon.\n\n" +
+        "Paste another key in the reply box, or send `/cancel`.",
+      forceReply: true,
+      inputFieldPlaceholder: "Paste API key (cc_...)",
+      parseMode: "Markdown"
+    };
+  }
+  const profiles = await deps.profiles.listByApiKey(apiKey.id);
+  if (profiles.length === 0) {
+    return {
+      text:
+        "⚠️ This daemon hasn't registered any profiles yet. " +
+        "Run `chatcoder-daemon setup` and add at least one profile.\n\n" +
+        "Paste another key in the reply box, or send `/cancel`.",
+      forceReply: true,
+      inputFieldPlaceholder: "Paste API key (cc_...)",
+      parseMode: "Markdown"
+    };
+  }
+  deps.flows.set(chatId, telegramUser, {
+    kind: "awaiting_profile",
+    apiKeyId: apiKey.id
+  });
+  return {
+    text:
+      `✅ Daemon \`${apiKey.apiKeyPrefix}…\` found. ` +
+      `Pick a profile for this session:`,
+    keyboard: profilePickerMenu(profiles),
+    parseMode: "Markdown"
+  };
+}
+
+function normalizeApiKeyInput(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length >= 2) {
+    const first = trimmed[0];
+    const last = trimmed[trimmed.length - 1];
+    if ((first === "`" || first === "'" || first === "\"") && last === first) {
+      return trimmed.slice(1, -1).trim();
+    }
+  }
+  // Users sometimes paste the key as "/cc_xxx", which Telegram treats as a
+  // command-shaped string; treat it as the same key.
+  if (trimmed.startsWith(`/${API_KEY_PREFIX}`)) return trimmed.slice(1);
+  return trimmed;
+}
+
+function looksLikeDaemonApiKey(raw: string): boolean {
+  return raw.startsWith(API_KEY_PREFIX);
+}
+
+export async function handleProfilePicked(
+  deps: HandlerDeps,
+  chatId: number,
+  telegramUser: number,
+  profileId: string
+): Promise<Reply> {
+  const state = deps.flows.get(chatId, telegramUser);
+  if (state.kind !== "awaiting_profile") {
+    return {
+      text: "This flow expired. Tap *New Session* to start over.",
       keyboard: mainMenu(),
       parseMode: "Markdown"
     };
   }
-  const { rawApiKey } = await deps.sessions.rotate({ chatId });
-  deps.flows.clear(chatId, telegramUser);
-  return deliverNewKeyReply(rawApiKey, deps.publicApiUrl);
-}
-
-export async function handleUserSuppliedKey(
-  deps: HandlerDeps,
-  chatId: number,
-  telegramUser: number,
-  rawApiKey: string
-): Promise<Reply | null> {
-  const s = deps.flows.get(chatId, telegramUser);
-  if (s.kind !== "awaiting_rotation_key") return null;
-  try {
-    const { rawApiKey: stored } = await deps.sessions.rotate({
-      chatId,
-      rawApiKey: rawApiKey.trim()
-    });
-    deps.flows.clear(chatId, telegramUser);
-    return deliverNewKeyReply(stored, deps.publicApiUrl);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Invalid key";
+  const profile = await deps.profiles.getById(profileId);
+  if (!profile || profile.apiKeyId !== state.apiKeyId) {
     return {
-      text: `❌ ${msg}\n\nTry again, or tap *Generate for me*.`,
-      keyboard: keyChoiceMenu(),
-      parseMode: "Markdown"
+      text: "❌ Unknown profile. Tap *New Session* to start over.",
+      keyboard: mainMenu()
     };
   }
-}
-
-function deliverNewKeyReply(rawApiKey: string, publicApiUrl: string | undefined): Reply {
-  const url = publicApiUrl ?? "https://<your-bot-api>";
+  const session = await deps.sessions.create({
+    chatId,
+    apiKeyId: state.apiKeyId,
+    profileId
+  });
+  deps.flows.clear(chatId, telegramUser);
   return {
     text:
-      "✅ *Session created.* This key is shown once — copy it now.\n\n" +
-      `\`\`\`\nAPI URL: ${url}\nAPI KEY: ${rawApiKey}\n\`\`\`\n\n` +
-      "On your remote machine:\n" +
-      "```\n" +
-      "node packages/daemon/dist/main.js setup\n" +
-      "node packages/daemon/dist/main.js run\n" +
-      "```",
+      `✅ *Session linked.*\n` +
+      `${toolIcon(profile.tool)} profile: \`${profile.name}\`\n` +
+      `session id: \`${session.id.slice(0, 8)}\`\n\n` +
+      `Use *Code* (resume) or *New Code* (fresh) from the menu to dispatch.`,
     keyboard: backToMenu(),
     parseMode: "Markdown"
   };
 }
 
-/* =============== /code instruction =============== */
+/* =============== Instruction flows =============== */
 
-const CODE_PATTERN = /^\/code(?:@\S+)?(?:\s+([\s\S]*))?$/;
+export function handleCodeRequest(
+  deps: HandlerDeps,
+  chatId: number,
+  telegramUser: number
+): Reply {
+  deps.flows.set(chatId, telegramUser, {
+    kind: "awaiting_instruction",
+    resumeLastSession: true
+  });
+  return {
+    text:
+      "💻 *Code (resume)*\n\n" +
+      "Enter the instruction for your daemon. This will resume the last CLI session.\n\n" +
+      "Send `/cancel` to abort.",
+    forceReply: true,
+    inputFieldPlaceholder: "Instruction (resume last session)",
+    parseMode: "Markdown"
+  };
+}
 
-/** Returns null when message isn't a /code command. */
-export function parseCodeCommand(text: string): string | null {
-  const m = CODE_PATTERN.exec(text);
-  if (!m) return null;
-  return (m[1] ?? "").trim();
+export function handleNewCodeRequest(
+  deps: HandlerDeps,
+  chatId: number,
+  telegramUser: number
+): Reply {
+  deps.flows.set(chatId, telegramUser, {
+    kind: "awaiting_instruction",
+    resumeLastSession: false
+  });
+  return {
+    text:
+      "🆕 *New Code (fresh)*\n\n" +
+      "Enter the instruction for your daemon. This will start a fresh CLI run.\n\n" +
+      "Send `/cancel` to abort.",
+    forceReply: true,
+    inputFieldPlaceholder: "Instruction (fresh run)",
+    parseMode: "Markdown"
+  };
+}
+
+export async function handleInstructionSubmission(
+  deps: HandlerDeps,
+  chatId: number,
+  telegramUser: number,
+  text: string
+): Promise<Reply | null> {
+  const state = deps.flows.get(chatId, telegramUser);
+  if (state.kind !== "awaiting_instruction") return null;
+
+  const instruction = text.trim();
+  if (instruction.length === 0) {
+    return {
+      text: "❌ Instruction cannot be empty. Enter a message or send `/cancel`.",
+      forceReply: true,
+      inputFieldPlaceholder: state.resumeLastSession
+        ? "Instruction (resume last session)"
+        : "Instruction (fresh run)",
+      parseMode: "Markdown"
+    };
+  }
+  if (instruction.length > MAX_INSTRUCTION_BYTES) {
+    return {
+      text:
+        `❌ Instruction exceeds ${MAX_INSTRUCTION_BYTES} bytes.\n` +
+        "Send a shorter instruction or `/cancel`.",
+      forceReply: true,
+      inputFieldPlaceholder: state.resumeLastSession
+        ? "Instruction (resume last session)"
+        : "Instruction (fresh run)",
+      parseMode: "Markdown"
+    };
+  }
+
+  const reply = await handleCode(deps, chatId, instruction, state.resumeLastSession);
+  deps.flows.clear(chatId, telegramUser);
+  return reply;
 }
 
 export async function handleCode(
   deps: HandlerDeps,
   chatId: number,
-  instruction: string
+  instruction: string,
+  resumeLastSession = true
 ): Promise<Reply> {
   if (instruction.length === 0) {
-    return {
-      text: "Usage: `/code <instruction>`\nExample: `/code add tests for src/foo.ts`",
-      parseMode: "Markdown"
-    };
+    return { text: "❌ Instruction cannot be empty." };
   }
   if (instruction.length > MAX_INSTRUCTION_BYTES) {
     return {
       text: `❌ Instruction exceeds ${MAX_INSTRUCTION_BYTES} bytes. Shorten and retry.`
     };
   }
-  const session = await deps.sessions.getActiveByChatId(chatId);
+  const session = await deps.sessions.getLatestActiveByChatId(chatId);
   if (!session) {
     return {
       text: "No active session. Tap *New Session* first.",
@@ -272,7 +373,7 @@ export async function handleCode(
   if (!ok) {
     throw ApiError.rateLimited();
   }
-  const pending = await deps.messages.count(session.id, "to_daemon");
+  const pending = await deps.messages.count(session.id);
   if (pending >= MAX_QUEUE_DEPTH) {
     return {
       text: `❌ Queue full (${MAX_QUEUE_DEPTH} pending). Wait for your daemon to drain it.`
@@ -280,10 +381,13 @@ export async function handleCode(
   }
   await deps.messages.enqueue({
     sessionId: session.id,
-    direction: "to_daemon",
-    content: instruction
+    content: instruction,
+    resumeLastSession
   });
-  return { text: "📥 Queued for daemon." };
+  const profile = await deps.profiles.getById(session.profileId);
+  const suffix = profile ? ` → \`${profile.name}\`` : "";
+  const mode = resumeLastSession ? "resume" : "fresh";
+  return { text: `📥 Queued for daemon${suffix} (${mode}).`, parseMode: "Markdown" };
 }
 
 /* =============== Plain text fallback =============== */
@@ -291,28 +395,10 @@ export async function handleCode(
 export function handlePlainText(): Reply {
   return {
     text:
-      "To send an instruction to your daemon, prefix it with `/code`.\n" +
-      "Example: `/code list failing tests`",
+      "Use the menu buttons to send instructions:\n" +
+      "• *Code* = resume last session\n" +
+      "• *New Code* = fresh run",
     keyboard: mainMenu(),
     parseMode: "Markdown"
   };
-}
-
-function splitForTelegram(s: string): string[] {
-  // Telegram message cap is 4096 chars; we use a safe limit for Markdown overhead.
-  const LIMIT = 3800;
-  const chunks: string[] = [];
-  let current = s;
-  while (current.length > 0) {
-    if (current.length <= LIMIT) {
-      chunks.push(current);
-      break;
-    }
-    // Try to split on a newline if possible.
-    let splitAt = current.lastIndexOf("\n", LIMIT);
-    if (splitAt < LIMIT * 0.8) splitAt = LIMIT; // fallback if no newline nearby
-    chunks.push(current.slice(0, splitAt));
-    current = current.slice(splitAt).trimStart();
-  }
-  return chunks;
 }

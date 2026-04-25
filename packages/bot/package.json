@@ -10,6 +10,14 @@
       "types": "./dist/db/index.d.ts",
       "import": "./dist/db/index.js"
     },
+    "./db/apiKeys": {
+      "types": "./dist/db/apiKeys.d.ts",
+      "import": "./dist/db/apiKeys.js"
+    },
+    "./db/profiles": {
+      "types": "./dist/db/profiles.d.ts",
+      "import": "./dist/db/profiles.js"
+    },
     "./db/sessions": {
       "types": "./dist/db/sessions.d.ts",
       "import": "./dist/db/sessions.js"

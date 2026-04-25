@@ -38,6 +38,20 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
+const sampleSession = {
+  id: "s1",
+  chatId: 42,
+  apiKeyId: "a1",
+  apiKeyPrefix: "cc_abcd",
+  apiKeyLastHeartbeat: null,
+  profileId: "p1",
+  profileName: "main",
+  profileTool: "CLAUDE_CODE" as const,
+  status: "active" as const,
+  createdAt: 0,
+  revokedAt: null
+};
+
 describe("listSessions", () => {
   it("serialises filter into query string and parses the envelope", async () => {
     responder = (call) => {
@@ -45,10 +59,7 @@ describe("listSessions", () => {
         `${BOT_API_URL}/v1/admin/sessions?status=active&chatId=42&limit=10&offset=0`
       );
       expect(call.method).toBe("GET");
-      return {
-        status: 200,
-        body: { sessions: [], total: 0 }
-      };
+      return { status: 200, body: { sessions: [], total: 0 } };
     };
     const out = await api.listSessions({
       status: "active",
@@ -57,7 +68,14 @@ describe("listSessions", () => {
       offset: 0
     });
     expect(out.total).toBe(0);
-    expect(out.sessions).toEqual([]);
+  });
+
+  it("adds apiKeyId to the query when supplied", async () => {
+    responder = (call) => {
+      expect(call.url).toBe(`${BOT_API_URL}/v1/admin/sessions?apiKeyId=a1`);
+      return { status: 200, body: { sessions: [], total: 0 } };
+    };
+    await api.listSessions({ apiKeyId: "a1" });
   });
 
   it("omits undefined query params", async () => {
@@ -77,30 +95,58 @@ describe("listSessions", () => {
   });
 });
 
-describe("createSession", () => {
-  it("POSTs JSON body and parses envelope", async () => {
-    responder = (call) => {
-      expect(call.method).toBe("POST");
-      expect(call.body).toEqual({ chatId: 7, rawApiKey: "some-key" });
-      return {
-        status: 200,
-        body: {
-          session: {
-            id: "s1",
-            chatId: 7,
+describe("api-keys endpoints", () => {
+  it("listApiKeys parses envelope", async () => {
+    responder = () => ({
+      status: 200,
+      body: {
+        apiKeys: [
+          {
+            id: "a1",
             apiKeyPrefix: "cc_abcd",
             status: "active",
             createdAt: 0,
             revokedAt: null,
             lastHeartbeat: null
-          },
-          rawApiKey: "some-key"
-        }
-      };
-    };
-    const out = await api.createSession({ chatId: 7, rawApiKey: "some-key" });
-    expect(out.rawApiKey).toBe("some-key");
-    expect(out.session.id).toBe("s1");
+          }
+        ],
+        total: 1
+      }
+    });
+    const out = await api.listApiKeys();
+    expect(out.total).toBe(1);
+  });
+
+  it("getApiKeyDetail returns null on 404 and envelope on 200", async () => {
+    responder = () => ({ status: 404, body: {} });
+    expect(await api.getApiKeyDetail("nope")).toBeNull();
+
+    responder = () => ({
+      status: 200,
+      body: {
+        apiKey: {
+          id: "a1",
+          apiKeyPrefix: "cc_abcd",
+          status: "active",
+          createdAt: 0,
+          revokedAt: null,
+          lastHeartbeat: null
+        },
+        profiles: [],
+        sessions: []
+      }
+    });
+    const out = await api.getApiKeyDetail("a1");
+    expect(out?.apiKey.id).toBe("a1");
+  });
+
+  it("revokeApiKey / deleteApiKey booleans", async () => {
+    responder = () => ({ status: 200, body: { ok: true } });
+    expect(await api.revokeApiKey("a1")).toBe(true);
+    expect(await api.deleteApiKey("a1")).toBe(true);
+    responder = () => ({ status: 404, body: {} });
+    expect(await api.revokeApiKey("a1")).toBe(false);
+    expect(await api.deleteApiKey("a1")).toBe(false);
   });
 });
 
@@ -118,22 +164,13 @@ describe("getSessionDetail", () => {
     responder = () => ({
       status: 200,
       body: {
-        session: {
-          id: "s1",
-          chatId: 1,
-          apiKeyPrefix: "cc_abcd",
-          status: "active",
-          createdAt: 0,
-          revokedAt: null,
-          lastHeartbeat: null
-        },
-        pendingToDaemon: 2,
-        pendingToUser: 1,
+        session: sampleSession,
+        pending: 2,
         messages: []
       }
     });
     const out = await api.getSessionDetail("s1");
-    expect(out?.pendingToDaemon).toBe(2);
+    expect(out?.pending).toBe(2);
   });
 
   it("throws on 500", async () => {
@@ -146,14 +183,6 @@ describe("getSessionDetail", () => {
 });
 
 describe("session mutation endpoints", () => {
-  it("updateSession returns true on 200 and false on 404", async () => {
-    responder = () => ({ status: 200, body: { ok: true } });
-    expect(await api.updateSession("s1", { chatId: 9 })).toBe(true);
-
-    responder = () => ({ status: 404, body: { error: { code: "NOT_FOUND", message: "" } } });
-    expect(await api.updateSession("s1", { chatId: 9 })).toBe(false);
-  });
-
   it("revokeSession + deleteSession + purgeSession all boolean", async () => {
     responder = () => ({ status: 200, body: { ok: true } });
     expect(await api.revokeSession("s1")).toBe(true);
@@ -166,35 +195,12 @@ describe("session mutation endpoints", () => {
     expect(await api.purgeSession("s1")).toBe(false);
   });
 
-  it("rotateSession returns null on 404, envelope on 200", async () => {
-    responder = () => ({ status: 404, body: {} });
-    expect(await api.rotateSession("s1", {})).toBeNull();
-
+  it("deleteSession surfaces non-2xx/404 as ApiClientError", async () => {
     responder = () => ({
-      status: 200,
-      body: {
-        session: {
-          id: "s2",
-          chatId: 1,
-          apiKeyPrefix: "cc_ef",
-          status: "active",
-          createdAt: 0,
-          revokedAt: null,
-          lastHeartbeat: null
-        },
-        rawApiKey: "new-key"
-      }
+      status: 500,
+      body: { error: { code: "INTERNAL", message: "boom" } }
     });
-    const out = await api.rotateSession("s1", { rawApiKey: "new-key" });
-    expect(out?.rawApiKey).toBe("new-key");
-  });
-
-  it("updateSession surfaces non-2xx/404 as ApiClientError", async () => {
-    responder = () => ({
-      status: 400,
-      body: { error: { code: "VALIDATION_ERROR", message: "bad chatId" } }
-    });
-    await expect(api.updateSession("s1", { chatId: 1 })).rejects.toBeInstanceOf(ApiClientError);
+    await expect(api.deleteSession("s1")).rejects.toBeInstanceOf(ApiClientError);
   });
 });
 
@@ -204,44 +210,28 @@ describe("message endpoints", () => {
     expect((await api.listMessages("s1")).messages).toEqual([]);
   });
 
-  it("enqueueMessage returns null on 404", async () => {
+  it("enqueueMessage returns null on 404 and envelope on 200", async () => {
     responder = () => ({ status: 404, body: {} });
-    expect(await api.enqueueMessage("s1", { direction: "to_daemon", content: "x" })).toBeNull();
-  });
+    expect(await api.enqueueMessage("s1", { content: "x" })).toBeNull();
 
-  it("enqueueMessage returns envelope on 200", async () => {
     responder = () => ({
       status: 200,
       body: {
-        message: {
-          id: "m1",
-          sessionId: "s1",
-          direction: "to_daemon",
-          content: "x",
-          createdAt: 1
-        },
+        message: { id: "m1", sessionId: "s1", content: "x", createdAt: 1 },
         droppedOldestId: null
       }
     });
-    const out = await api.enqueueMessage("s1", { direction: "to_daemon", content: "x" });
+    const out = await api.enqueueMessage("s1", { content: "x" });
     expect(out?.message.id).toBe("m1");
   });
 
-  it("getMessage returns null on 404", async () => {
+  it("getMessage returns null on 404 and envelope on 200", async () => {
     responder = () => ({ status: 404, body: {} });
     expect(await api.getMessage("nope")).toBeNull();
-  });
 
-  it("getMessage parses on 200", async () => {
     responder = () => ({
       status: 200,
-      body: {
-        id: "m1",
-        sessionId: "s1",
-        direction: "to_user",
-        content: "hi",
-        createdAt: 1
-      }
+      body: { id: "m1", sessionId: "s1", content: "hi", createdAt: 1 }
     });
     const m = await api.getMessage("m1");
     expect(m?.content).toBe("hi");
@@ -259,12 +249,6 @@ describe("message endpoints", () => {
 });
 
 describe("transport details", () => {
-  it("handles empty body gracefully", async () => {
-    responder = () => ({ status: 200, body: { ok: true } });
-    const ok = await api.revokeSession("s1");
-    expect(ok).toBe(true);
-  });
-
   it("passes method+path for DELETE", async () => {
     responder = (call) => {
       expect(call.method).toBe("DELETE");

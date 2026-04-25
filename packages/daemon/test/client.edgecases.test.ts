@@ -16,7 +16,7 @@ describe("ApiClient edge cases", () => {
       fetchImpl
     });
     await expect(c.heartbeat()).rejects.toThrow(/ECONNREFUSED/);
-    expect(tries).toBe(3); // initial + 2 retries
+    expect(tries).toBe(3);
   });
 
   it("handles error response whose body isn't JSON", async () => {
@@ -27,7 +27,9 @@ describe("ApiClient edge cases", () => {
       retries: 0,
       fetchImpl
     });
-    await expect(c.postResponse({ content: "x" })).rejects.toThrow(/INTERNAL: HTTP 400/);
+    await expect(
+      c.postResponse({ sessionId: "s", content: "x" })
+    ).rejects.toThrow(/INTERNAL: HTTP 400/);
   });
 
   it("does not retry 4xx client errors", async () => {
@@ -48,7 +50,9 @@ describe("ApiClient edge cases", () => {
       backoffMs: 1,
       fetchImpl: countingFetch
     });
-    await expect(c.postResponse({ content: "x" })).rejects.toBeInstanceOf(ApiClientError);
+    await expect(
+      c.postResponse({ sessionId: "s", content: "x" })
+    ).rejects.toBeInstanceOf(ApiClientError);
     expect(tries).toBe(1);
   });
 });

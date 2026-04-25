@@ -1,11 +1,12 @@
 import {
   API_PATHS,
+  DaemonRegisterResponse,
   ERROR_CODES,
+  PollResponse,
   type ApiErrorEnvelope,
-  type DaemonMessage,
+  type DaemonRegisterBody,
   type HeartbeatBody,
   type HeartbeatResponse,
-  type PollResponse,
   type PostResponseBody
 } from "@chatcoder/shared";
 
@@ -48,21 +49,22 @@ export class ApiClient {
     this.backoffMs = opts.backoffMs ?? 500;
   }
 
+  async register(body: DaemonRegisterBody): Promise<DaemonRegisterResponse> {
+    const res = await this.request<unknown>("POST", API_PATHS.daemonRegister, body);
+    return DaemonRegisterResponse.parse(res);
+  }
+
   async heartbeat(body: HeartbeatBody = {}): Promise<HeartbeatResponse> {
     return this.request<HeartbeatResponse>("POST", API_PATHS.heartbeat, body);
   }
 
-  async poll(): Promise<{ messages: DaemonMessage[]; reset: boolean }> {
-    const res = await this.request<PollResponse>("GET", API_PATHS.poll);
-    return { messages: res.messages, reset: res.reset };
+  async poll(): Promise<PollResponse> {
+    const res = await this.request<unknown>("GET", API_PATHS.poll);
+    return PollResponse.parse(res);
   }
 
-  async postResponse(body: PostResponseBody): Promise<{ droppedOldestId: string | null }> {
-    return this.request<{ droppedOldestId: string | null }>(
-      "POST",
-      API_PATHS.responses,
-      body
-    );
+  async postResponse(body: PostResponseBody): Promise<{ ok: true }> {
+    return this.request<{ ok: true }>("POST", API_PATHS.responses, body);
   }
 
   private async request<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {

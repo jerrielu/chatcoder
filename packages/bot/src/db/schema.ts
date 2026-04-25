@@ -1,22 +1,41 @@
 import type { ColumnType, Generated } from "kysely";
 
-export interface SessionsTable {
+export interface ApiKeysTable {
   id: string;
-  chat_id: number;
   api_key_hash: string;
   api_key_prefix: string;
   status: "active" | "revoked";
   created_at: number;
   revoked_at: number | null;
   last_heartbeat: number | null;
+}
+
+export interface ProfilesTable {
+  id: string;
+  api_key_id: string;
+  name: string;
+  tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+  metadata: string | null;
+  created_at: number;
+}
+
+export interface SessionsTable {
+  id: string;
+  chat_id: number;
+  api_key_id: string;
+  profile_id: string;
+  status: "active" | "revoked";
+  created_at: number;
+  revoked_at: number | null;
   last_code_at: number;
 }
 
 export interface MessagesTable {
   id: string;
   session_id: string;
-  direction: "to_daemon" | "to_user";
   content: string;
+  /** 1 = resume existing CLI session, 0 = start fresh. */
+  resume_last_session: number;
   created_at: number;
 }
 
@@ -26,6 +45,8 @@ export interface SchemaVersionTable {
 }
 
 export interface Database {
+  api_keys: ApiKeysTable;
+  profiles: ProfilesTable;
   sessions: SessionsTable;
   messages: MessagesTable;
   schema_version: SchemaVersionTable;

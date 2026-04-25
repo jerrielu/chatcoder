@@ -1,5 +1,4 @@
-import { FormEvent, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { AdminSession } from "@chatcoder/shared";
 import * as api from "../api/client";
 import { HEARTBEAT_STALE_MS } from "../config";
@@ -11,16 +10,19 @@ const DEFAULT_LIMIT = 50;
 function parseFilter(params: URLSearchParams): {
   status?: "active" | "revoked";
   chatId?: number;
+  apiKeyId?: string;
   limit: number;
   offset: number;
 } {
   const status = params.get("status");
   const chatId = params.get("chatId");
+  const apiKeyId = params.get("apiKeyId") ?? undefined;
   const limit = Number(params.get("limit") ?? DEFAULT_LIMIT);
   const offset = Number(params.get("offset") ?? 0);
   return {
     ...(status === "active" || status === "revoked" ? { status } : {}),
     ...(chatId ? { chatId: Number(chatId) } : {}),
+    ...(apiKeyId ? { apiKeyId } : {}),
     limit: Number.isFinite(limit) && limit > 0 ? limit : DEFAULT_LIMIT,
     offset: Number.isFinite(offset) && offset >= 0 ? offset : 0
   };
@@ -29,49 +31,19 @@ function parseFilter(params: URLSearchParams): {
 export function SessionsPage(): JSX.Element {
   const [params, setParams] = useSearchParams();
   const filter = parseFilter(params);
-  const navigate = useNavigate();
 
-  const { data, error, loading, refresh } = usePolling(
+  const { data, error, loading } = usePolling(
     () => api.listSessions(filter),
     15_000,
-    [filter.status, filter.chatId, filter.limit, filter.offset]
+    [filter.status, filter.chatId, filter.apiKeyId, filter.limit, filter.offset]
   );
-
-  const [createdKey, setCreatedKey] = useState<string | null>(null);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  const handleCreate = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const fd = new FormData(form);
-    const chatId = Number(fd.get("chatId"));
-    const rawApiKey = String(fd.get("rawApiKey") ?? "").trim() || undefined;
-    if (!Number.isFinite(chatId)) {
-      setCreateError("chatId must be numeric");
-      return;
-    }
-    setCreateError(null);
-    try {
-      const res = await api.createSession({
-        chatId,
-        ...(rawApiKey ? { rawApiKey } : {})
-      });
-      setCreatedKey(res.rawApiKey);
-      form.reset();
-      refresh();
-      navigate(`/sessions/${res.session.id}`, {
-        state: { flashKey: res.rawApiKey }
-      });
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : String(err));
-    }
-  };
 
   const updateFilter = (next: Partial<ReturnType<typeof parseFilter>>): void => {
     const merged = { ...filter, ...next };
     const obj: Record<string, string> = {};
     if (merged.status) obj.status = merged.status;
     if (merged.chatId !== undefined) obj.chatId = String(merged.chatId);
+    if (merged.apiKeyId) obj.apiKeyId = merged.apiKeyId;
     obj.limit = String(merged.limit);
     obj.offset = String(merged.offset);
     setParams(obj);
@@ -80,12 +52,11 @@ export function SessionsPage(): JSX.Element {
   return (
     <>
       <h1>Sessions</h1>
-      {createdKey && (
-        <div className="flash">
-          Raw API key (shown once — copy now):{"\n\n"}
-          {createdKey}
-        </div>
-      )}
+      <p className="muted">
+        Sessions are created from Telegram — users paste a daemon API key,
+        pick a profile, and the bot links their chat to that profile. There
+        is no "create session" button here.
+      </p>
       {error && !loading && (
         <div className="error-box">
           Failed to load sessions: {error.message}
@@ -99,11 +70,13 @@ export function SessionsPage(): JSX.Element {
           const fd = new FormData(e.currentTarget);
           const statusVal = String(fd.get("status") ?? "");
           const chatVal = String(fd.get("chatId") ?? "");
+          const apiVal = String(fd.get("apiKeyId") ?? "").trim();
           updateFilter({
             ...(statusVal === "active" || statusVal === "revoked"
               ? { status: statusVal }
               : { status: undefined }),
             ...(chatVal ? { chatId: Number(chatVal) } : { chatId: undefined }),
+            ...(apiVal ? { apiKeyId: apiVal } : { apiKeyId: undefined }),
             offset: 0
           });
         }}
@@ -120,25 +93,13 @@ export function SessionsPage(): JSX.Element {
           Chat ID:
           <input type="number" name="chatId" defaultValue={filter.chatId ?? ""} />
         </label>
+        <label>
+          API key ID:
+          <input type="text" name="apiKeyId" defaultValue={filter.apiKeyId ?? ""} />
+        </label>
         <button type="submit">Filter</button>
         <Link className="link" to="/sessions">Clear</Link>
       </form>
-
-      <div className="card">
-        <h2>Create a session</h2>
-        <form className="row" onSubmit={handleCreate}>
-          <label>
-            Chat ID (numeric):
-            <input type="number" name="chatId" required />
-          </label>
-          <label>
-            API key (optional, ≥16 chars):
-            <input type="text" name="rawApiKey" minLength={16} />
-          </label>
-          <button type="submit">Create</button>
-          {createError && <span className="muted" style={{ color: "#b73030" }}>{createError}</span>}
-        </form>
-      </div>
 
       <SessionsTable
         sessions={data?.sessions ?? []}
@@ -171,20 +132,34 @@ function SessionsTable({
       <tr key={s.id}>
         <td>
           <Link className="link" to={`/sessions/${s.id}`}>
-            {s.apiKeyPrefix}…
+            {s.id.slice(0, 8)}…
           </Link>
         </td>
-        <td>{s.chatId}</td>
-        <td><StatusBadge status={s.status} /></td>
         <td>
-          <HeartbeatBadge lastHeartbeat={s.lastHeartbeat} now={now} staleMs={HEARTBEAT_STALE_MS} />
+          <code>{s.apiKeyPrefix}…</code>
         </td>
-        <td><Timestamp value={s.createdAt} /></td>
+        <td>
+          {s.profileName} <span className="muted">({s.profileTool})</span>
+        </td>
+        <td>{s.chatId}</td>
+        <td>
+          <StatusBadge status={s.status} />
+        </td>
+        <td>
+          <HeartbeatBadge
+            lastHeartbeat={s.apiKeyLastHeartbeat}
+            now={now}
+            staleMs={HEARTBEAT_STALE_MS}
+          />
+        </td>
+        <td>
+          <Timestamp value={s.createdAt} />
+        </td>
       </tr>
     ))
   ) : (
     <tr>
-      <td colSpan={5} className="muted">
+      <td colSpan={7} className="muted">
         {loading ? "Loading…" : `No sessions match the current filter (${total} total).`}
       </td>
     </tr>
@@ -194,7 +169,9 @@ function SessionsTable({
     <table>
       <thead>
         <tr>
-          <th>Key</th>
+          <th>Session</th>
+          <th>API key</th>
+          <th>Profile</th>
           <th>Chat ID</th>
           <th>Status</th>
           <th>Daemon</th>

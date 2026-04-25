@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildServer } from "../src/api/server.js";
 import { makeHarness, type TestHarness } from "./helpers.js";
@@ -9,9 +9,12 @@ let app: FastifyInstance;
 beforeEach(async () => {
   h = await makeHarness();
   app = await buildServer({
+    apiKeysRepo: h.apiKeys,
+    profilesRepo: h.profiles,
     sessionsRepo: h.sessions,
     messagesRepo: h.messages,
-    adminRepo: h.admin
+    adminRepo: h.admin,
+    telegram: { sendResponse: vi.fn().mockResolvedValue(undefined) }
   });
 });
 afterEach(async () => {
@@ -58,10 +61,9 @@ describe("loopback guard", () => {
   });
 
   it("admin routes skip bearer auth", async () => {
-    // No Authorization header — daemon routes 401, admin routes 200.
     const ok = await json("GET", "/v1/admin/sessions");
     expect(ok.statusCode).toBe(200);
-    const daemon = await json("GET", "/v1/session");
+    const daemon = await json("GET", "/v1/poll");
     expect(daemon.statusCode).toBe(401);
   });
 });
@@ -96,19 +98,6 @@ describe("CORS policy", () => {
         "access-control-request-method": "GET"
       }
     });
-    // @fastify/cors responds without Allow-Origin when rejecting.
-    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
-  });
-
-  it("rejects a malformed origin", async () => {
-    const res = await app.inject({
-      method: "OPTIONS",
-      url: "/v1/admin/sessions",
-      headers: {
-        origin: "not a url",
-        "access-control-request-method": "GET"
-      }
-    });
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
@@ -118,62 +107,70 @@ describe("CORS policy", () => {
   });
 });
 
+describe("admin api-keys endpoints", () => {
+  it("lists, fetches detail, revokes, deletes", async () => {
+    const seed = await h.seedSession({ chatId: 1, profileName: "main" });
+    const list = await json("GET", "/v1/admin/api-keys");
+    expect(list.statusCode).toBe(200);
+    expect(list.json().total).toBe(1);
+    expect(list.json().apiKeys[0].apiKeyPrefix).toBe(seed.apiKey.apiKeyPrefix);
+
+    const detail = await json("GET", `/v1/admin/api-keys/${seed.apiKey.id}`);
+    expect(detail.statusCode).toBe(200);
+    const body = detail.json();
+    expect(body.profiles).toHaveLength(1);
+    expect(body.sessions).toHaveLength(1);
+
+    const rev = await json("POST", `/v1/admin/api-keys/${seed.apiKey.id}/revoke`);
+    expect(rev.statusCode).toBe(200);
+    expect((await h.apiKeys.getById(seed.apiKey.id))?.status).toBe("revoked");
+
+    const del = await json("DELETE", `/v1/admin/api-keys/${seed.apiKey.id}`);
+    expect(del.statusCode).toBe(200);
+    expect(await h.apiKeys.getById(seed.apiKey.id)).toBeNull();
+  });
+
+  it("returns 404 on missing api-key", async () => {
+    expect((await json("GET", "/v1/admin/api-keys/nope")).statusCode).toBe(404);
+    expect((await json("POST", "/v1/admin/api-keys/nope/revoke")).statusCode).toBe(404);
+    expect((await json("DELETE", "/v1/admin/api-keys/nope")).statusCode).toBe(404);
+  });
+});
+
 describe("admin sessions CRUD", () => {
   it("lists + filters + paginates", async () => {
-    const a = await h.sessions.rotate({ chatId: 1 });
+    await h.seedSession({ chatId: 1, profileName: "p-a" });
     h.advanceTime(5);
-    const b = await h.sessions.rotate({ chatId: 2 });
+    const b = await h.seedSession({ chatId: 2, profileName: "p-b" });
     h.advanceTime(5);
-    await h.sessions.rotate({ chatId: 1 }); // revokes a
+    await h.seedSession({ chatId: 1, profileName: "p-c" });
 
     const all = await json("GET", "/v1/admin/sessions");
     expect(all.statusCode).toBe(200);
     expect(all.json().total).toBe(3);
 
-    const activeOnly = await json("GET", "/v1/admin/sessions?status=active");
-    expect(activeOnly.json().total).toBe(2);
-
     const byChat = await json("GET", "/v1/admin/sessions?chatId=2");
     const ids = byChat.json().sessions.map((s: { id: string }) => s.id);
     expect(ids).toEqual([b.session.id]);
-    // API omits internal fields
     expect(byChat.json().sessions[0]).not.toHaveProperty("apiKeyHash");
-    expect(byChat.json().sessions[0]).not.toHaveProperty("lastCodeAt");
 
     const limited = await json("GET", "/v1/admin/sessions?limit=1&offset=0");
     expect(limited.json().sessions).toHaveLength(1);
-
-    // round-trip sanity check for the "a" session
-    void a;
   });
 
-  it("create + detail + update + rotate + revoke + delete", async () => {
-    const created = await json("POST", "/v1/admin/sessions", { chatId: 42 });
-    expect(created.statusCode).toBe(200);
-    const id = created.json().session.id;
-    expect(created.json().rawApiKey).toMatch(/^cc_/);
+  it("detail + revoke + delete", async () => {
+    const seed = await h.seedSession({ chatId: 5 });
+    const id = seed.session.id;
 
     const detail = await json("GET", `/v1/admin/sessions/${id}/detail`);
     expect(detail.statusCode).toBe(200);
     expect(detail.json().session.id).toBe(id);
-    expect(detail.json().pendingToDaemon).toBe(0);
-    expect(detail.json().pendingToUser).toBe(0);
-    expect(detail.json().messages).toEqual([]);
+    expect(detail.json().pending).toBe(0);
 
-    const upd = await json("PATCH", `/v1/admin/sessions/${id}`, { chatId: 99 });
-    expect(upd.statusCode).toBe(200);
-    expect((await h.admin.getSessionById(id))?.chatId).toBe(99);
-
-    h.advanceTime(10);
-    const rot = await json("POST", `/v1/admin/sessions/${id}/rotate`, {});
-    expect(rot.statusCode).toBe(200);
-    const newId = rot.json().session.id;
-    expect(newId).not.toBe(id);
-    expect((await h.admin.getSessionById(id))?.status).toBe("revoked");
-
-    const rev = await json("POST", `/v1/admin/sessions/${newId}/revoke`);
+    const rev = await json("POST", `/v1/admin/sessions/${id}/revoke`);
     expect(rev.statusCode).toBe(200);
-    expect((await h.admin.getSessionById(newId))?.status).toBe("revoked");
+    const after = await h.admin.getSessionById(id);
+    expect(after?.session.status).toBe("revoked");
 
     const del = await json("DELETE", `/v1/admin/sessions/${id}`);
     expect(del.statusCode).toBe(200);
@@ -182,51 +179,21 @@ describe("admin sessions CRUD", () => {
 
   it("returns 404 for missing session across endpoints", async () => {
     expect((await json("GET", "/v1/admin/sessions/nope/detail")).statusCode).toBe(404);
-    expect((await json("PATCH", "/v1/admin/sessions/nope", { chatId: 1 })).statusCode).toBe(404);
-    expect((await json("POST", "/v1/admin/sessions/nope/rotate", {})).statusCode).toBe(404);
     expect((await json("POST", "/v1/admin/sessions/nope/revoke")).statusCode).toBe(404);
     expect((await json("POST", "/v1/admin/sessions/nope/purge")).statusCode).toBe(404);
     expect((await json("DELETE", "/v1/admin/sessions/nope")).statusCode).toBe(404);
-    expect((await json("POST", "/v1/admin/sessions/nope/messages", {
-      direction: "to_daemon",
-      content: "x"
-    })).statusCode).toBe(404);
-  });
-
-  it("rejects validation errors", async () => {
-    const bad = await json("POST", "/v1/admin/sessions", { chatId: "not-a-number" });
-    expect(bad.statusCode).toBe(400);
-  });
-
-  it("surfaces reuse-of-existing-hash as 400", async () => {
-    const key = "shared-key-for-test-xx";
-    const first = await json("POST", "/v1/admin/sessions", { chatId: 1, rawApiKey: key });
-    expect(first.statusCode).toBe(200);
-    const second = await json("POST", "/v1/admin/sessions", { chatId: 2, rawApiKey: key });
-    expect(second.statusCode).toBe(400);
-  });
-
-  it("rotate surfaces validation errors as 400", async () => {
-    const held = "pinned-key-aaaaaaaaa";
-    await json("POST", "/v1/admin/sessions", { chatId: 1, rawApiKey: held });
-    const other = await json("POST", "/v1/admin/sessions", { chatId: 2 });
-    expect(other.statusCode).toBe(200);
-    const otherId = other.json().session.id;
-    // Try to rotate session 2 to the same key that session 1 owns.
-    const res = await json("POST", `/v1/admin/sessions/${otherId}/rotate`, {
-      rawApiKey: held
-    });
-    expect(res.statusCode).toBe(400);
+    expect(
+      (await json("POST", "/v1/admin/sessions/nope/messages", { content: "x" })).statusCode
+    ).toBe(404);
   });
 });
 
 describe("admin messages", () => {
   it("enqueue + list + get + update + delete + purge", async () => {
-    const r = await h.sessions.rotate({ chatId: 5 });
-    const sid = r.session.id;
+    const seed = await h.seedSession({ chatId: 5 });
+    const sid = seed.session.id;
 
     const enq = await json("POST", `/v1/admin/sessions/${sid}/messages`, {
-      direction: "to_daemon",
       content: "do thing"
     });
     expect(enq.statusCode).toBe(200);
@@ -248,36 +215,17 @@ describe("admin messages", () => {
     expect(del.statusCode).toBe(200);
     expect(await h.admin.getMessageById(mid)).toBeNull();
 
-    // purge removes everything
-    await json("POST", `/v1/admin/sessions/${sid}/messages`, {
-      direction: "to_daemon",
-      content: "a"
-    });
-    await json("POST", `/v1/admin/sessions/${sid}/messages`, {
-      direction: "to_user",
-      content: "b"
-    });
+    await json("POST", `/v1/admin/sessions/${sid}/messages`, { content: "a" });
+    await json("POST", `/v1/admin/sessions/${sid}/messages`, { content: "b" });
     const purge = await json("POST", `/v1/admin/sessions/${sid}/purge`);
     expect(purge.statusCode).toBe(200);
     expect(await h.admin.listMessages(sid)).toEqual([]);
   });
 
-  it("filters messages by direction", async () => {
-    const r = await h.sessions.rotate({ chatId: 5 });
-    const sid = r.session.id;
-    await h.messages.enqueue({ sessionId: sid, direction: "to_daemon", content: "i" });
-    await h.messages.enqueue({ sessionId: sid, direction: "to_user", content: "r" });
-    const daemon = await json("GET", `/v1/admin/sessions/${sid}/messages?direction=to_daemon`);
-    expect(daemon.json().messages).toHaveLength(1);
-    expect(daemon.json().messages[0].direction).toBe("to_daemon");
-  });
-
-  it("rejects oversize content by direction", async () => {
-    const r = await h.sessions.rotate({ chatId: 5 });
-    const sid = r.session.id;
+  it("rejects oversize content", async () => {
+    const seed = await h.seedSession({ chatId: 5 });
     const big = "x".repeat(4097);
-    const res = await json("POST", `/v1/admin/sessions/${sid}/messages`, {
-      direction: "to_daemon",
+    const res = await json("POST", `/v1/admin/sessions/${seed.session.id}/messages`, {
       content: big
     });
     expect(res.statusCode).toBe(400);

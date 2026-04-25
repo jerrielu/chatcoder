@@ -1,37 +1,56 @@
 import { InlineKeyboard } from "grammy";
+import type { ProfileRecord } from "../db/profiles.js";
 
 export const CB = {
+  code: "cc:code",
+  newCode: "cc:newcode",
   newSession: "cc:new",
-  newSessionConfirm: "cc:new:confirm",
   newSessionCancel: "cc:new:cancel",
-  generateKey: "cc:new:gen",
   status: "cc:status",
-  response: "cc:response",
-  menu: "cc:menu"
+  menu: "cc:menu",
+  /** Prefix for profile-pick callbacks: `cc:profile:<profileId>` */
+  profilePrefix: "cc:profile:"
 } as const;
 
 export function mainMenu(): InlineKeyboard {
   return new InlineKeyboard()
+    .text("💻 Code", CB.code)
+    .text("🆕 New Code", CB.newCode)
+    .row()
     .text("🆕 New Session", CB.newSession)
-    .text("📡 Status", CB.status)
-    .row()
-    .text("📨 Response", CB.response);
+    .text("📡 Status", CB.status);
 }
 
-export function confirmRotationMenu(): InlineKeyboard {
-  return new InlineKeyboard()
-    .text("✅ Yes, revoke and create", CB.newSessionConfirm)
-    .row()
-    .text("❌ Cancel", CB.newSessionCancel);
+export function cancelMenu(): InlineKeyboard {
+  return new InlineKeyboard().text("❌ Cancel", CB.newSessionCancel);
 }
 
-export function keyChoiceMenu(): InlineKeyboard {
-  return new InlineKeyboard()
-    .text("🎲 Generate for me", CB.generateKey)
-    .row()
-    .text("❌ Cancel", CB.newSessionCancel);
+export function profilePickerMenu(profiles: ProfileRecord[]): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  for (const p of profiles) {
+    kb.text(`${toolIcon(p.tool)} ${p.name}`, CB.profilePrefix + p.id).row();
+  }
+  kb.text("❌ Cancel", CB.newSessionCancel);
+  return kb;
 }
 
 export function backToMenu(): InlineKeyboard {
   return new InlineKeyboard().text("« Menu", CB.menu);
+}
+
+export function toolIcon(tool: ProfileRecord["tool"]): string {
+  switch (tool) {
+    case "CLAUDE_CODE":
+      return "🟣";
+    case "OPENAI":
+      return "🟢";
+    case "CUSTOM":
+      return "🔧";
+  }
+}
+
+export function parseProfileCallback(data: string): string | null {
+  if (!data.startsWith(CB.profilePrefix)) return null;
+  const id = data.slice(CB.profilePrefix.length);
+  return id || null;
 }

@@ -33,7 +33,7 @@ export class ApiError extends Error {
   static sessionRevoked(msg = "Session has been revoked"): ApiError {
     return new ApiError(ERROR_CODES.SESSION_REVOKED, msg, 410);
   }
-  static rateLimited(msg = "Too fast — 1 /code per second"): ApiError {
+  static rateLimited(msg = "Too fast — 1 instruction per second"): ApiError {
     return new ApiError(ERROR_CODES.RATE_LIMITED, msg, 429);
   }
   static queueFull(msg = "Queue is full; please drain it first"): ApiError {

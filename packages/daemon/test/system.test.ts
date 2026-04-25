@@ -2,58 +2,126 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AddressInfo } from "node:net";
 import { buildServer } from "@chatcoder/bot/api/server";
 import { openDb } from "@chatcoder/bot/db";
+import { ApiKeysRepo } from "@chatcoder/bot/db/apiKeys";
+import { ProfilesRepo } from "@chatcoder/bot/db/profiles";
 import { SessionsRepo } from "@chatcoder/bot/db/sessions";
 import { MessagesRepo } from "@chatcoder/bot/db/messages";
 import { AdminRepo } from "@chatcoder/bot/db/admin";
 import { ApiClient } from "../src/client.js";
 import { Orchestrator } from "../src/orchestrator.js";
+import { ProfilePool } from "../src/profilePool.js";
 import { DaemonConfig } from "../src/config.js";
-import { ToolExecutor } from "../src/toolExecutor.js";
+import { generateApiKey } from "../src/crypto.js";
+import type { Profile } from "../src/profile.js";
+import type { ToolExecutor } from "../src/toolExecutor.js";
 
-beforeEach(() => { vi.useRealTimers(); });
-afterEach(() => { vi.useRealTimers(); });
+beforeEach(() => {
+  vi.useRealTimers();
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
-describe("system: bot ↔ daemon", () => {
-  it("delivers instruction to daemon and response back", async () => {
+/**
+ * A fake ToolExecutor that echoes the instruction back with a profile prefix.
+ * Lets us verify the full loop: bot DB → /v1/poll → correct ProfileRunner →
+ * /v1/responses → TelegramSender is called with the expected chatId+text.
+ */
+class EchoTool {
+  public calls: Array<{ profile: string; message: string }> = [];
+  async execute(profile: Profile, message: string): Promise<string> {
+    this.calls.push({ profile: profile.name, message });
+    return `[${profile.name}] ${message}`;
+  }
+}
+
+describe("system: bot ↔ daemon with profiles", () => {
+  it("delivers an instruction to the right profile and response back to the right chat", async () => {
     const handle = await openDb("sqlite::memory:");
+    const apiKeys = new ApiKeysRepo(handle.db);
+    const profiles = new ProfilesRepo(handle.db);
     const sessions = new SessionsRepo(handle.db);
     const messages = new MessagesRepo(handle.db);
     const admin = new AdminRepo(handle.db);
+    const sendResponse = vi.fn().mockResolvedValue(undefined);
     const app = await buildServer({
+      apiKeysRepo: apiKeys,
+      profilesRepo: profiles,
       sessionsRepo: sessions,
       messagesRepo: messages,
-      adminRepo: admin
+      adminRepo: admin,
+      telegram: { sendResponse }
     });
     await app.listen({ host: "127.0.0.1", port: 0 });
     const addr = app.server.address() as AddressInfo;
     const apiUrl = `http://127.0.0.1:${addr.port}`;
 
-    const { session, rawApiKey } = await sessions.rotate({ chatId: 7 });
-    await messages.enqueue({
-      sessionId: session.id,
-      direction: "to_daemon",
-      content: "hello-world"
-    });
-
-    const client = new ApiClient({ apiUrl, apiKey: rawApiKey, retries: 0 });
+    // Daemon side: generate a key, register profiles with the bot.
+    const { rawApiKey } = generateApiKey();
     const cfg = DaemonConfig.parse({
       apiUrl,
       apiKey: rawApiKey,
-      pollIntervalMs: 250,
+      pollIntervalMs: 100,
       pollJitterMs: 0,
-      heartbeatIntervalMs: 250,
-      command: "echo $message"
+      heartbeatIntervalMs: 100,
+      profiles: [
+        {
+          tool: "CLAUDE_CODE",
+          name: "alpha",
+          cwd: "/tmp",
+          claudeCode: { apiKey: "sk-ant-x" }
+        },
+        {
+          tool: "CLAUDE_CODE",
+          name: "beta",
+          cwd: "/tmp",
+          claudeCode: { apiKey: "sk-ant-y" }
+        }
+      ]
     });
-    
-    const tool = new ToolExecutor({ config: cfg });
-    const orch = new Orchestrator({ config: cfg, client, tool });
+    const client = new ApiClient({ apiUrl, apiKey: rawApiKey, retries: 0 });
+    const register = await client.register({
+      profiles: cfg.profiles.map((p) => ({ name: p.name, tool: p.tool }))
+    });
+    expect(register.profiles).toHaveLength(2);
+
+    // Bot side: emulate the Telegram UX: user picks alpha for chat 101, beta for chat 202.
+    const alphaProfileId = register.profiles.find((p) => p.name === "alpha")!.id;
+    const betaProfileId = register.profiles.find((p) => p.name === "beta")!.id;
+    const sessionA = await sessions.create({
+      chatId: 101,
+      apiKeyId: register.apiKeyId,
+      profileId: alphaProfileId
+    });
+    const sessionB = await sessions.create({
+      chatId: 202,
+      apiKeyId: register.apiKeyId,
+      profileId: betaProfileId
+    });
+    await messages.enqueue({ sessionId: sessionA.id, content: "hi-from-alpha" });
+    await messages.enqueue({ sessionId: sessionB.id, content: "hi-from-beta" });
+
+    const tool = new EchoTool();
+    const pool = new ProfilePool({
+      profiles: cfg.profiles,
+      tool: tool as unknown as ToolExecutor,
+      postResponse: (sessionId, content) =>
+        client.postResponse({ sessionId, content }).then(() => undefined)
+    });
+    const orch = new Orchestrator({ config: cfg, client, pool });
     orch.start();
 
-    await waitFor(async () => (await messages.count(session.id, "to_user")) > 0, 5000);
-    const delivered = await messages.dequeueOldest(session.id, "to_user");
-    expect(delivered?.content).toBe("hello-world");
+    await waitFor(() => sendResponse.mock.calls.length >= 2, 5000);
+    await pool.drainAll();
 
-    const fresh = await sessions.getByApiKeyHash(session.apiKeyHash);
+    const byChat = new Map<number, string>();
+    for (const [chatId, content] of sendResponse.mock.calls as Array<[number, string]>) {
+      byChat.set(chatId, content);
+    }
+    expect(byChat.get(101)).toContain("[alpha] hi-from-alpha");
+    expect(byChat.get(202)).toContain("[beta] hi-from-beta");
+
+    const fresh = await apiKeys.getById(register.apiKeyId);
     expect(fresh?.lastHeartbeat).not.toBeNull();
 
     await orch.stop();
@@ -61,38 +129,59 @@ describe("system: bot ↔ daemon", () => {
     await handle.close();
   }, 15_000);
 
-  it("daemon stops when session is revoked", async () => {
+  it("daemon stops when the api key is revoked", async () => {
     const handle = await openDb("sqlite::memory:");
+    const apiKeys = new ApiKeysRepo(handle.db);
+    const profiles = new ProfilesRepo(handle.db);
     const sessions = new SessionsRepo(handle.db);
     const messages = new MessagesRepo(handle.db);
     const admin = new AdminRepo(handle.db);
     const app = await buildServer({
+      apiKeysRepo: apiKeys,
+      profilesRepo: profiles,
       sessionsRepo: sessions,
       messagesRepo: messages,
-      adminRepo: admin
+      adminRepo: admin,
+      telegram: { sendResponse: vi.fn().mockResolvedValue(undefined) }
     });
     await app.listen({ host: "127.0.0.1", port: 0 });
     const addr = app.server.address() as AddressInfo;
     const apiUrl = `http://127.0.0.1:${addr.port}`;
 
-    const { session, rawApiKey } = await sessions.rotate({ chatId: 3 });
-    
-    const client = new ApiClient({ apiUrl, apiKey: rawApiKey, retries: 0 });
+    const { rawApiKey } = generateApiKey();
     const cfg = DaemonConfig.parse({
       apiUrl,
       apiKey: rawApiKey,
-      pollIntervalMs: 200,
+      pollIntervalMs: 100,
       pollJitterMs: 0,
-      heartbeatIntervalMs: 200
+      heartbeatIntervalMs: 100,
+      profiles: [
+        {
+          tool: "CLAUDE_CODE",
+          name: "solo",
+          cwd: "/tmp",
+          claudeCode: { apiKey: "sk" }
+        }
+      ]
     });
-    const tool = new ToolExecutor({ config: cfg });
-    const orch = new Orchestrator({ config: cfg, client, tool });
+    const client = new ApiClient({ apiUrl, apiKey: rawApiKey, retries: 0 });
+    const reg = await client.register({
+      profiles: cfg.profiles.map((p) => ({ name: p.name, tool: p.tool }))
+    });
+
+    const tool = new EchoTool();
+    const pool = new ProfilePool({
+      profiles: cfg.profiles,
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async () => undefined
+    });
+    const orch = new Orchestrator({ config: cfg, client, pool });
     orch.start();
 
     await waitFor(() => orch.status === "running", 2000);
-    await sessions.rotate({ chatId: 3 });
+    await apiKeys.revoke(reg.apiKeyId);
     await waitFor(() => orch.status === "session_revoked", 5000);
-    
+
     await orch.stop();
     await app.close();
     await handle.close();

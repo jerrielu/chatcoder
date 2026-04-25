@@ -1,12 +1,12 @@
 import { SessionRevokedError, UnauthorizedError } from "./client.js";
 import type { ApiClient } from "./client.js";
-import { ToolExecutor } from "./toolExecutor.js";
+import type { ProfilePool } from "./profilePool.js";
 import type { DaemonConfig } from "./config.js";
 
 export interface OrchestratorDeps {
   config: DaemonConfig;
   client: ApiClient;
-  tool: ToolExecutor;
+  pool: ProfilePool;
   log?: (msg: string, extra?: unknown) => void;
   setTimer?: typeof setTimeout;
   clearTimer?: typeof clearTimeout;
@@ -20,27 +20,23 @@ export type OrchestratorStatus =
   | "stopped";
 
 /**
- * Long-running loop that ties the API client and tool execution together.
- *   heartbeat tick (interval)        → POST /v1/heartbeat
- *   poll tick       (interval+jitter) → GET /v1/poll → execute tool command
- *   tool response                    → POST /v1/responses
+ * Long-running loop that drives the daemon.
+ *   heartbeat tick → POST /v1/heartbeat (api-key wide)
+ *   poll tick      → GET /v1/poll → dispatch each session's messages into its ProfileRunner
  */
 export class Orchestrator {
   private heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly tool: ToolExecutor;
   private readonly log: (m: string, extra?: unknown) => void;
   private readonly setTimer: typeof setTimeout;
   private readonly clearTimer: typeof clearTimeout;
   private _status: OrchestratorStatus = "idle";
   private stopping = false;
-  private inflightResponses = 0;
 
   constructor(private readonly deps: OrchestratorDeps) {
     this.log = deps.log ?? (() => void 0);
     this.setTimer = deps.setTimer ?? setTimeout;
     this.clearTimer = deps.clearTimer ?? clearTimeout;
-    this.tool = deps.tool;
   }
 
   get status(): OrchestratorStatus {
@@ -61,17 +57,12 @@ export class Orchestrator {
     if (this.pollTimer) this.clearTimer(this.pollTimer);
     this.heartbeatTimer = null;
     this.pollTimer = null;
-    // Best-effort last heartbeat so the bot knows we went away.
     try {
       await this.deps.client.heartbeat({ note: "shutdown" });
     } catch {
       // ignore
     }
-    // Let any in-flight responses finish.
-    const deadline = Date.now() + 5_000;
-    while (this.inflightResponses > 0 && Date.now() < deadline) {
-      await new Promise((r) => this.setTimer(() => r(undefined), 50));
-    }
+    await this.deps.pool.stop();
   }
 
   /* ============ timers ============ */
@@ -101,17 +92,21 @@ export class Orchestrator {
     if (this.stopping) return;
     try {
       const res = await this.deps.client.poll();
-      if (res.reset) {
-        this.log("session reset — no action needed for tool executor");
-      }
-      for (const msg of res.messages) {
-        this.log("<<< instruction", msg.content);
-        try {
-          const output = await this.tool.execute(msg.content);
-          await this.onToolResponse(output);
-        } catch (err) {
-          this.log("tool execution failed", err);
-          await this.onToolResponse(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      for (const s of res.sessions) {
+        if (!this.deps.pool.hasProfile(s.profileName)) {
+          this.log("poll returned unknown profile — skipping", {
+            profile: s.profileName,
+            sessionId: s.sessionId
+          });
+          continue;
+        }
+        for (const msg of s.messages) {
+          this.deps.pool.enqueue(s.profileName, {
+            sessionId: s.sessionId,
+            messageId: msg.id,
+            content: msg.content,
+            resumeLastSession: msg.resumeLastSession ?? true
+          });
         }
       }
     } catch (e) {
@@ -125,7 +120,7 @@ export class Orchestrator {
   private handleFatal(e: unknown): void {
     if (e instanceof SessionRevokedError) {
       this._status = "session_revoked";
-      this.log("session revoked — shutting down");
+      this.log("api key revoked — shutting down");
       this.stopping = true;
       if (this.heartbeatTimer) this.clearTimer(this.heartbeatTimer);
       if (this.pollTimer) this.clearTimer(this.pollTimer);
@@ -135,7 +130,7 @@ export class Orchestrator {
     }
     if (e instanceof UnauthorizedError) {
       this._status = "unauthorized";
-      this.log(`unauthorized — check API key: ${this.deps.config.apiKey}`);
+      this.log("unauthorized — check API key");
       this.stopping = true;
       if (this.heartbeatTimer) this.clearTimer(this.heartbeatTimer);
       if (this.pollTimer) this.clearTimer(this.pollTimer);
@@ -144,17 +139,5 @@ export class Orchestrator {
       return;
     }
     this.log("transient error", e);
-  }
-
-  private async onToolResponse(text: string): Promise<void> {
-    this.log(">>> response", text);
-    this.inflightResponses++;
-    try {
-      await this.deps.client.postResponse({ content: text });
-    } catch (e) {
-      this.handleFatal(e);
-    } finally {
-      this.inflightResponses--;
-    }
   }
 }

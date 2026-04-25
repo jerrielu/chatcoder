@@ -47,9 +47,9 @@ npx serve packages/dashboard/dist -p 5173
 
 ### 1.3 Run the Daemon
 ```bash
-# First time setup:
-npm run dev:daemon -- setup
-# Then run:
+# Opens setup by default (no flag). After saving, press R to run immediately.
+npm run dev:daemon
+# You can still run directly:
 npm run dev:daemon -- run
 ```
 
@@ -79,10 +79,11 @@ npm run dev:daemon -- run
 Open your bot in Telegram → `/start`:
 
 - **🆕 New Session**: Revokes current, creates new. Copy the API key immediately!
-- **📡 Status**: Check daemon heartbeat and queue depths.
-- **📨 Response**: Pull the oldest pending response from the daemon.
+- **📡 Status**: Check daemon heartbeat and queued instruction count.
 
 **Instructions:** Use the `/code` prefix: `/code explain this file`.
+**Responses:** Your daemon's replies arrive as regular Telegram messages in
+the same chat — no button to tap.
 
 ---
 
@@ -98,7 +99,7 @@ output (`packages/dashboard/dist/`). Build-time env vars:
 | `VITE_BOT_API_URL` | `http://127.0.0.1:8080` | Where the bot's admin API lives                 |
 
 - **Sessions**: List, filter, rotate keys, revoke, or delete.
-- **Messages**: View/edit/delete queued instructions and responses.
+- **Messages**: View/edit/delete the queued instructions waiting for the daemon.
 - **Real-time**: Sessions list polls every 15s, detail page every 10s.
 
 The bot's admin API at `/v1/admin/*` accepts only loopback callers (both the
@@ -114,12 +115,12 @@ is unchanged (bearer-authed).
 Run on the remote machine where `codex` is installed.
 
 ```bash
-npm run dev:daemon -- setup
+npm run dev:daemon
 ```
 Answer the prompts:
 - **API URL**: The public URL of your bot.
 - **API Key**: The `cc_...` key from Telegram.
-- **Codex Command**: usually `codex`.
+- **Profiles/Tool config**: choose and configure at least one profile.
 
 Config is saved to `~/.chatcoder-daemon/config.yml` (0600).
 

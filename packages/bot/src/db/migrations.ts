@@ -4,14 +4,17 @@ import type { Database } from "./schema.js";
 
 export type Dialect = "sqlite" | "postgres";
 
-/** Each migration is idempotent and advances `schema_version.version`. */
+/**
+ * Fresh install: create all tables at version 1. There is no migration from
+ * the old single-session schema — the user deletes the DB and starts over.
+ */
 export async function runMigrations(db: Kysely<Database>, dialect: Dialect): Promise<void> {
   await ensureSchemaVersionTable(db, dialect);
   const current = await currentVersion(db);
 
   const steps: Array<{ v: number; up: () => Promise<void> }> = [
     { v: 1, up: () => applyInitialSchema(db, dialect) },
-    { v: 2, up: () => migrateToChatId(db, dialect) }
+    { v: 2, up: () => addResumeLastSessionToMessages(db) }
   ];
 
   for (const step of steps) {
@@ -43,26 +46,68 @@ async function currentVersion(db: Kysely<Database>): Promise<number> {
 }
 
 async function applyInitialSchema(db: Kysely<Database>, dialect: Dialect): Promise<void> {
-  // Postgres uses BIGINT; SQLite uses INTEGER — kysely's "bigint"/"integer" maps correctly.
   await db.schema
-    .createTable("sessions")
+    .createTable("api_keys")
     .ifNotExists()
     .addColumn("id", "text", (c) => c.primaryKey())
-    .addColumn("telegram_user", "bigint", (c) => c.notNull())
     .addColumn("api_key_hash", "text", (c) => c.notNull().unique())
     .addColumn("api_key_prefix", "text", (c) => c.notNull())
     .addColumn("status", "text", (c) => c.notNull())
     .addColumn("created_at", "bigint", (c) => c.notNull())
     .addColumn("revoked_at", "bigint")
     .addColumn("last_heartbeat", "bigint")
+    .execute();
+
+  await db.schema
+    .createTable("profiles")
+    .ifNotExists()
+    .addColumn("id", "text", (c) => c.primaryKey())
+    .addColumn("api_key_id", "text", (c) =>
+      c.notNull().references("api_keys.id").onDelete("cascade")
+    )
+    .addColumn("name", "text", (c) => c.notNull())
+    .addColumn("tool", "text", (c) => c.notNull())
+    .addColumn("metadata", "text")
+    .addColumn("created_at", "bigint", (c) => c.notNull())
+    .execute();
+
+  await db.schema
+    .createIndex("idx_profiles_api_key_name")
+    .ifNotExists()
+    .unique()
+    .on("profiles")
+    .columns(["api_key_id", "name"])
+    .execute();
+
+  await db.schema
+    .createTable("sessions")
+    .ifNotExists()
+    .addColumn("id", "text", (c) => c.primaryKey())
+    .addColumn("chat_id", "bigint", (c) => c.notNull())
+    .addColumn("api_key_id", "text", (c) =>
+      c.notNull().references("api_keys.id").onDelete("cascade")
+    )
+    .addColumn("profile_id", "text", (c) =>
+      c.notNull().references("profiles.id").onDelete("cascade")
+    )
+    .addColumn("status", "text", (c) => c.notNull())
+    .addColumn("created_at", "bigint", (c) => c.notNull())
+    .addColumn("revoked_at", "bigint")
     .addColumn("last_code_at", "bigint", (c) => c.notNull().defaultTo(0))
     .execute();
 
   await db.schema
-    .createIndex("idx_sessions_tg_user_status")
+    .createIndex("idx_sessions_chat_status")
     .ifNotExists()
     .on("sessions")
-    .columns(["telegram_user", "status"])
+    .columns(["chat_id", "status"])
+    .execute();
+
+  await db.schema
+    .createIndex("idx_sessions_api_key_status")
+    .ifNotExists()
+    .on("sessions")
+    .columns(["api_key_id", "status"])
     .execute();
 
   await db.schema
@@ -72,38 +117,32 @@ async function applyInitialSchema(db: Kysely<Database>, dialect: Dialect): Promi
     .addColumn("session_id", "text", (c) =>
       c.notNull().references("sessions.id").onDelete("cascade")
     )
-    .addColumn("direction", "text", (c) => c.notNull())
     .addColumn("content", "text", (c) => c.notNull())
+    .addColumn("resume_last_session", "integer", (c) => c.notNull().defaultTo(1))
     .addColumn("created_at", "bigint", (c) => c.notNull())
     .execute();
 
   await db.schema
-    .createIndex("idx_messages_session_dir_created")
+    .createIndex("idx_messages_session_created")
     .ifNotExists()
     .on("messages")
-    .columns(["session_id", "direction", "created_at"])
+    .columns(["session_id", "created_at"])
     .execute();
 
   if (dialect === "postgres") {
-    // harmless guard on postgres-only types; no-op for sqlite
     await sql`SELECT 1`.execute(db);
   }
 }
 
-async function migrateToChatId(db: Kysely<Database>, _dialect: Dialect): Promise<void> {
-  // 1. Rename column
-  await db.schema
-    .alterTable("sessions")
-    .renameColumn("telegram_user" as "chat_id", "chat_id")
-    .execute();
-
-  // 2. Index replacement
-  await db.schema.dropIndex("idx_sessions_tg_user_status").ifExists().execute();
-
-  await db.schema
-    .createIndex("idx_sessions_chat_id_status")
-    .ifNotExists()
-    .on("sessions")
-    .columns(["chat_id", "status"])
-    .execute();
+async function addResumeLastSessionToMessages(db: Kysely<Database>): Promise<void> {
+  try {
+    await db.schema
+      .alterTable("messages")
+      .addColumn("resume_last_session", "integer", (c) => c.notNull().defaultTo(1))
+      .execute();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();
+    if (msg.includes("duplicate column") || msg.includes("already exists")) return;
+    throw e;
+  }
 }

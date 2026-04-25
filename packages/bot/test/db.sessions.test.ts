@@ -4,7 +4,7 @@ import {
   generateApiKey,
   hashApiKey,
   validateUserSuppliedKey
-} from "../src/db/sessions.js";
+} from "../src/db/crypto.js";
 import { CODE_RATE_LIMIT_MS } from "@chatcoder/shared";
 
 let h: TestHarness;
@@ -16,89 +16,139 @@ afterEach(async () => {
   await h.close();
 });
 
-describe("SessionsRepo.rotate", () => {
-  it("creates a session and returns the raw key", async () => {
-    const { session, rawApiKey } = await h.sessions.rotate({ chatId: 42 });
-    expect(session.chatId).toBe(42);
-    expect(rawApiKey.startsWith("cc_")).toBe(true);
-    expect(session.apiKeyHash).toBe(hashApiKey(rawApiKey));
+describe("ApiKeysRepo", () => {
+  it("registers a new api_key on first registerByRawKey", async () => {
+    const { rawApiKey } = generateApiKey();
+    const rec = await h.apiKeys.registerByRawKey(rawApiKey);
+    expect(rec.apiKeyHash).toBe(hashApiKey(rawApiKey));
+    expect(rec.apiKeyPrefix).toBe(rawApiKey.slice(0, 8));
+    expect(rec.status).toBe("active");
   });
 
-  it("revokes the previous active session on rotation", async () => {
-    const a = await h.sessions.rotate({ chatId: 1 });
-    h.advanceTime(10);
-    const b = await h.sessions.rotate({ chatId: 1 });
-    const oldRow = await h.sessions.getByApiKeyHash(a.session.apiKeyHash);
-    expect(oldRow?.status).toBe("revoked");
-    expect(oldRow?.revokedAt).not.toBeNull();
-    expect(b.session.status).toBe("active");
+  it("returns the same record on subsequent registerByRawKey", async () => {
+    const { rawApiKey } = generateApiKey();
+    const a = await h.apiKeys.registerByRawKey(rawApiKey);
+    const b = await h.apiKeys.registerByRawKey(rawApiKey);
+    expect(b.id).toBe(a.id);
   });
 
-  it("accepts a user-supplied key and stores hash", async () => {
-    const key = "my-own-key-" + "x".repeat(8);
-    const r = await h.sessions.rotate({ chatId: 7, rawApiKey: key });
-    expect(r.rawApiKey).toBe(key);
-    const row = await h.sessions.getByApiKeyHash(hashApiKey(key));
-    expect(row?.id).toBe(r.session.id);
+  it("refuses to re-register a revoked api_key", async () => {
+    const { rawApiKey } = generateApiKey();
+    const rec = await h.apiKeys.registerByRawKey(rawApiKey);
+    await h.apiKeys.revoke(rec.id);
+    await expect(h.apiKeys.registerByRawKey(rawApiKey)).rejects.toThrow(/revoked/);
   });
 
-  it("rejects duplicate key reuse across users", async () => {
-    const key = "shared-key-" + "y".repeat(8);
-    await h.sessions.rotate({ chatId: 1, rawApiKey: key });
-    await expect(
-      h.sessions.rotate({ chatId: 2, rawApiKey: key })
-    ).rejects.toThrow(/already in use/);
-  });
-
-  it("rejects a too-short user key", async () => {
-    await expect(
-      h.sessions.rotate({ chatId: 1, rawApiKey: "short" })
-    ).rejects.toThrow(/at least/);
-  });
-
-  it("rejects whitespace in a user key", () => {
-    expect(() => validateUserSuppliedKey("has space-xxxxxx")).toThrow(/whitespace/);
-  });
-});
-
-describe("SessionsRepo heartbeat + rate limit", () => {
-  it("updateHeartbeat sets lastHeartbeat to now()", async () => {
-    const { session } = await h.sessions.rotate({ chatId: 1 });
+  it("updateHeartbeat sets lastHeartbeat", async () => {
+    const { rawApiKey } = generateApiKey();
+    const rec = await h.apiKeys.registerByRawKey(rawApiKey);
     h.advanceTime(500);
-    await h.sessions.updateHeartbeat(session.id);
-    const s = await h.sessions.getByApiKeyHash(session.apiKeyHash);
-    expect(s?.lastHeartbeat).toBe(h.now());
+    await h.apiKeys.updateHeartbeat(rec.id);
+    const fresh = await h.apiKeys.getById(rec.id);
+    expect(fresh?.lastHeartbeat).toBe(h.now());
   });
 
-  it("tryConsumeRate accepts first call, rejects within 1 s, accepts after", async () => {
-    const { session } = await h.sessions.rotate({ chatId: 1 });
-    expect(await h.sessions.tryConsumeRate(session.id)).toBe(true);
-    h.advanceTime(CODE_RATE_LIMIT_MS - 100);
-    expect(await h.sessions.tryConsumeRate(session.id)).toBe(false);
-    h.advanceTime(200);
-    expect(await h.sessions.tryConsumeRate(session.id)).toBe(true);
-  });
-});
-
-describe("getActiveByChatId", () => {
-  it("returns only active", async () => {
-    await h.sessions.rotate({ chatId: 1 });
-    h.advanceTime(1);
-    await h.sessions.rotate({ chatId: 1 });
-    const active = await h.sessions.getActiveByChatId(1);
-    expect(active?.status).toBe("active");
+  it("list + count filter by status", async () => {
+    const a = await h.apiKeys.registerByRawKey(generateApiKey().rawApiKey);
+    await h.apiKeys.registerByRawKey(generateApiKey().rawApiKey);
+    await h.apiKeys.revoke(a.id);
+    expect(await h.apiKeys.count({ status: "active" })).toBe(1);
+    expect(await h.apiKeys.count({ status: "revoked" })).toBe(1);
+    expect(await h.apiKeys.count({})).toBe(2);
   });
 
-  it("returns null when no session exists", async () => {
-    expect(await h.sessions.getActiveByChatId(999)).toBeNull();
+  it("delete cascades profiles and sessions", async () => {
+    const seed = await h.seedSession({ chatId: 1 });
+    expect(await h.apiKeys.delete(seed.apiKey.id)).toBe(true);
+    expect(await h.profiles.listByApiKey(seed.apiKey.id)).toHaveLength(0);
+    expect(await h.sessions.listActiveByApiKey(seed.apiKey.id)).toHaveLength(0);
   });
 });
 
-describe("generateApiKey", () => {
-  it("generates a prefixed url-safe key", () => {
+describe("SessionsRepo", () => {
+  it("create returns the same session on repeat for the same triple", async () => {
+    const seed = await h.seedSession({ chatId: 42 });
+    const again = await h.sessions.create({
+      chatId: 42,
+      apiKeyId: seed.apiKey.id,
+      profileId: seed.profile.id
+    });
+    expect(again.id).toBe(seed.session.id);
+  });
+
+  it("create allows multiple active sessions per chat across profiles", async () => {
+    const first = await h.seedSession({ chatId: 1, profileName: "a" });
+    const { rawApiKey } = generateApiKey();
+    const apiKey = await h.apiKeys.registerByRawKey(rawApiKey);
+    const [profB] = await h.profiles.upsertForApiKey(apiKey.id, [
+      { name: "b", tool: "OPENAI" }
+    ]);
+    const second = await h.sessions.create({
+      chatId: 1,
+      apiKeyId: apiKey.id,
+      profileId: profB!.id
+    });
+    const active = await h.sessions.listActiveByChatId(1);
+    expect(active.map((s) => s.id).sort()).toEqual([first.session.id, second.id].sort());
+  });
+
+  it("getLatestActiveByChatId returns most recent", async () => {
+    const first = await h.seedSession({ chatId: 7, profileName: "a" });
+    h.advanceTime(100);
+    const { rawApiKey } = generateApiKey();
+    const apiKey = await h.apiKeys.registerByRawKey(rawApiKey);
+    const [prof] = await h.profiles.upsertForApiKey(apiKey.id, [
+      { name: "b", tool: "OPENAI" }
+    ]);
+    const second = await h.sessions.create({
+      chatId: 7,
+      apiKeyId: apiKey.id,
+      profileId: prof!.id
+    });
+    const latest = await h.sessions.getLatestActiveByChatId(7);
+    expect(latest?.id).toBe(second.id);
+    void first;
+  });
+
+  it("revoke marks session revoked, delete removes it", async () => {
+    const seed = await h.seedSession({ chatId: 5 });
+    expect(await h.sessions.revoke(seed.session.id)).toBe(true);
+    const row = await h.sessions.getById(seed.session.id);
+    expect(row?.status).toBe("revoked");
+    expect(await h.sessions.delete(seed.session.id)).toBe(true);
+    expect(await h.sessions.getById(seed.session.id)).toBeNull();
+  });
+
+  it("tryConsumeRate per-session — one session is not throttled by another", async () => {
+    const seedA = await h.seedSession({ chatId: 1, profileName: "a" });
+    const { rawApiKey } = generateApiKey();
+    const apiKey = await h.apiKeys.registerByRawKey(rawApiKey);
+    const [prof] = await h.profiles.upsertForApiKey(apiKey.id, [
+      { name: "b", tool: "OPENAI" }
+    ]);
+    const sessionB = await h.sessions.create({
+      chatId: 1,
+      apiKeyId: apiKey.id,
+      profileId: prof!.id
+    });
+    expect(await h.sessions.tryConsumeRate(seedA.session.id)).toBe(true);
+    expect(await h.sessions.tryConsumeRate(sessionB.id)).toBe(true);
+    expect(await h.sessions.tryConsumeRate(seedA.session.id)).toBe(false);
+    h.advanceTime(CODE_RATE_LIMIT_MS + 10);
+    expect(await h.sessions.tryConsumeRate(seedA.session.id)).toBe(true);
+  });
+});
+
+describe("shared key helpers", () => {
+  it("generateApiKey returns a prefixed url-safe key", () => {
     const { rawApiKey, prefix } = generateApiKey();
     expect(rawApiKey.startsWith("cc_")).toBe(true);
     expect(prefix).toBe(rawApiKey.slice(0, 8));
     expect(rawApiKey).not.toMatch(/[+/=]/);
+  });
+  it("validateUserSuppliedKey rejects whitespace and short keys", () => {
+    expect(() => validateUserSuppliedKey("has space-xxxxxx")).toThrow(/whitespace/);
+    expect(() => validateUserSuppliedKey("short")).toThrow(/at least/);
+    expect(() => validateUserSuppliedKey("cc_" + "x".repeat(16))).not.toThrow();
   });
 });

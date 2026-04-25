@@ -3,20 +3,19 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
+import { MAX_PROFILES_PER_DAEMON, MIN_API_KEY_LENGTH } from "@chatcoder/shared";
+import { Profile } from "./profile.js";
 
 export const DaemonConfig = z.object({
   apiUrl: z.string().url(),
-  apiKey: z.string().min(16),
+  apiKey: z.string().min(MIN_API_KEY_LENGTH),
   pollIntervalMs: z.number().int().min(50).max(60_000).default(2_000),
   pollJitterMs: z.number().int().min(0).max(5_000).default(250),
   heartbeatIntervalMs: z.number().int().min(50).max(60_000).default(15_000),
   idleShutdownMs: z.number().int().min(1_000).default(60 * 60_000),
-  command: z.string().default("codex --message \"$message\""),
-  cwd: z.string().default(process.cwd()),
-  /** Idle period required before flushing a response chunk. */
-  responseQuietMs: z.number().int().min(10).max(30_000).default(3_000),
-  /** Whether to mirror tool output to the daemon's stdout. */
-  mirrorOutput: z.boolean().default(false)
+  /** Global in-flight cap across profiles. */
+  maxConcurrency: z.number().int().min(1).max(32).default(4),
+  profiles: z.array(Profile).min(1).max(MAX_PROFILES_PER_DAEMON)
 });
 
 export type DaemonConfig = z.infer<typeof DaemonConfig>;

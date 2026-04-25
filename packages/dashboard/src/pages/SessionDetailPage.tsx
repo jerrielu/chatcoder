@@ -1,7 +1,7 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { FormEvent, useCallback, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { AdminMessage, AdminSession } from "@chatcoder/shared";
-import { MAX_INSTRUCTION_BYTES, MAX_RESPONSE_BYTES } from "@chatcoder/shared";
+import { MAX_INSTRUCTION_BYTES } from "@chatcoder/shared";
 import * as api from "../api/client";
 import { HEARTBEAT_STALE_MS } from "../config";
 import { usePolling } from "../util/usePolling";
@@ -9,20 +9,9 @@ import { HeartbeatBadge, StatusBadge, Timestamp } from "../util/badges";
 
 export function SessionDetailPage(): JSX.Element {
   const { id = "" } = useParams();
-  const location = useLocation();
   const navigate = useNavigate();
-  const locationState = location.state as { flashKey?: string } | null | undefined;
 
-  const [flash, setFlash] = useState<{ kind: "key" | "info"; text: string } | null>(() =>
-    locationState?.flashKey ? { kind: "key", text: locationState.flashKey } : null
-  );
-
-  // Clear router state so a browser refresh doesn't re-display the secret.
-  useEffect(() => {
-    if (locationState?.flashKey) {
-      window.history.replaceState({}, "", location.pathname + location.search);
-    }
-  }, [location.pathname, location.search, locationState]);
+  const [flash, setFlash] = useState<string | null>(null);
 
   const { data, error, loading, refresh } = usePolling(
     () => api.getSessionDetail(id),
@@ -30,8 +19,7 @@ export function SessionDetailPage(): JSX.Element {
     [id]
   );
 
-  const flashInfo = useCallback((text: string) => setFlash({ kind: "info", text }), []);
-  const flashKey = useCallback((text: string) => setFlash({ kind: "key", text }), []);
+  const flashInfo = useCallback((text: string) => setFlash(text), []);
 
   if (loading && !data) return <p className="muted">Loading…</p>;
   if (error && !data) {
@@ -56,35 +44,17 @@ export function SessionDetailPage(): JSX.Element {
   return (
     <>
       <Link className="link" to="/sessions">← All sessions</Link>
-      <h1>Session {session.apiKeyPrefix}…</h1>
+      <h1>
+        Session {session.id.slice(0, 8)}… ·{" "}
+        <span className="muted">{session.profileName}</span>
+      </h1>
 
-      {flash && (
-        <div className="flash">
-          {flash.kind === "key"
-            ? `Raw API key (shown once — copy now):\n\n${flash.text}`
-            : flash.text}
-        </div>
-      )}
+      {flash && <div className="flash">{flash}</div>}
 
-      <SessionInfoCard
-        session={session}
-        pendingToDaemon={data.pendingToDaemon}
-        pendingToUser={data.pendingToUser}
-        onUpdate={async (chatId) => {
-          const ok = await api.updateSession(session.id, { chatId });
-          if (ok) {
-            flashInfo("Session updated.");
-            refresh();
-          }
-        }}
-      />
+      <SessionInfoCard session={session} pending={data.pending} />
 
       <SessionActions
         sessionId={session.id}
-        onRotated={(key) => {
-          flashKey(key);
-          refresh();
-        }}
         onRevoked={() => {
           flashInfo("Session revoked.");
           refresh();
@@ -115,100 +85,94 @@ export function SessionDetailPage(): JSX.Element {
 
 function SessionInfoCard({
   session,
-  pendingToDaemon,
-  pendingToUser,
-  onUpdate
+  pending
 }: {
   session: AdminSession;
-  pendingToDaemon: number;
-  pendingToUser: number;
-  onUpdate: (chatId: number) => Promise<void>;
+  pending: number;
 }): JSX.Element {
-  const [chatIdInput, setChatIdInput] = useState(String(session.chatId));
   const now = Date.now();
   return (
     <div className="card">
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const n = Number(chatIdInput);
-          if (!Number.isFinite(n)) return;
-          await onUpdate(n);
-        }}
-      >
-        <table>
-          <tbody>
-            <tr><th>ID</th><td><code>{session.id}</code></td></tr>
-            <tr>
-              <th>Chat ID</th>
-              <td>
-                <input
-                  type="number"
-                  value={chatIdInput}
-                  onChange={(e) => setChatIdInput(e.target.value)}
-                  required
-                />{" "}
-                <button type="submit">Update</button>
-              </td>
-            </tr>
-            <tr><th>Status</th><td><StatusBadge status={session.status} /></td></tr>
-            <tr><th>Created</th><td><Timestamp value={session.createdAt} /></td></tr>
-            <tr><th>Revoked</th><td><Timestamp value={session.revokedAt} /></td></tr>
-            <tr>
-              <th>Last heartbeat</th>
-              <td>
-                <HeartbeatBadge
-                  lastHeartbeat={session.lastHeartbeat}
-                  now={now}
-                  staleMs={HEARTBEAT_STALE_MS}
-                />
-                <br />
-                <Timestamp value={session.lastHeartbeat} />
-              </td>
-            </tr>
-            <tr><th>Pending → daemon</th><td>{pendingToDaemon}</td></tr>
-            <tr><th>Pending → user</th><td>{pendingToUser}</td></tr>
-          </tbody>
-        </table>
-      </form>
+      <table>
+        <tbody>
+          <tr>
+            <th>ID</th>
+            <td>
+              <code>{session.id}</code>
+            </td>
+          </tr>
+          <tr>
+            <th>Chat ID</th>
+            <td>{session.chatId}</td>
+          </tr>
+          <tr>
+            <th>API key</th>
+            <td>
+              <code>{session.apiKeyPrefix}…</code> ({session.apiKeyId.slice(0, 8)})
+            </td>
+          </tr>
+          <tr>
+            <th>Profile</th>
+            <td>
+              <strong>{session.profileName}</strong>{" "}
+              <span className="muted">({session.profileTool})</span>
+            </td>
+          </tr>
+          <tr>
+            <th>Status</th>
+            <td>
+              <StatusBadge status={session.status} />
+            </td>
+          </tr>
+          <tr>
+            <th>Created</th>
+            <td>
+              <Timestamp value={session.createdAt} />
+            </td>
+          </tr>
+          <tr>
+            <th>Revoked</th>
+            <td>
+              <Timestamp value={session.revokedAt} />
+            </td>
+          </tr>
+          <tr>
+            <th>Daemon heartbeat</th>
+            <td>
+              <HeartbeatBadge
+                lastHeartbeat={session.apiKeyLastHeartbeat}
+                now={now}
+                staleMs={HEARTBEAT_STALE_MS}
+              />
+              <br />
+              <Timestamp value={session.apiKeyLastHeartbeat} />
+            </td>
+          </tr>
+          <tr>
+            <th>Pending → daemon</th>
+            <td>{pending}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
 
 function SessionActions({
   sessionId,
-  onRotated,
   onRevoked,
   onPurged,
   onDeleted
 }: {
   sessionId: string;
-  onRotated: (rawApiKey: string) => void;
   onRevoked: () => void;
   onPurged: () => void;
   onDeleted: () => void;
 }): JSX.Element {
-  const [rotateKey, setRotateKey] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
-  const doRotate = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
-    setBusy("rotate");
-    try {
-      const res = await api.rotateSession(sessionId, {
-        ...(rotateKey.trim() ? { rawApiKey: rotateKey.trim() } : {})
-      });
-      if (res) {
-        setRotateKey("");
-        onRotated(res.rawApiKey);
-      }
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const doRevoke = async (): Promise<void> => {
-    if (!confirm("Revoke this session? The daemon will be cut off.")) return;
+    if (!confirm("Revoke this session? The chat will need to pick a profile again.")) return;
     setBusy("revoke");
     try {
       if (await api.revokeSession(sessionId)) onRevoked();
@@ -239,18 +203,6 @@ function SessionActions({
 
   return (
     <div className="card row">
-      <form className="row" onSubmit={doRotate}>
-        <input
-          type="text"
-          placeholder="Optional new key"
-          minLength={16}
-          value={rotateKey}
-          onChange={(e) => setRotateKey(e.target.value)}
-        />
-        <button type="submit" disabled={busy === "rotate"}>
-          Rotate key
-        </button>
-      </form>
       <button className="muted" type="button" onClick={doRevoke} disabled={busy === "revoke"}>
         Revoke
       </button>
@@ -271,25 +223,24 @@ function EnqueueForm({
   sessionId: string;
   onEnqueued: () => void;
 }): JSX.Element {
-  const [direction, setDirection] = useState<AdminMessage["direction"]>("to_daemon");
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const limit = direction === "to_daemon" ? MAX_INSTRUCTION_BYTES : MAX_RESPONSE_BYTES;
+  const limit = MAX_INSTRUCTION_BYTES;
 
   return (
     <form
       className="card row"
-      onSubmit={async (e) => {
+      onSubmit={async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!content) return;
         if (content.length > limit) {
-          setError(`content exceeds ${limit} bytes for ${direction}`);
+          setError(`content exceeds ${limit} bytes`);
           return;
         }
         setError(null);
         try {
-          const res = await api.enqueueMessage(sessionId, { direction, content });
+          const res = await api.enqueueMessage(sessionId, { content });
           if (res) {
             setContent("");
             onEnqueued();
@@ -299,14 +250,10 @@ function EnqueueForm({
         }
       }}
     >
-      <select value={direction} onChange={(e) => setDirection(e.target.value as typeof direction)}>
-        <option value="to_daemon">to_daemon (instruction)</option>
-        <option value="to_user">to_user (response)</option>
-      </select>
       <textarea
         required
         maxLength={limit}
-        placeholder="Message content (capped per direction)"
+        placeholder="Instruction content"
         value={content}
         onChange={(e) => setContent(e.target.value)}
       />
@@ -329,10 +276,18 @@ function MessagesTable({
     return (
       <table>
         <thead>
-          <tr><th>Direction</th><th>Created</th><th>Content</th><th>Actions</th></tr>
+          <tr>
+            <th>Created</th>
+            <th>Content</th>
+            <th>Actions</th>
+          </tr>
         </thead>
         <tbody>
-          <tr><td colSpan={4} className="muted">No messages yet.</td></tr>
+          <tr>
+            <td colSpan={3} className="muted">
+              No messages yet.
+            </td>
+          </tr>
         </tbody>
       </table>
     );
@@ -340,7 +295,11 @@ function MessagesTable({
   return (
     <table>
       <thead>
-        <tr><th>Direction</th><th>Created</th><th>Content</th><th>Actions</th></tr>
+        <tr>
+          <th>Created</th>
+          <th>Content</th>
+          <th>Actions</th>
+        </tr>
       </thead>
       <tbody>
         {messages.map((m) => (
@@ -369,16 +328,15 @@ function MessageRow({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
   const [error, setError] = useState<string | null>(null);
-  const limit =
-    message.direction === "to_daemon" ? MAX_INSTRUCTION_BYTES : MAX_RESPONSE_BYTES;
+  const limit = MAX_INSTRUCTION_BYTES;
 
   if (editing) {
     return (
       <tr>
-        <td colSpan={4}>
+        <td colSpan={3}>
           <form
             className="row"
-            onSubmit={async (e) => {
+            onSubmit={async (e: FormEvent<HTMLFormElement>) => {
               e.preventDefault();
               if (draft.length > limit) {
                 setError(`content exceeds ${limit} bytes`);
@@ -422,14 +380,14 @@ function MessageRow({
     );
   }
 
-  const dirLabel = message.direction === "to_daemon" ? "→ daemon" : "→ user";
-  const dirClass = message.direction === "to_daemon" ? "ok" : "muted";
-
   return (
     <tr>
-      <td><span className={`badge ${dirClass}`}>{dirLabel}</span></td>
-      <td><Timestamp value={message.createdAt} /></td>
-      <td><pre>{message.content}</pre></td>
+      <td>
+        <Timestamp value={message.createdAt} />
+      </td>
+      <td>
+        <pre>{message.content}</pre>
+      </td>
       <td>
         <div className="actions">
           <button type="button" className="muted" onClick={() => setEditing(true)}>

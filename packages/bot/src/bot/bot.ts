@@ -2,20 +2,19 @@ import { Bot, type Context } from "grammy";
 import { ApiError, ERROR_CODES } from "@chatcoder/shared";
 import type { HandlerDeps, Reply } from "./handlers.js";
 import {
-  handleCode,
-  handleGenerateKey,
+  handleApiKeySubmission,
+  handleCodeRequest,
+  handleInstructionSubmission,
   handleMenu,
+  handleNewCodeRequest,
   handleNewSessionCancel,
-  handleNewSessionConfirm,
   handleNewSessionRequest,
   handlePlainText,
-  handleResponse,
+  handleProfilePicked,
   handleStart,
-  handleStatus,
-  handleUserSuppliedKey,
-  parseCodeCommand
+  handleStatus
 } from "./handlers.js";
-import { CB } from "./menus.js";
+import { CB, parseProfileCallback } from "./menus.js";
 
 export interface CreateBotOptions extends HandlerDeps {
   telegramBotToken: string;
@@ -33,14 +32,9 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
     await send(ctx, handleStart());
   });
 
-  bot.command("code", async (ctx) => {
-    const text = ctx.message?.text ?? "";
-    const instruction = parseCodeCommand(text) ?? "";
-    await runUserAction(ctx, async () => {
-      if (!ctx.chat) return;
-      const reply = await handleCode(deps, ctx.chat.id, instruction);
-      await send(ctx, reply);
-    });
+  bot.command("cancel", async (ctx) => {
+    if (!ctx.chat || !ctx.from) return;
+    await send(ctx, handleNewSessionCancel(deps, ctx.chat.id, ctx.from.id));
   });
 
   bot.callbackQuery(CB.menu, async (ctx) => {
@@ -54,25 +48,10 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
     await send(ctx, await handleStatus(deps, ctx.chat.id));
   });
 
-  bot.callbackQuery(CB.response, async (ctx) => {
-    await ctx.answerCallbackQuery();
-    if (!ctx.chat) return;
-    const replies = await handleResponse(deps, ctx.chat.id);
-    for (const r of replies) {
-      await send(ctx, r);
-    }
-  });
-
   bot.callbackQuery(CB.newSession, async (ctx) => {
     await ctx.answerCallbackQuery();
     if (!ctx.chat || !ctx.from) return;
     await send(ctx, handleNewSessionRequest(deps, ctx.chat.id, ctx.from.id));
-  });
-
-  bot.callbackQuery(CB.newSessionConfirm, async (ctx) => {
-    await ctx.answerCallbackQuery();
-    if (!ctx.chat || !ctx.from) return;
-    await send(ctx, handleNewSessionConfirm(deps, ctx.chat.id, ctx.from.id));
   });
 
   bot.callbackQuery(CB.newSessionCancel, async (ctx) => {
@@ -81,18 +60,46 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
     await send(ctx, handleNewSessionCancel(deps, ctx.chat.id, ctx.from.id));
   });
 
-  bot.callbackQuery(CB.generateKey, async (ctx) => {
+  bot.callbackQuery(CB.code, async (ctx) => {
     await ctx.answerCallbackQuery();
     if (!ctx.chat || !ctx.from) return;
-    await send(ctx, await handleGenerateKey(deps, ctx.chat.id, ctx.from.id));
+    await send(ctx, handleCodeRequest(deps, ctx.chat.id, ctx.from.id));
+  });
+
+  bot.callbackQuery(CB.newCode, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!ctx.chat || !ctx.from) return;
+    await send(ctx, handleNewCodeRequest(deps, ctx.chat.id, ctx.from.id));
+  });
+
+  bot.on("callback_query:data", async (ctx) => {
+    const data = ctx.callbackQuery.data;
+    const profileId = parseProfileCallback(data);
+    if (!profileId || !ctx.chat || !ctx.from) return;
+    await ctx.answerCallbackQuery();
+    await send(
+      ctx,
+      await handleProfilePicked(deps, ctx.chat.id, ctx.from.id, profileId)
+    );
   });
 
   bot.on("message:text", async (ctx) => {
     const text = ctx.message.text;
-    if (text.startsWith("/")) return; // other commands handled above
     if (!ctx.chat || !ctx.from) return;
+    const flow = deps.flows.get(ctx.chat.id, ctx.from.id);
+    if (text.startsWith("/") && flow.kind === "idle") return;
 
-    const r = await handleUserSuppliedKey(deps, ctx.chat.id, ctx.from.id, text);
+    if (flow.kind === "awaiting_instruction") {
+      const codeReply = await runUserAction(ctx, async () =>
+        handleInstructionSubmission(deps, ctx.chat.id, ctx.from.id, text)
+      );
+      if (codeReply) {
+        await send(ctx, codeReply);
+      }
+      return;
+    }
+
+    const r = await handleApiKeySubmission(deps, ctx.chat.id, ctx.from.id, text);
     if (r) {
       await send(ctx, r);
     } else if (ctx.chat.type === "private") {
@@ -101,16 +108,29 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
   });
 
   bot.catch(async ({ error, ctx }) => {
-    ctx.api.sendMessage(ctx.chat?.id ?? 0, formatUnexpectedError(error)).catch(() => void 0);
+    // eslint-disable-next-line no-console
+    console.error("[bot] handler error:", error);
+    try {
+      const chatId = ctx.chat?.id;
+      if (chatId) {
+        await ctx.api.sendMessage(chatId, formatUnexpectedError(error));
+      }
+    } catch (sendErr) {
+      // eslint-disable-next-line no-console
+      console.error("[bot] failed to notify user of error:", sendErr);
+    }
   });
 }
 
-async function runUserAction(ctx: Context, action: () => Promise<void>): Promise<void> {
+async function runUserAction<T>(
+  ctx: Context,
+  action: () => Promise<T>
+): Promise<T | undefined> {
   try {
-    await action();
+    return await action();
   } catch (e) {
     if (e instanceof ApiError && e.code === ERROR_CODES.RATE_LIMITED) {
-      await send(ctx, { text: "⏱ Too fast — 1 /code per second." });
+      await send(ctx, { text: "⏱ Too fast — 1 instruction per second." });
       return;
     }
     throw e;
@@ -120,8 +140,14 @@ async function runUserAction(ctx: Context, action: () => Promise<void>): Promise
 async function send(ctx: Context, r: Reply): Promise<void> {
   const chatId = ctx.chat?.id;
   if (!chatId) return;
+  const replyMarkup = r.forceReply
+    ? {
+      force_reply: true as const,
+      input_field_placeholder: r.inputFieldPlaceholder
+    }
+    : r.keyboard;
   await ctx.api.sendMessage(chatId, r.text, {
-    reply_markup: r.keyboard,
+    reply_markup: replyMarkup,
     parse_mode: r.parseMode
   });
 }

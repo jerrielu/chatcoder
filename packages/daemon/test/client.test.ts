@@ -28,6 +28,22 @@ describe("ApiClient", () => {
     expect(JSON.parse(seenBody)).toEqual({ note: "alive" });
   });
 
+  it("register returns the parsed response", async () => {
+    const fetchImpl = makeFetch(() => ({
+      status: 200,
+      body: {
+        apiKeyId: "a1",
+        profiles: [{ id: "p1", name: "main", tool: "CLAUDE_CODE" }]
+      }
+    }));
+    const c = new ApiClient({ apiUrl: "https://x", apiKey: "k", fetchImpl, retries: 0 });
+    const r = await c.register({
+      profiles: [{ name: "main", tool: "CLAUDE_CODE" }]
+    });
+    expect(r.apiKeyId).toBe("a1");
+    expect(r.profiles[0]!.name).toBe("main");
+  });
+
   it("throws UnauthorizedError on 401", async () => {
     const c = new ApiClient({
       apiUrl: "https://x",
@@ -61,11 +77,11 @@ describe("ApiClient", () => {
       fetchImpl: makeFetch(() => {
         call++;
         if (call < 3) return { status: 500, body: {} };
-        return { status: 200, body: { reset: false, sessionValid: true, messages: [] } };
+        return { status: 200, body: { reset: false, sessions: [] } };
       })
     });
     const r = await c.poll();
-    expect(r.messages).toEqual([]);
+    expect(r.sessions).toEqual([]);
     expect(call).toBe(3);
   });
 
@@ -90,7 +106,9 @@ describe("ApiClient", () => {
         body: { error: { code: "VALIDATION_ERROR", message: "bad" } }
       }))
     });
-    await expect(c.postResponse({ content: "x" })).rejects.toThrow(/VALIDATION_ERROR/);
+    await expect(
+      c.postResponse({ sessionId: "s", content: "x" })
+    ).rejects.toThrow(/VALIDATION_ERROR/);
   });
 
   it("strips trailing slash from apiUrl", async () => {

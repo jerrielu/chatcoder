@@ -74,11 +74,12 @@ sessions (
   last_code_at    BIGINT NOT NULL DEFAULT 0  -- rate-limit anchor
 )
 
--- messages: undelivered only; ≤10 per (session, direction); FIFO trim.
+-- messages: undelivered instructions only (daemon-bound). ≤10 per session;
+-- FIFO trim. Daemon → user responses are pushed directly to Telegram at
+-- POST /v1/responses time and are never stored.
 messages (
   id          TEXT PRIMARY KEY,           -- uuid
   session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-  direction   TEXT NOT NULL,              -- 'to_daemon' | 'to_user'
   content     TEXT NOT NULL,
   created_at  BIGINT NOT NULL             -- ms*1024 + per-instance seq counter
 )
@@ -127,24 +128,31 @@ so running multiple *API* replicas behind a load balancer is safe.
 
 ## 4. Message queue model
 
-### Decision: Single table, `direction` discriminator, per-direction FIFO cap of 10
+### Decision: Single `messages` table holding instructions only; responses pushed to Telegram
 
 **Options considered**
 
 | # | Option                                         | Pros                                       | Cons                                              |
 |---|------------------------------------------------|--------------------------------------------|---------------------------------------------------|
-| A | Two tables (`instructions`, `responses`)       | Most explicit                              | Duplicated DDL, duplicated repo code              |
-| B | One `messages` table, `direction` column       | DRY; single cap-enforcement path           | Slightly less strict typing in SQL                |
-| C | In-memory queue on bot + write-through to DB   | Fast                                       | Lost on restart; hurts durability guarantee       |
+| A | Two tables (`instructions`, `responses`)       | Most explicit                              | Duplicated DDL; redundant now that responses aren't queued |
+| B | One `messages` table, `direction` column       | DRY                                        | Half the table is dead weight — responses no longer queue |
+| C | One `messages` table, instructions only        | Simplest; matches the actual data flow      | n/a — `direction` was the abstraction we removed  |
 
-**Chosen: B.** Enforcement at write time: after INSERT, `DELETE FROM messages
-WHERE session_id=? AND direction=? AND id NOT IN (SELECT id ... ORDER BY created_at DESC LIMIT 10)`.
-Drop-oldest policy: we'd rather the user see the *latest* thinking of their
-agent than hold onto stale output.
+**Chosen: C.** Instructions queue because the daemon polls (can't push to a
+box behind NAT). Responses *don't* queue: when the daemon POSTs
+`/v1/responses`, the bot calls `bot.api.sendMessage(chatId, …)` synchronously
+and returns the Telegram send result to the daemon. Failure → HTTP error →
+daemon's existing retry/backoff takes over (transient retries; permanent
+failures like "bot blocked" bubble as 4xx and stop retrying).
 
-Deletion on delivery satisfies the requirement "Once those messages were
-delivered, it should be cleaned up." Delivery-for-daemon = when daemon's poll
-returns it; delivery-for-user = when user asks "Response" in the bot.
+Per-session cap of 10 still applies to the instruction queue: after INSERT,
+`DELETE FROM messages WHERE session_id=? AND id NOT IN (SELECT id ... ORDER
+BY created_at DESC LIMIT 10)`. Drop-oldest keeps the latest intent.
+
+Delivery-for-daemon = when daemon's poll returns it, the row is deleted
+(requirement: "Once those messages were delivered, it should be cleaned
+up."). Responses never hit the DB, so there's nothing to clean up on the
+user side.
 
 ---
 
@@ -162,18 +170,20 @@ returns it; delivery-for-user = when user asks "Response" in the bot.
 
 **Chosen: C.** Matches the requirement "telegram interactive inline keyboard
 menus that covers create new session, check status, check response."
+Daemon responses are *pushed* to the chat by the bot (no "Response" button
+needed — the daemon's output arrives as regular Telegram messages).
 
 Flow:
 ```
-/start → [ New Session ] [ Status ] [ Response ]
+/start → [ New Session ] [ Status ]
   New Session → "This will REVOKE your current session. Confirm?"
               → [ Yes, revoke and create ] [ Cancel ]
               → Yes → "Send your own API key, or press Generate"
                     → [ Generate for me ] or user sends `sk_…` text
                     → shows key + API URL hint, one-time display warning
 /code <instruction>  → queued to daemon
-  Status → last heartbeat, pending instruction/response counts
-  Response → dequeues and shows next pending response (FIFO oldest)
+  Status → last heartbeat, pending instruction count
+  (daemon output)    → pushed into the chat as a regular message
 ```
 
 ### 5.1 Why `/code` prefix rather than routing all messages?

@@ -1,15 +1,15 @@
 import {
   ADMIN_API_PATHS,
   AdminMessage,
-  CreateSessionResponse,
+  ApiKeyDetailResponse,
   EnqueueMessageResponse,
+  ListApiKeysResponse,
   ListMessagesResponse,
   ListSessionsResponse,
   SessionDetailResponse,
   type EnqueueMessageBody,
   type ListSessionsQuery,
-  type UpdateMessageBody,
-  type UpdateSessionBody
+  type UpdateMessageBody
 } from "@chatcoder/shared";
 import { BOT_API_URL } from "../config";
 
@@ -90,6 +90,31 @@ function okOrFalse(res: { status: number; body: unknown }): boolean {
   throw new ApiClientError(res.status, env.code, env.message);
 }
 
+/* =============== API keys =============== */
+
+export async function listApiKeys(): Promise<ListApiKeysResponse> {
+  const res = await request({ method: "GET", path: ADMIN_API_PATHS.apiKeys });
+  return ok((b) => ListApiKeysResponse.parse(b), res);
+}
+
+export async function getApiKeyDetail(id: string): Promise<ApiKeyDetailResponse | null> {
+  const res = await request({ method: "GET", path: ADMIN_API_PATHS.apiKey(id) });
+  return okOrNull((b) => ApiKeyDetailResponse.parse(b), res);
+}
+
+export async function revokeApiKey(id: string): Promise<boolean> {
+  const res = await request({
+    method: "POST",
+    path: `${ADMIN_API_PATHS.apiKey(id)}/revoke`
+  });
+  return okOrFalse(res);
+}
+
+export async function deleteApiKey(id: string): Promise<boolean> {
+  const res = await request({ method: "DELETE", path: ADMIN_API_PATHS.apiKey(id) });
+  return okOrFalse(res);
+}
+
 /* =============== Sessions =============== */
 
 export async function listSessions(query: ListSessionsQuery): Promise<ListSessionsResponse> {
@@ -99,6 +124,7 @@ export async function listSessions(query: ListSessionsQuery): Promise<ListSessio
     query: {
       status: query.status,
       chatId: query.chatId,
+      apiKeyId: query.apiKeyId,
       limit: query.limit,
       offset: query.offset
     }
@@ -106,34 +132,9 @@ export async function listSessions(query: ListSessionsQuery): Promise<ListSessio
   return ok((b) => ListSessionsResponse.parse(b), res);
 }
 
-export async function createSession(body: {
-  chatId: number;
-  rawApiKey?: string;
-}): Promise<CreateSessionResponse> {
-  const res = await request({
-    method: "POST",
-    path: ADMIN_API_PATHS.sessions,
-    body
-  });
-  return ok((b) => CreateSessionResponse.parse(b), res);
-}
-
 export async function getSessionDetail(id: string): Promise<SessionDetailResponse | null> {
   const res = await request({ method: "GET", path: ADMIN_API_PATHS.sessionDetail(id) });
   return okOrNull((b) => SessionDetailResponse.parse(b), res);
-}
-
-export async function updateSession(id: string, body: UpdateSessionBody): Promise<boolean> {
-  const res = await request({ method: "PATCH", path: ADMIN_API_PATHS.session(id), body });
-  return okOrFalse(res);
-}
-
-export async function rotateSession(
-  id: string,
-  body: { rawApiKey?: string }
-): Promise<CreateSessionResponse | null> {
-  const res = await request({ method: "POST", path: ADMIN_API_PATHS.rotate(id), body });
-  return okOrNull((b) => CreateSessionResponse.parse(b), res);
 }
 
 export async function revokeSession(id: string): Promise<boolean> {

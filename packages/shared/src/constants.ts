@@ -1,7 +1,7 @@
-/** Maximum undelivered messages kept per (session, direction). */
+/** Maximum undelivered messages kept per (session). */
 export const MAX_QUEUE_DEPTH = 10;
 
-/** 1-second rate limit on /code instructions. */
+/** 1-second rate limit on chat instruction enqueues. */
 export const CODE_RATE_LIMIT_MS = 1_000;
 
 /** Max bytes for a single instruction (user → daemon). */
@@ -10,12 +10,18 @@ export const MAX_INSTRUCTION_BYTES = 4 * 1024;
 /** Max bytes for a single response (daemon → user). */
 export const MAX_RESPONSE_BYTES = 32 * 1024;
 
+/** Max profile names a single daemon can register. */
+export const MAX_PROFILES_PER_DAEMON = 32;
+
+/** Max length of a profile name. */
+export const MAX_PROFILE_NAME_LENGTH = 64;
+
 /** API path constants. Both bot and daemon import these. */
 export const API_PATHS = {
   heartbeat: "/v1/heartbeat",
   poll: "/v1/poll",
   responses: "/v1/responses",
-  session: "/v1/session"
+  daemonRegister: "/v1/daemon/register"
 } as const;
 
 /** Admin API path prefix (loopback-only, no auth). */
@@ -23,12 +29,16 @@ export const ADMIN_API_PREFIX = "/v1/admin";
 
 /** Admin API path builders used by the bot server and the dashboard client. */
 export const ADMIN_API_PATHS = {
+  apiKeys: `${ADMIN_API_PREFIX}/api-keys`,
+  apiKey: (id: string): string =>
+    `${ADMIN_API_PREFIX}/api-keys/${encodeURIComponent(id)}`,
+  apiKeyProfiles: (id: string): string =>
+    `${ADMIN_API_PREFIX}/api-keys/${encodeURIComponent(id)}/profiles`,
   sessions: `${ADMIN_API_PREFIX}/sessions`,
-  session: (id: string): string => `${ADMIN_API_PREFIX}/sessions/${encodeURIComponent(id)}`,
+  session: (id: string): string =>
+    `${ADMIN_API_PREFIX}/sessions/${encodeURIComponent(id)}`,
   sessionDetail: (id: string): string =>
     `${ADMIN_API_PREFIX}/sessions/${encodeURIComponent(id)}/detail`,
-  rotate: (id: string): string =>
-    `${ADMIN_API_PREFIX}/sessions/${encodeURIComponent(id)}/rotate`,
   revoke: (id: string): string =>
     `${ADMIN_API_PREFIX}/sessions/${encodeURIComponent(id)}/revoke`,
   purge: (id: string): string =>
@@ -47,3 +57,7 @@ export const API_KEY_RAND_BYTES = 36;
 
 /** Minimum length for a user-supplied API key. */
 export const MIN_API_KEY_LENGTH = 16;
+
+/** Tool kinds supported by a profile. */
+export const TOOL_KINDS = ["CLAUDE_CODE", "OPENAI", "CUSTOM"] as const;
+export type ToolKind = (typeof TOOL_KINDS)[number];
