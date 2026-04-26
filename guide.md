@@ -83,7 +83,16 @@ Open your bot in Telegram → `/start`:
 
 **Instructions:** Use the `/code` prefix: `/code explain this file`.
 **Responses:** Your daemon's replies arrive as regular Telegram messages in
-the same chat — no button to tap.
+the same chat — no button to tap. While a task is running, progress snapshots
+are stored for status/dashboard views; only final responses are sent to the
+chat. After the bot clears an in-progress queue item, it sends a short
+processed acknowledgement.
+
+Normal Code messages continue the current tool session and run FIFO. New Code
+starts fresh: it preempts active work for that session, clears older queued or
+in-progress work, and leaves newer queued work behind it. When a daemon
+restarts, its first poll asks the bot for any in-progress work and resumes it
+with a `continue` instruction if no newer New Code request supersedes it.
 
 ---
 

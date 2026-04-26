@@ -40,6 +40,11 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
     await send(ctx, handleNewSessionCancel(deps, ctx.chat.id, ctx.from.id));
   });
 
+  bot.command("token", async (ctx) => {
+    if (!ctx.chat) return;
+    await send(ctx, await handleTokenUsage(deps, ctx.chat.id));
+  });
+
   bot.callbackQuery(CB.menu, async (ctx) => {
     await ctx.answerCallbackQuery();
     await send(ctx, handleMenu());
@@ -104,7 +109,17 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
     const flow = deps.flows.get(ctx.chat.id, ctx.from.id);
     if (text.startsWith("/") && flow.kind === "idle") return;
 
-    if (flow.kind === "awaiting_instruction") {
+    if (flow.kind === "idle") {
+      const recoveredResume = recoverInstructionMode(ctx);
+      if (recoveredResume !== null) {
+        deps.flows.set(ctx.chat.id, ctx.from.id, {
+          kind: "awaiting_instruction",
+          resumeLastSession: recoveredResume
+        });
+      }
+    }
+
+    if (deps.flows.get(ctx.chat.id, ctx.from.id).kind === "awaiting_instruction") {
       const codeReply = await runUserAction(ctx, async () =>
         handleInstructionSubmission(deps, ctx.chat.id, ctx.from.id, text)
       );
@@ -141,6 +156,16 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
   });
 }
 
+function recoverInstructionMode(ctx: Context): boolean | null {
+  const prompt = ctx.message?.reply_to_message;
+  if (!prompt?.from?.is_bot || !("text" in prompt) || typeof prompt.text !== "string") {
+    return null;
+  }
+  if (prompt.text.includes("Code (resume)")) return true;
+  if (prompt.text.includes("New Code (fresh)")) return false;
+  return null;
+}
+
 async function runUserAction<T>(
   ctx: Context,
   action: () => Promise<T>
@@ -162,7 +187,7 @@ async function send(ctx: Context, r: Reply): Promise<void> {
   const replyMarkup = r.forceReply
     ? {
         force_reply: true as const,
-        input_field_placeholder: "Describe the code change"
+        input_field_placeholder: r.inputPlaceholder ?? "Describe the code change"
       }
     : r.keyboard ?? mainMenu();
   await sendTelegramWithRetry(() =>

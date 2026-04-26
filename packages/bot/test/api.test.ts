@@ -12,6 +12,7 @@ let apiKeyId: string;
 let profileId: string;
 let sessionId: string;
 let sendResponse: ReturnType<typeof vi.fn>;
+let sendProcessing: ReturnType<typeof vi.fn>;
 let sendProcessed: ReturnType<typeof vi.fn>;
 
 beforeEach(async () => {
@@ -22,6 +23,7 @@ beforeEach(async () => {
   profileId = seed.profile.id;
   sessionId = seed.session.id;
   sendResponse = vi.fn().mockResolvedValue(undefined);
+  sendProcessing = vi.fn().mockResolvedValue(undefined);
   sendProcessed = vi.fn().mockResolvedValue(undefined);
   app = await buildServer({
     apiKeysRepo: h.apiKeys,
@@ -29,7 +31,7 @@ beforeEach(async () => {
     sessionsRepo: h.sessions,
     messagesRepo: h.messages,
     adminRepo: h.admin,
-    telegram: { sendResponse, sendProcessed }
+    telegram: { sendResponse, sendProcessing, sendProcessed }
   });
 });
 afterEach(async () => {
@@ -159,9 +161,12 @@ describe("GET /v1/poll", () => {
     expect(group.messages.map((m: { resumeLastSession: boolean }) => m.resumeLastSession)).toEqual([
       true
     ]);
+    expect(sendProcessing).toHaveBeenCalledTimes(1);
+    expect(sendProcessing).toHaveBeenCalledWith(42, "do a");
 
     const again = await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
     expect(again.json().sessions).toEqual([]);
+    expect(sendProcessing).toHaveBeenCalledTimes(1);
   });
 
   it("replaces in-progress work only when a newer new-code message is queued", async () => {
@@ -182,6 +187,7 @@ describe("GET /v1/poll", () => {
     expect(group.messages[0].resumeLastSession).toBe(false);
     expect((await h.messages.getProcessing(sessionId))?.content).toBe("fresh work");
     expect(await h.messages.count(sessionId)).toBe(1);
+    expect(sendProcessing).toHaveBeenCalledTimes(2);
   });
 
   it("resumes in-progress sessions with a continue instruction when requested", async () => {
@@ -197,6 +203,18 @@ describe("GET /v1/poll", () => {
     expect(group.messages).toHaveLength(1);
     expect(group.messages[0].content).toBe("continue");
     expect(group.messages[0].resumeLastSession).toBe(true);
+    expect(sendProcessing).toHaveBeenCalledTimes(1);
+  });
+
+  it("still returns claimed work when processing notification fails", async () => {
+    sendProcessing.mockRejectedValueOnce(new Error("telegram unavailable"));
+    await h.messages.enqueue({ sessionId, content: "do work" });
+
+    const res = await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
+    const [group] = res.json().sessions;
+    expect(res.statusCode).toBe(200);
+    expect(group.messages[0].content).toBe("do work");
+    expect((await h.messages.getProcessing(sessionId))?.content).toBe("do work");
   });
 
   it("groups per profile when api_key has multiple sessions", async () => {
@@ -220,6 +238,7 @@ describe("GET /v1/poll", () => {
     const byName = new Map(groups.map((g) => [g.profileName, g.messages]));
     expect(byName.get("main")![0]!.content).toBe("for-main");
     expect(byName.get("ops")![0]!.content).toBe("for-ops");
+    expect(sendProcessing).toHaveBeenCalledTimes(2);
   });
 
   void profileId;

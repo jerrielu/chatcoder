@@ -29,6 +29,13 @@ export function splitForTelegram(s: string): string[] {
   return chunks;
 }
 
+export function processingMessageText(content: string): string {
+  const words = content.trim().split(/\s+/).filter(Boolean);
+  const preview = words.slice(0, 100).join(" ");
+  const suffix = words.length > 100 ? "..." : "";
+  return `🔄 Daemon is processing your message:\n\n${preview}${suffix}`;
+}
+
 /**
  * Adapter the Fastify server uses to push daemon responses to a user's chat.
  * Concrete implementation wraps grammY's `bot.api.sendMessage`; tests inject
@@ -36,6 +43,7 @@ export function splitForTelegram(s: string): string[] {
  */
 export interface TelegramSender {
   sendResponse(chatId: number, content: string): Promise<void>;
+  sendProcessing?(chatId: number, content: string): Promise<void>;
   sendProcessed?(chatId: number): Promise<void>;
 }
 

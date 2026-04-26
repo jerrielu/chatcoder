@@ -12,6 +12,7 @@ import { createBot } from "./bot/bot.js";
 import { FlowStore } from "./bot/flows.js";
 import { deriveLocalApiUrl } from "./apiUrl.js";
 import {
+  processingMessageText,
   sendTelegramWithRetry,
   splitForTelegram,
   type TelegramSender
@@ -47,6 +48,13 @@ async function main(): Promise<void> {
           bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu() })
         );
       }
+    },
+    async sendProcessing(chatId, content) {
+      await sendTelegramWithRetry(() =>
+        bot.api.sendMessage(chatId, processingMessageText(content), {
+          reply_markup: mainMenu()
+        })
+      );
     },
     async sendProcessed(chatId) {
       await sendTelegramWithRetry(() =>

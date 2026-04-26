@@ -78,10 +78,12 @@ sessions (
 -- FIFO trim. Daemon → user responses are pushed directly to Telegram at
 -- POST /v1/responses time and are never stored.
 messages (
-  id          TEXT PRIMARY KEY,           -- uuid
-  session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-  content     TEXT NOT NULL,
-  created_at  BIGINT NOT NULL             -- ms*1024 + per-instance seq counter
+  id                     TEXT PRIMARY KEY,           -- uuid
+  session_id             TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  content                TEXT NOT NULL,
+  resume_last_session    INTEGER NOT NULL DEFAULT 1, -- 0 = New Code, interrupt/resume fresh
+  processing_started_at  BIGINT,                     -- null until claimed by a daemon
+  created_at             BIGINT NOT NULL             -- ms*1024 + per-instance seq counter
 )
 ```
 
@@ -145,14 +147,32 @@ and returns the Telegram send result to the daemon. Failure → HTTP error →
 daemon's existing retry/backoff takes over (transient retries; permanent
 failures like "bot blocked" bubble as 4xx and stop retrying).
 
-Per-session cap of 10 still applies to the instruction queue: after INSERT,
-`DELETE FROM messages WHERE session_id=? AND id NOT IN (SELECT id ... ORDER
-BY created_at DESC LIMIT 10)`. Drop-oldest keeps the latest intent.
+Per-session cap of 10 still applies to queued instructions that have not
+started processing: after INSERT, keep the newest 10 pending rows and drop
+the oldest pending rows. In-progress rows are excluded from this trim so the
+bot can track completion and resume after daemon restarts.
 
-Delivery-for-daemon = when daemon's poll returns it, the row is deleted
-(requirement: "Once those messages were delivered, it should be cleaned
-up."). Responses never hit the DB, so there's nothing to clean up on the
-user side.
+Delivery-for-daemon = when the daemon's poll claims a row, the row is marked
+with `processing_started_at` instead of deleted immediately. The daemon then
+posts progress updates with `final: false`, which update the session's latest
+message for dashboards/status without sending Telegram messages. When it
+posts the final response, the bot sends that response to Telegram, deletes
+the in-progress row, and sends a best-effort completion acknowledgement.
+Responses never queue as daemon-bound rows.
+
+`resume_last_session` controls whether a message continues the current tool
+context. Normal `/code` messages default to `true` and run FIFO. New Code
+messages set it to `false`: the poll API claims the newest pending New Code
+row first, clears older pending or in-progress work for that session, marks
+the New Code row in progress, and leaves newer queued work pending behind it.
+The daemon treats `resume_last_session=false` as an interrupt: it aborts the
+active profile task, drops older queued local tasks for that profile, and
+starts the New Code instruction without resume flags.
+
+On daemon startup, the first poll includes `resumeInProgress=1`. If a session
+has an in-progress row and no newer New Code row preempts it, the bot returns
+a synthetic `continue` instruction with `resumeLastSession=true` so the tool
+can resume the last session after a daemon restart.
 
 ---
 
@@ -183,13 +203,23 @@ Flow:
                     → shows key + API URL hint, one-time display warning
 /code <instruction>  → queued to daemon
   Status → last heartbeat, pending instruction count
-  (daemon output)    → pushed into the chat as a regular message
+  (daemon output)    → final output pushed into the chat as a regular message
+                    → completion acknowledgement after the queue item clears
 ```
 
 ### 5.1 Why `/code` prefix rather than routing all messages?
 Requirement explicit: "When sharing a message with the bot, the user need to
 explicitly say that is for chatcoder-daemon." This avoids accidental forwarding
 of conversational text to codex, and leaves room for future bot-local commands.
+
+### 5.2 Normal Code vs. New Code
+
+Normal Code continues the current tool session and is processed FIFO, one
+in-progress instruction per chatcoder session. New Code starts fresh: it
+preempts active work, clears older queued/in-progress work for the same
+session, and runs before newer queued work. This gives the user an escape
+hatch when the active agent is pursuing the wrong task while preserving
+instructions that were queued after the New Code request.
 
 ---
 
@@ -323,12 +353,12 @@ costs more tests than it's worth, but the main behavioral paths are asserted. --
 | Layer                 | Tool                                      | Key cases                                                                                   |
 |-----------------------|-------------------------------------------|---------------------------------------------------------------------------------------------|
 | shared types/schemas  | vitest                                    | zod parse happy/sad                                                                         |
-| db repositories       | vitest + better-sqlite3 in-memory         | 10-item cap, FIFO drop, delivery-deletes, soft-delete revocation, rate-limit atomic upsert  |
-| bot API               | vitest + `fastify.inject` (no network)    | auth pass/fail, reset signal, queue full, heartbeat updates, response post                  |
+| db repositories       | vitest + better-sqlite3 in-memory         | 10-item cap, FIFO drop, in-progress lifecycle, New Code preemption, soft-delete revocation, rate-limit atomic upsert |
+| bot API               | vitest + `fastify.inject` (no network)    | auth pass/fail, resume-in-progress poll, New Code preemption, heartbeat updates, response post |
 | bot Telegram handlers | vitest + fake grammY Context              | menu callbacks, two-step confirm, rate limit rejection, /code instruction capture           |
 | daemon client         | vitest + stubbed `fetch`                  | auth header, retry on 5xx, 4xx non-retry, shutdown on 401                                   |
 | daemon PTY            | vitest + fake spawner                     | idle flush, byte cap, inactivity kill, reset kill                                           |
-| daemon orchestrator   | vitest + fake API + fake PTY              | end-to-end: instruction → PTY → response post                                               |
+| daemon orchestrator   | vitest + fake API + fake PTY              | end-to-end: instruction → tool execution → progress/final response post, startup resume polling |
 | system                | vitest, single process, real bot+daemon   | new session → /code → codex echo → Response command delivers                                |
 
 No test is allowed to assert trivial truths like `expect(true).toBe(true)` —

@@ -27,6 +27,7 @@ export interface Reply {
   text: string;
   keyboard?: InlineKeyboard;
   forceReply?: boolean;
+  inputPlaceholder?: string;
   parseMode?: "Markdown" | "HTML";
 }
 
@@ -201,6 +202,8 @@ export function handleNewSessionRequest(
       "Paste the API key from your `chatcoder-daemon` setup (starts with `cc_`).\n" +
       "Reply with the API key.\n\n" +
       "Send `/cancel` to abort.",
+    forceReply: true,
+    inputPlaceholder: "Paste daemon API key",
     parseMode: "Markdown"
   };
 }
@@ -359,6 +362,7 @@ export function handleCodeRequest(
       "Enter the instruction for your daemon. This will resume the last CLI session.\n\n" +
       "Reply with the instruction, or send `/cancel` to abort.",
     forceReply: true,
+    inputPlaceholder: "Describe the code change",
     parseMode: "Markdown"
   };
 }
@@ -378,6 +382,7 @@ export function handleNewCodeRequest(
       "Enter the instruction for your daemon. This will start a fresh CLI run.\n\n" +
       "Reply with the instruction, or send `/cancel` to abort.",
     forceReply: true,
+    inputPlaceholder: "Describe the code change",
     parseMode: "Markdown"
   };
 }

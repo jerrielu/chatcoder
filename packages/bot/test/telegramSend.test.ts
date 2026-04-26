@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  processingMessageText,
   sendTelegramWithRetry,
   splitForTelegram
 } from "../src/bot/telegramSend.js";
@@ -7,6 +8,16 @@ import {
 describe("splitForTelegram", () => {
   it("keeps short messages intact", () => {
     expect(splitForTelegram("hello")).toEqual(["hello"]);
+  });
+});
+
+describe("processingMessageText", () => {
+  it("includes only the first 100 words of the claimed message", () => {
+    const words = Array.from({ length: 105 }, (_, i) => `w${i + 1}`);
+    const text = processingMessageText(words.join(" "));
+    expect(text).toContain(words.slice(0, 100).join(" "));
+    expect(text).not.toContain("w101");
+    expect(text.endsWith("...")).toBe(true);
   });
 });
 

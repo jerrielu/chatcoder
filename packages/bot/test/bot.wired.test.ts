@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Bot, type ApiResponse } from "grammy";
+import { CODEX_TOKEN_USAGE_COMMAND } from "@chatcoder/shared";
 import { wireBot } from "../src/bot/bot.js";
 import { FlowStore } from "../src/bot/flows.js";
 import { makeHarness, type TestHarness } from "./helpers.js";
@@ -47,7 +48,13 @@ function buildDeps(h: TestHarness, flows: FlowStore) {
   };
 }
 
-function msgUpdate(chatId: number, userId: number, text: string, updateId = 1): Parameters<Bot["handleUpdate"]>[0] {
+function msgUpdate(
+  chatId: number,
+  userId: number,
+  text: string,
+  updateId = 1,
+  replyToText?: string
+): Parameters<Bot["handleUpdate"]>[0] {
   return {
     update_id: updateId,
     message: {
@@ -56,6 +63,15 @@ function msgUpdate(chatId: number, userId: number, text: string, updateId = 1): 
       chat: { id: chatId, type: "private", first_name: "u" },
       from: { id: userId, is_bot: false, first_name: "u" },
       text,
+      reply_to_message: replyToText
+        ? {
+            message_id: updateId - 1,
+            date: 0,
+            chat: { id: chatId, type: "private", first_name: "u" },
+            from: { id: 1, is_bot: true, first_name: "bot" },
+            text: replyToText
+          }
+        : undefined,
       entities:
         text.startsWith("/") && !text.startsWith("/ ")
           ? [{ type: "bot_command", offset: 0, length: text.split(" ")[0]!.length }]
@@ -112,6 +128,17 @@ describe("wireBot /start", () => {
   });
 });
 
+describe("wireBot /token", () => {
+  it("queues a Codex token-usage request", async () => {
+    const seed = await h.seedSession({ chatId: 1, tool: "OPENAI" });
+    await bot.handleUpdate(msgUpdate(1, 1, "/token"));
+    const last = sends().at(-1)!;
+    expect((last.payload as { text: string }).text).toMatch(/Token usage request queued/);
+    const [msg] = await h.messages.drain(seed.session.id);
+    expect(msg?.content).toBe(CODEX_TOKEN_USAGE_COMMAND);
+  });
+});
+
 describe("wireBot instruction menu flow", () => {
   it("Code callback opens input and queues a resume instruction", async () => {
     const seed = await h.seedSession({ chatId: 1 });
@@ -149,6 +176,30 @@ describe("wireBot instruction menu flow", () => {
     const texts = sends().map((m) => (m.payload as { text: string }).text);
     expect(texts.some((t) => t.includes("Too fast"))).toBe(true);
   });
+
+  it("recovers a resume instruction reply when flow state was lost", async () => {
+    const seed = await h.seedSession({ chatId: 1 });
+    await bot.handleUpdate(
+      msgUpdate(1, 1, "run tests", 2, "💻 Code (resume)\n\nEnter the instruction")
+    );
+    const last = sends().at(-1)!;
+    expect((last.payload as { text: string }).text).toMatch(/Queued/);
+    const [msg] = await h.messages.drain(seed.session.id);
+    expect(msg?.content).toBe("run tests");
+    expect(msg?.resumeLastSession).toBe(true);
+  });
+
+  it("recovers a fresh instruction reply when flow state was lost", async () => {
+    const seed = await h.seedSession({ chatId: 1 });
+    await bot.handleUpdate(
+      msgUpdate(1, 1, "run tests", 2, "🆕 New Code (fresh)\n\nEnter the instruction")
+    );
+    const last = sends().at(-1)!;
+    expect((last.payload as { text: string }).text).toMatch(/Queued/);
+    const [msg] = await h.messages.drain(seed.session.id);
+    expect(msg?.content).toBe("run tests");
+    expect(msg?.resumeLastSession).toBe(false);
+  });
 });
 
 describe("wireBot callback flow", () => {
@@ -172,12 +223,13 @@ describe("wireBot callback flow", () => {
     expect(flows.get(1, 1).kind).toBe("idle");
   });
 
-  it("new session prompt includes a menu", async () => {
+  it("new session prompt opens an API-key input", async () => {
     await bot.handleUpdate(cbUpdate(1, 1, CB.newSession, 1));
     const last = sends().at(-1)!;
     const markup = (last.payload as { reply_markup?: Record<string, unknown> }).reply_markup;
     expect(markup).toBeDefined();
-    expect(markup?.["inline_keyboard"]).toBeDefined();
+    expect(markup?.["force_reply"]).toBe(true);
+    expect(markup?.["input_field_placeholder"]).toBe("Paste daemon API key");
   });
 
   it("status shows session info", async () => {

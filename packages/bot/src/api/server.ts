@@ -109,17 +109,29 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     for (const s of sessions) {
       const profile = await opts.profilesRepo.getById(s.profileId);
       if (!profile) continue;
-      const newCode = await opts.messagesRepo.claimLatestNewCodeAndClearBefore(s.id);
-      const msg =
-        newCode ??
-        (resumeInProgress
-          ? await opts.messagesRepo.getProcessing(s.id).then((inProgress) =>
-              inProgress
-                ? { ...inProgress, content: RESUME_IN_PROGRESS_CONTENT, resumeLastSession: true }
-                : null
-            )
-          : await opts.messagesRepo.claimNext(s.id));
+      let notifyProcessing = false;
+      let msg = await opts.messagesRepo.claimLatestNewCodeAndClearBefore(s.id);
+      if (msg) {
+        notifyProcessing = true;
+      } else if (resumeInProgress) {
+        msg = await opts.messagesRepo.getProcessing(s.id).then((inProgress) =>
+          inProgress
+            ? { ...inProgress, content: RESUME_IN_PROGRESS_CONTENT, resumeLastSession: true }
+            : null
+        );
+      } else {
+        msg = await opts.messagesRepo.claimNext(s.id);
+        notifyProcessing = msg !== null;
+      }
       if (!msg) continue;
+      if (notifyProcessing && opts.telegram.sendProcessing) {
+        try {
+          await opts.telegram.sendProcessing(s.chatId, msg.content);
+        } catch {
+          // Claiming work should not be undone or hidden from the daemon just
+          // because this best-effort status notification failed.
+        }
+      }
       grouped.push({
         sessionId: s.id,
         profileName: profile.name,
