@@ -44,3 +44,4 @@
 - Fixed git/global install lifecycle handling by replacing root `prepare` with `node scripts/prepare.mjs`, which skips workspace builds during global installs and requires prebuilt runtime artifacts.
 - Committed runtime build outputs by unignoring and adding `packages/shared/dist`, `packages/bot/dist`, and `packages/daemon/dist` so global git installs no longer depend on workspace bootstrap.
 - Verified with `npm run build:runtime`, `npm run prepare`, `npm_config_global=true node scripts/prepare.mjs`, and `npm install -g git+file://<temp-repo>` (install succeeded).
+- Merged local `dev` into local `main` as a fast-forward (`5153f24` -> `adc7b0a`) to synchronize local branches.
