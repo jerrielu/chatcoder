@@ -5,6 +5,12 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+!packages/shared/dist/
+!packages/shared/dist/**
+!packages/bot/dist/
+!packages/bot/dist/**
+!packages/daemon/dist/
+!packages/daemon/dist/**
 
 # Test coverage
 coverage/

@@ -20,7 +20,7 @@
     "build:runtime": "tsc -b packages/shared packages/bot packages/daemon --pretty",
     "clean": "rm -rf packages/*/dist coverage",
     "lint": "eslint \"packages/*/src/**/*.ts\" \"packages/*/test/**/*.ts\"",
-    "prepare": "npm run build:runtime",
+    "prepare": "node scripts/prepare.mjs",
     "typecheck": "tsc -b packages/shared packages/bot packages/daemon packages/dashboard --pretty",
     "test": "vitest run --coverage",
     "test:watch": "vitest",

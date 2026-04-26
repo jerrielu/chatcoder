@@ -41,3 +41,6 @@
 - Updated `chatcoder <chat|coder> --systemd` installer to explicitly target the current user context (prefers `SUDO_USER` when invoked via sudo), write unit files under that user's `~/.config/systemd/user`, and run `systemctl --user` operations as that user.
 - Added target-user information to systemd install output and failure hints.
 - Verified with `node bin/chatcoder.js --help` and `npm run typecheck` (pass).
+- Fixed git/global install lifecycle handling by replacing root `prepare` with `node scripts/prepare.mjs`, which skips workspace builds during global installs and requires prebuilt runtime artifacts.
+- Committed runtime build outputs by unignoring and adding `packages/shared/dist`, `packages/bot/dist`, and `packages/daemon/dist` so global git installs no longer depend on workspace bootstrap.
+- Verified with `npm run build:runtime`, `npm run prepare`, `npm_config_global=true node scripts/prepare.mjs`, and `npm install -g git+file://<temp-repo>` (install succeeded).

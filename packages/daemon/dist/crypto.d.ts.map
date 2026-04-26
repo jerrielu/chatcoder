@@ -1,0 +1,1 @@
+{"version":3,"file":"crypto.d.ts","sourceRoot":"","sources":["../src/crypto.ts"],"names":[],"mappings":"AAGA,wBAAgB,UAAU,CAAC,GAAG,EAAE,MAAM,GAAG,MAAM,CAE9C;AAED,wBAAgB,cAAc,IAAI;IAAE,SAAS,EAAE,MAAM,CAAC;IAAC,IAAI,EAAE,MAAM,CAAC;IAAC,MAAM,EAAE,MAAM,CAAA;CAAE,CAGpF"}
