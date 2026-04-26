@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { runSetup, validators } from "../src/setup.js";
+import { setCodexRootOverride, setSourceCodexHomeOverride } from "../src/codexHome.js";
 
 describe("setup validators", () => {
   it("apiUrl accepts http(s) and rejects others", () => {
@@ -26,6 +27,23 @@ describe("setup validators", () => {
 function tmp(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "cc-setup-"));
 }
+
+let codexRoot: string;
+let sourceRoot: string;
+
+beforeEach(() => {
+  codexRoot = tmp();
+  sourceRoot = tmp();
+  setCodexRootOverride(codexRoot);
+  setSourceCodexHomeOverride(sourceRoot);
+});
+
+afterEach(() => {
+  setCodexRootOverride(null);
+  setSourceCodexHomeOverride(null);
+  fs.rmSync(codexRoot, { recursive: true, force: true });
+  fs.rmSync(sourceRoot, { recursive: true, force: true });
+});
 
 /**
  * The walkthrough calls `prompt` several times: top-level (apiUrl + keyMode),
@@ -82,6 +100,11 @@ describe("runSetup", () => {
   });
 
   it("can create a Codex profile without editing auth", async () => {
+    fs.writeFileSync(path.join(sourceRoot, "config.toml"), "model_provider = \"Host\"\n");
+    fs.writeFileSync(
+      path.join(sourceRoot, "auth.json"),
+      JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: "from-host" }, null, 2) + "\n"
+    );
     const dir = tmp();
     const p = path.join(dir, "config.yml");
     const written = await runSetup(
@@ -112,6 +135,12 @@ describe("runSetup", () => {
     expect(body).toContain("tool: OPENAI");
     expect(body).toContain("bypassApprovalsAndSandbox: true");
     expect(body).not.toContain("      apiKey:");
+    const codexHome = path.join(codexRoot, "codex-main");
+    expect(fs.readFileSync(path.join(codexHome, "config.toml"), "utf8")).toBe(
+      "model_provider = \"Host\"\n"
+    );
+    const auth = JSON.parse(fs.readFileSync(path.join(codexHome, "auth.json"), "utf8"));
+    expect(auth.OPENAI_API_KEY).toBe("from-host");
   });
 
   it("aborts if the user skips the apiUrl", async () => {

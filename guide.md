@@ -22,10 +22,19 @@ npm install
 npm run build
 ```
 
+### 1.0 Install from GitHub as a CLI
+
+You can install directly from GitHub and use the top-level `chatcoder` command:
+
+```bash
+npm install -g github:jerrielu/chatcoder
+chatcoder --help
+```
+
 ### 1.1 Run the Bot
 ```bash
 export TELEGRAM_BOT_TOKEN=123456:ABC-xxxxxxxx
-npm run dev:bot
+chatcoder chat
 ```
 Default: `0.0.0.0:8080`, `sqlite:./chatcoder.db`.
 
@@ -47,10 +56,11 @@ npx serve packages/dashboard/dist -p 5173
 
 ### 1.3 Run the Daemon
 ```bash
-# Opens setup by default (no flag). After saving, press R to run immediately.
-npm run dev:daemon
-# You can still run directly:
-npm run dev:daemon -- run
+# Runs daemon mode directly.
+chatcoder coder
+# Optional setup/config commands:
+chatcoder coder --setup
+chatcoder coder config-path
 ```
 
 
@@ -132,6 +142,29 @@ Answer the prompts:
 - **Profiles/Tool config**: choose and configure at least one profile.
 
 Config is saved to `~/.chatcoder-daemon/config.yml` (0600).
+
+### 5.1 Register user systemd services
+
+Install and start user-level services directly from the CLI:
+
+```bash
+chatcoder chat --systemd
+chatcoder coder --systemd
+```
+
+Service names:
+
+- `chatcoder-chat.service`
+- `chatcoder-coder.service`
+
+Useful commands:
+
+```bash
+systemctl --user status chatcoder-chat.service
+systemctl --user status chatcoder-coder.service
+journalctl --user -u chatcoder-chat.service -f
+journalctl --user -u chatcoder-coder.service -f
+```
 
 ---
 

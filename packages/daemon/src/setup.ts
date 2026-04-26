@@ -3,6 +3,7 @@ import prompts from "prompts";
 import { MAX_PROFILES_PER_DAEMON } from "@chatcoder/shared";
 import { DaemonConfig, writeConfig, defaultConfigPath } from "./config.js";
 import { generateApiKey } from "./crypto.js";
+import { ensureCodexHome } from "./codexHome.js";
 import { Profile as ProfileSchema } from "./profile.js";
 import type { Profile } from "./profile.js";
 
@@ -67,6 +68,13 @@ function seedProfiles(existing?: Partial<DaemonConfig>): Profile[] {
     if (parsed.success) out.push(parsed.data);
   }
   return out;
+}
+
+function syncOpenAiProfileHomes(cfg: DaemonConfig): void {
+  for (const profile of cfg.profiles) {
+    if (profile.tool !== "OPENAI") continue;
+    ensureCodexHome(profile.name, profile.codex);
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -930,6 +938,7 @@ async function runSetupCoderStyle(
   });
 
   writeConfig(cfg, targetPath);
+  syncOpenAiProfileHomes(cfg);
 
   clearScreen();
   printBanner(ui);
@@ -1374,6 +1383,7 @@ async function runSetupPromptWizard(
     profiles
   });
   writeConfig(cfg, targetPath);
+  syncOpenAiProfileHomes(cfg);
   clearIfTty();
   printBannerSimple(io);
   printSectionSimple(io, "Saved");

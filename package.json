@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "description": "Remote codex control via Telegram — monorepo root",
+  "bin": {
+    "chatcoder": "bin/chatcoder.js"
+  },
   "workspaces": [
     "packages/shared",
     "packages/bot",
@@ -14,8 +17,10 @@
   },
   "scripts": {
     "build": "npm run build -ws --if-present",
+    "build:runtime": "tsc -b packages/shared packages/bot packages/daemon --pretty",
     "clean": "rm -rf packages/*/dist coverage",
     "lint": "eslint \"packages/*/src/**/*.ts\" \"packages/*/test/**/*.ts\"",
+    "prepare": "npm run build:runtime",
     "typecheck": "tsc -b packages/shared packages/bot packages/daemon packages/dashboard --pretty",
     "test": "vitest run --coverage",
     "test:watch": "vitest",

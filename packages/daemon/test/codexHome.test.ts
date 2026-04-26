@@ -8,18 +8,24 @@ import {
   renderCodexConfigToml,
   codexHomeFor,
   setCodexRootOverride,
+  setSourceCodexHomeOverride,
   DEFAULT_CODEX_BASE_URL
 } from "../src/codexHome.js";
 
 let tmpRoot: string;
+let sourceRoot: string;
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cc-codex-"));
+  sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cc-codex-source-"));
   setCodexRootOverride(tmpRoot);
+  setSourceCodexHomeOverride(sourceRoot);
 });
 afterEach(() => {
   setCodexRootOverride(null);
+  setSourceCodexHomeOverride(null);
   fs.rmSync(tmpRoot, { recursive: true, force: true });
+  fs.rmSync(sourceRoot, { recursive: true, force: true });
 });
 
 describe("renderCodexConfigToml", () => {
@@ -114,19 +120,72 @@ describe("ensureCodexHome", () => {
     expect(bAuth.OPENAI_API_KEY).toBe("2");
   });
 
-  it("does not write auth.json when Codex profile auth is omitted", () => {
-    const first = ensureCodexHome("host-auth", {
+  it("copies host ~/.codex config/auth when profile auth is omitted", () => {
+    fs.writeFileSync(path.join(sourceRoot, "config.toml"), "model_provider = \"Host\"\n");
+    fs.writeFileSync(
+      path.join(sourceRoot, "auth.json"),
+      JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: "from-host" }, null, 2) + "\n"
+    );
+
+    const first = ensureCodexHome("host-copy", {
       fullAuto: false,
       extraArgs: []
     });
     expect(first.changed).toBe(true);
-    expect(fs.existsSync(path.join(first.codexHome, "config.toml"))).toBe(true);
-    expect(fs.existsSync(path.join(first.codexHome, "auth.json"))).toBe(false);
+    expect(fs.readFileSync(path.join(first.codexHome, "config.toml"), "utf8")).toBe(
+      "model_provider = \"Host\"\n"
+    );
+    const auth = JSON.parse(fs.readFileSync(path.join(first.codexHome, "auth.json"), "utf8"));
+    expect(auth.OPENAI_API_KEY).toBe("from-host");
+  });
 
-    const second = ensureCodexHome("host-auth", {
+  it("keeps scoped profile config/auth stable after first copy", () => {
+    fs.writeFileSync(path.join(sourceRoot, "config.toml"), "model_provider = \"Host-A\"\n");
+    fs.writeFileSync(
+      path.join(sourceRoot, "auth.json"),
+      JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: "host-a" }, null, 2) + "\n"
+    );
+
+    const first = ensureCodexHome("sticky", {
+      fullAuto: false,
+      extraArgs: []
+    });
+    expect(first.changed).toBe(true);
+
+    fs.writeFileSync(path.join(sourceRoot, "config.toml"), "model_provider = \"Host-B\"\n");
+    fs.writeFileSync(
+      path.join(sourceRoot, "auth.json"),
+      JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: "host-b" }, null, 2) + "\n"
+    );
+
+    const second = ensureCodexHome("sticky", {
       fullAuto: false,
       extraArgs: []
     });
     expect(second.changed).toBe(false);
+    expect(fs.readFileSync(path.join(second.codexHome, "config.toml"), "utf8")).toBe(
+      "model_provider = \"Host-A\"\n"
+    );
+    const auth = JSON.parse(fs.readFileSync(path.join(second.codexHome, "auth.json"), "utf8"));
+    expect(auth.OPENAI_API_KEY).toBe("host-a");
+  });
+
+  it("explicit apiKey/baseUrl overrides host ~/.codex values", () => {
+    fs.writeFileSync(path.join(sourceRoot, "config.toml"), "model_provider = \"Host\"\n");
+    fs.writeFileSync(
+      path.join(sourceRoot, "auth.json"),
+      JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: "from-host" }, null, 2) + "\n"
+    );
+
+    const out = ensureCodexHome("explicit", {
+      apiKey: "from-profile",
+      baseUrl: "https://profile.example.com",
+      fullAuto: false,
+      extraArgs: []
+    });
+    const toml = fs.readFileSync(path.join(out.codexHome, "config.toml"), "utf8");
+    const auth = JSON.parse(fs.readFileSync(path.join(out.codexHome, "auth.json"), "utf8"));
+    expect(toml).toContain("profile.example.com");
+    expect(auth.OPENAI_API_KEY).toBe("from-profile");
   });
 });

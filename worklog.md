@@ -18,4 +18,15 @@
 - Verified that both services are currently running and logging to `nohup.out`.
 - Verified that `npm run typecheck` and `npm run build` pass for the current codebase.
 - Terminated all bot and daemon processes as requested.
-
+- Added a new top-level `chatcoder` CLI (`bin/chatcoder.js`) with `chat` and `coder` subcommands that forward to the bot and daemon runtimes.
+- Added `chatcoder <chat|coder> --systemd` support to write and enable per-user units (`chatcoder-chat.service` and `chatcoder-coder.service`) via `systemctl --user`.
+- Updated root packaging so GitHub installs expose the `chatcoder` binary and run a runtime build on install (`prepare` + `build:runtime`).
+- Updated `guide.md` and `README.md` with GitHub install, new run commands, and systemd registration usage.
+- Verified with `npm run build:runtime`, `node bin/chatcoder.js --help`, and `node bin/chatcoder.js coder config-path`.
+- Updated CLI routing so `chatcoder coder` runs daemon mode directly and `chatcoder coder --setup` explicitly enters profile setup mode.
+- Updated daemon Codex profile home handling to seed new profile `CODEX_HOME` from existing `~/.codex/config.toml` and `~/.codex/auth.json` when profile-specific OpenAI auth/base URL is omitted, and to keep each profile's copied config/auth stable across later switches.
+- Added Codex home tests covering host-copy bootstrap, sticky per-profile behavior on subsequent runs, and explicit profile auth/base URL overrides.
+- Verified with `npx vitest run packages/daemon/test/codexHome.test.ts --coverage.enabled false` (pass). `npm test -- packages/daemon/test/codexHome.test.ts` still exits non-zero due global coverage thresholds.
+- Changed OPENAI launch behavior so profile activation always sets scoped `CODEX_HOME` and uses the profile's presaved Codex config/auth, even when profile auth/base URL are omitted.
+- Updated setup save flow to pre-create/sync OPENAI profile `CODEX_HOME` directories so adding/updating profiles immediately materializes config/auth files from host `~/.codex` or explicit profile auth/base URL values.
+- Added setup/toolExecutor coverage for the new flow and verified with `npx vitest run packages/daemon/test/codexHome.test.ts packages/daemon/test/toolExecutor.test.ts packages/daemon/test/setup.test.ts --coverage.enabled false` (pass) and `npm run typecheck` (pass).

@@ -114,7 +114,7 @@ describe("buildLaunch", () => {
     expect(launch.env["OPENAI_BASE_URL"]).toBe("https://api.example.com/v1");
   });
 
-  it("does not inject OpenAI auth env when profile auth is omitted", () => {
+  it("uses scoped CODEX_HOME even when OpenAI profile auth is omitted", () => {
     const profile: Profile = {
       name: "opx-no-auth",
       cwd: "/tmp",
@@ -125,7 +125,8 @@ describe("buildLaunch", () => {
       }
     };
     const launch = buildLaunch(profile, "ping");
-    expect(launch.env["CODEX_HOME"]).toBeUndefined();
+    expect(launch.env["CODEX_HOME"]).toMatch(/\/opx-no-auth$/);
+    expect(fs.existsSync(path.join(String(launch.env["CODEX_HOME"]), "config.toml"))).toBe(true);
     expect(launch.env["OPENAI_API_KEY"]).toBeUndefined();
     expect(launch.env["OPENAI_BASE_URL"]).toBeUndefined();
   });

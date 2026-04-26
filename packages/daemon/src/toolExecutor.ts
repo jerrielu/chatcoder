@@ -102,12 +102,10 @@ export function buildLaunch(
     const c = profile.codex;
     const finalOutputPath = codexFinalOutputPath(profile.name);
     const promptedMessage = messageWithCodexFinalResponsePolicy(message);
+    const { codexHome } = ensureCodexHome(profile.name, c);
+    env["CODEX_HOME"] = codexHome;
     if (c.apiKey) env["OPENAI_API_KEY"] = c.apiKey;
     if (c.baseUrl) env["OPENAI_BASE_URL"] = c.baseUrl;
-    if (c.apiKey || c.baseUrl) {
-      const { codexHome } = ensureCodexHome(profile.name, c);
-      env["CODEX_HOME"] = codexHome;
-    }
     const args: string[] = resumeLastSession ? ["exec", "resume", "--last"] : ["exec"];
     if (c.bypassApprovalsAndSandbox) {
       args.push("--dangerously-bypass-approvals-and-sandbox");

@@ -25,14 +25,24 @@ export const DEFAULT_CODEX_BASE_URL = "https://api.openai.com/v1";
  * a temp dir so they never touch the user's real `~/.chatcoder-daemon/`.
  */
 let codexRootOverride: string | null = null;
+let sourceCodexHomeOverride: string | null = null;
 
 export function setCodexRootOverride(root: string | null): void {
   codexRootOverride = root;
 }
 
+export function setSourceCodexHomeOverride(root: string | null): void {
+  sourceCodexHomeOverride = root;
+}
+
 export function codexHomeRoot(): string {
   if (codexRootOverride !== null) return codexRootOverride;
   return path.join(os.homedir(), ".chatcoder-daemon", "codex");
+}
+
+function sourceCodexHome(): string {
+  if (sourceCodexHomeOverride !== null) return sourceCodexHomeOverride;
+  return path.join(os.homedir(), ".codex");
 }
 
 export function codexHomeFor(profileName: string): string {
@@ -77,6 +87,35 @@ interface WriteResult {
   changed: boolean;
 }
 
+function readFileIfExists(filePath: string): string | null {
+  try {
+    return fs.readFileSync(filePath, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+function resolvedConfigContent(codexHome: string, codex: CodexConfig): string {
+  if (codex.baseUrl) return renderCodexConfigToml(codex);
+
+  const existing = readFileIfExists(path.join(codexHome, "config.toml"));
+  if (existing !== null) return existing;
+
+  const source = readFileIfExists(path.join(sourceCodexHome(), "config.toml"));
+  if (source !== null) return source;
+
+  return renderCodexConfigToml(codex);
+}
+
+function resolvedAuthContent(codexHome: string, codex: CodexConfig): string | null {
+  if (codex.apiKey) return renderCodexAuthJson(codex);
+
+  const existing = readFileIfExists(path.join(codexHome, "auth.json"));
+  if (existing !== null) return existing;
+
+  return readFileIfExists(path.join(sourceCodexHome(), "auth.json"));
+}
+
 /**
  * Ensures the scoped CODEX_HOME exists and is up to date. Uses a content
  * hash marker so subsequent calls with identical config are no-ops.
@@ -85,8 +124,8 @@ export function ensureCodexHome(profileName: string, codex: CodexConfig): WriteR
   const codexHome = codexHomeFor(profileName);
   fs.mkdirSync(codexHome, { recursive: true, mode: 0o700 });
 
-  const configContent = renderCodexConfigToml(codex);
-  const authContent = codex.apiKey ? renderCodexAuthJson(codex) : null;
+  const configContent = resolvedConfigContent(codexHome, codex);
+  const authContent = resolvedAuthContent(codexHome, codex);
 
   const marker = path.join(codexHome, ".chatcoder-hash");
   const hash = createHash("sha256")

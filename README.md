@@ -13,6 +13,15 @@ npm test
 npm run lint
 ```
 
+Install as a CLI directly from GitHub:
+
+```bash
+npm install -g github:jerrielu/chatcoder
+chatcoder --help
+chatcoder chat
+chatcoder coder
+```
+
 If you switch to a different Node major after install, run
 `npm rebuild better-sqlite3` to recompile the native addon.
 
