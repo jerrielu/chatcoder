@@ -16,7 +16,7 @@ function normalizeCommand(raw: string | undefined): string {
 
 async function promptRunFromSetup(): Promise<boolean> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    console.log("[daemon] Setup complete. Run with: chatcoder-daemon run");
+    console.log("[daemon] Setup complete. Run with: chatcoder coder");
     return false;
   }
 
@@ -138,8 +138,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  process.stderr.write("usage: chatcoder-daemon [setup|run|config-path]\n");
-  process.stderr.write("       default command: setup\n");
+  process.stderr.write("usage: chatcoder coder [--setup|run|config-path]\n");
+  process.stderr.write("       default command: run\n");
   process.exit(2);
 }
 

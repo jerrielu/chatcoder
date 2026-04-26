@@ -229,7 +229,7 @@ describe("wireBot callback flow", () => {
     const markup = (last.payload as { reply_markup?: Record<string, unknown> }).reply_markup;
     expect(markup).toBeDefined();
     expect(markup?.["force_reply"]).toBe(true);
-    expect(markup?.["input_field_placeholder"]).toBe("Paste daemon API key");
+    expect(markup?.["input_field_placeholder"]).toBe("Paste coder API key");
   });
 
   it("status shows session info", async () => {

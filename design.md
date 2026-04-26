@@ -209,7 +209,7 @@ Flow:
 
 ### 5.1 Why `/code` prefix rather than routing all messages?
 Requirement explicit: "When sharing a message with the bot, the user need to
-explicitly say that is for chatcoder-daemon." This avoids accidental forwarding
+explicitly say that is for chatcoder coder." This avoids accidental forwarding
 of conversational text to codex, and leaves room for future bot-local commands.
 
 ### 5.2 Normal Code vs. New Code

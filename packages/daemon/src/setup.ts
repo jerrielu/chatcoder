@@ -945,7 +945,7 @@ async function runSetupCoderStyle(
   printSection(ui, "Saved");
   printSuccess(ui, `wrote ${targetPath} (mode 0600)`);
   out(`• ${cfg.profiles.length} profile(s): ${cfg.profiles.map((p) => p.name).join(", ")}`);
-  out("Start the daemon with: chatcoder-daemon run");
+  out("Start the coder service with: chatcoder coder");
   return targetPath;
 }
 
@@ -961,7 +961,7 @@ function clearIfTty(): void {
 
 function printBannerSimple(io: SetupIO): void {
   io.log(LINE);
-  io.log("  chatcoder-daemon  setup");
+  io.log("  chatcoder coder --setup");
   io.log(LINE);
 }
 
@@ -1389,7 +1389,7 @@ async function runSetupPromptWizard(
   printSectionSimple(io, "Saved");
   io.log(`✓ wrote ${targetPath} (mode 0600)`);
   io.log(`• ${cfg.profiles.length} profile(s): ${cfg.profiles.map((p) => p.name).join(", ")}`);
-  io.log("Start the daemon with: chatcoder-daemon run");
+  io.log("Start the coder service with: chatcoder coder");
   return targetPath;
 }
 

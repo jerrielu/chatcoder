@@ -24,8 +24,8 @@
     "typecheck": "tsc -b packages/shared packages/bot packages/daemon packages/dashboard --pretty",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "dev:bot": "npm run dev -w @chatcoder/bot",
-    "dev:daemon": "npm run dev -w @chatcoder/daemon",
+    "dev:chat": "npm run dev -w @chatcoder/bot",
+    "dev:coder": "npm run dev -w @chatcoder/daemon",
     "dev:dashboard": "npm run dev -w @chatcoder/dashboard"
   },
   "devDependencies": {

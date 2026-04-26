@@ -30,3 +30,14 @@
 - Changed OPENAI launch behavior so profile activation always sets scoped `CODEX_HOME` and uses the profile's presaved Codex config/auth, even when profile auth/base URL are omitted.
 - Updated setup save flow to pre-create/sync OPENAI profile `CODEX_HOME` directories so adding/updating profiles immediately materializes config/auth files from host `~/.codex` or explicit profile auth/base URL values.
 - Added setup/toolExecutor coverage for the new flow and verified with `npx vitest run packages/daemon/test/codexHome.test.ts packages/daemon/test/toolExecutor.test.ts packages/daemon/test/setup.test.ts --coverage.enabled false` (pass) and `npm run typecheck` (pass).
+- Renamed root dev scripts to align with the chat/coder command naming: added `dev:chat` (bot workspace) and `dev:coder` (daemon workspace), while keeping `dev:bot`/`dev:daemon` as compatibility aliases.
+- Updated `guide.md` daemon setup command to use `npm run dev:coder`.
+- Verified script availability and mapping via `npm run`.
+- Removed legacy compatibility aliases `dev:bot` and `dev:daemon`; root dev scripts now expose only `dev:chat`, `dev:coder`, and `dev:dashboard`.
+- Removed workspace-level legacy bins `chatcoder-bot` and `chatcoder-daemon` so the root `chatcoder` bin is the only CLI entrypoint.
+- Migrated daemon/setup and Telegram guidance text from legacy `chatcoder-daemon ...` commands to `chatcoder coder` / `chatcoder coder --setup`.
+- Updated related docs (`guide.md`, `design.md`, and CLI help text) to reflect the unified `chatcoder chat|coder` command model.
+- Verified with `npm run`, `npx vitest run packages/bot/test/bot.wired.test.ts packages/bot/test/bot.handlers.test.ts packages/daemon/test/setup.test.ts --coverage.enabled false`, and `npm run typecheck` (all pass).
+- Updated `chatcoder <chat|coder> --systemd` installer to explicitly target the current user context (prefers `SUDO_USER` when invoked via sudo), write unit files under that user's `~/.config/systemd/user`, and run `systemctl --user` operations as that user.
+- Added target-user information to systemd install output and failure hints.
+- Verified with `node bin/chatcoder.js --help` and `npm run typecheck` (pass).

@@ -14,7 +14,7 @@ function usage(exitCode = 0) {
       "\n" +
       "commands:\n" +
       "  chat                 run the Chat API service\n" +
-      "  coder                run the coder daemon service\n" +
+      "  coder                run the Coder service\n" +
       "\n" +
       "options:\n" +
       "  --systemd            install and start a per-user systemd service for the command\n" +
@@ -43,8 +43,41 @@ function runNode(entryRelativePath, args) {
   process.exit(result.status ?? 1);
 }
 
-function runSystemctl(args) {
-  return spawnSync("systemctl", ["--user", ...args], {
+function currentRuntimeUser() {
+  return os.userInfo().username;
+}
+
+function targetSystemdUser() {
+  if (process.getuid?.() === 0 && process.env.SUDO_USER) return process.env.SUDO_USER;
+  return currentRuntimeUser();
+}
+
+function homeForUser(username) {
+  if (username === currentRuntimeUser()) return os.homedir();
+  try {
+    const passwd = fs.readFileSync("/etc/passwd", "utf8");
+    for (const line of passwd.split("\n")) {
+      if (!line || line.startsWith("#")) continue;
+      const parts = line.split(":");
+      if (parts.length < 7) continue;
+      if (parts[0] === username) return parts[5];
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
+function runSystemctl(args, user) {
+  const runtimeUser = currentRuntimeUser();
+  if (user === runtimeUser) {
+    return spawnSync("systemctl", ["--user", ...args], {
+      cwd: process.cwd(),
+      stdio: "inherit",
+      env: process.env
+    });
+  }
+  return spawnSync("sudo", ["-u", user, "systemctl", "--user", ...args], {
     cwd: process.cwd(),
     stdio: "inherit",
     env: process.env
@@ -52,8 +85,15 @@ function runSystemctl(args) {
 }
 
 function installSystemdService(serviceBaseName) {
+  const user = targetSystemdUser();
+  const userHome = homeForUser(user);
+  if (!userHome) {
+    process.stderr.write(`chatcoder: could not resolve home directory for user ${user}.\n`);
+    process.exit(1);
+  }
+
   const unitName = `chatcoder-${serviceBaseName}.service`;
-  const unitDir = path.join(os.homedir(), ".config", "systemd", "user");
+  const unitDir = path.join(userHome, ".config", "systemd", "user");
   const unitPath = path.join(unitDir, unitName);
   const node = process.execPath;
   const command = path.join(rootDir, "bin", "chatcoder.js");
@@ -62,7 +102,7 @@ function installSystemdService(serviceBaseName) {
   fs.mkdirSync(unitDir, { recursive: true });
   const contents =
     `[Unit]
-Description=Chatcoder ${serviceBaseName} service
+Description=Chatcoder ${serviceBaseName} service (${user})
 After=network-online.target
 Wants=network-online.target
 
@@ -79,20 +119,20 @@ WantedBy=default.target
 `;
   fs.writeFileSync(unitPath, contents, "utf8");
 
-  const reload = runSystemctl(["daemon-reload"]);
+  const reload = runSystemctl(["daemon-reload"], user);
   if (reload.status !== 0 || reload.error) {
     process.stderr.write(
       `chatcoder: wrote ${unitPath} but failed to run systemctl --user daemon-reload.\n` +
-        "You may need an active user systemd session.\n"
+        `Target user: ${user}. You may need an active user systemd session.\n`
     );
     process.exit(reload.status ?? 1);
   }
 
-  const enable = runSystemctl(["enable", "--now", unitName]);
+  const enable = runSystemctl(["enable", "--now", unitName], user);
   if (enable.status !== 0 || enable.error) {
     process.stderr.write(
       `chatcoder: service file written to ${unitPath} but enable/start failed.\n` +
-        `Try: systemctl --user enable --now ${unitName}\n`
+        `Try: sudo -u ${user} systemctl --user enable --now ${unitName}\n`
     );
     process.exit(enable.status ?? 1);
   }
@@ -100,8 +140,9 @@ WantedBy=default.target
   process.stdout.write(
     `Installed and started ${unitName}.\n` +
       `Unit file: ${unitPath}\n` +
+      `Target user: ${user}\n` +
       `Created at: ${now}\n` +
-      `View logs: journalctl --user -u ${unitName} -f\n`
+      `View logs: sudo -u ${user} journalctl --user -u ${unitName} -f\n`
   );
 }
 

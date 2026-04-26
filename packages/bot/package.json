@@ -35,9 +35,6 @@
       "import": "./dist/api/server.js"
     }
   },
-  "bin": {
-    "chatcoder-bot": "dist/main.js"
-  },
   "scripts": {
     "build": "tsc -b",
     "dev": "node ../../scripts/dev-runner.mjs dist/main.js",

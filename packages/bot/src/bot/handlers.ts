@@ -44,8 +44,8 @@ export interface HandlerDeps {
 
 const WELCOME =
   "👋 *Chatcoder*\n\n" +
-  "I relay instructions to a `chatcoder-daemon` running on your own machine.\n\n" +
-  "• Tap *New Session* to link this chat to a daemon profile.\n" +
+  "I relay instructions to a `chatcoder coder` service running on your own machine.\n\n" +
+  "• Tap *New Session* to link this chat to a coder profile.\n" +
   "• Tap *Code* to run with session resume, or *New Code* for a fresh run.\n" +
   "• Tap *Latest Progress* to check the current in-progress output.\n";
 
@@ -198,12 +198,12 @@ export function handleNewSessionRequest(
   deps.flows.set(chatId, telegramUser, { kind: "awaiting_api_key" });
   return {
     text:
-      "🔗 *Link a daemon session*\n\n" +
-      "Paste the API key from your `chatcoder-daemon` setup (starts with `cc_`).\n" +
+      "🔗 *Link a coder session*\n\n" +
+      "Paste the API key from your `chatcoder coder --setup` flow (starts with `cc_`).\n" +
       "Reply with the API key.\n\n" +
       "Send `/cancel` to abort.",
     forceReply: true,
-    inputPlaceholder: "Paste daemon API key",
+    inputPlaceholder: "Paste coder API key",
     parseMode: "Markdown"
   };
 }
@@ -252,7 +252,7 @@ export async function handleApiKeySubmission(
     return {
       text:
         "❌ I don't know that API key.\n" +
-        "Make sure your daemon has run `chatcoder-daemon setup` and connected at least once.\n\n" +
+        "Make sure `chatcoder coder --setup` has run and connected at least once.\n\n" +
         "Try again in the reply box, or send `/cancel`.",
       parseMode: "Markdown"
     };
@@ -269,8 +269,8 @@ export async function handleApiKeySubmission(
   if (profiles.length === 0) {
     return {
       text:
-        "⚠️ This daemon hasn't registered any profiles yet. " +
-        "Run `chatcoder-daemon setup` and add at least one profile.\n\n" +
+        "⚠️ This coder service hasn't registered any profiles yet. " +
+        "Run `chatcoder coder --setup` and add at least one profile.\n\n" +
         "Paste another key in the reply box, or send `/cancel`.",
       parseMode: "Markdown"
     };

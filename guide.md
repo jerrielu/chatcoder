@@ -7,7 +7,7 @@ executes it, and the response comes back as a Telegram message.
 ## Parts
 - **Telegram bot** — the control plane. Long-polls Telegram and exposes an API.
 - **Admin dashboard** — local web UI to manage sessions and queues.
-- **chatcoder-daemon** — runs on your remote machine; polls the bot and drives codex.
+- **chatcoder coder** — runs on your remote machine; polls the bot and drives codex.
 
 ---
 
@@ -129,12 +129,12 @@ is unchanged (bearer-authed).
 
 ---
 
-## 5. Daemon Setup
+## 5. Coder Setup
 
 Run on the remote machine where `codex` is installed.
 
 ```bash
-npm run dev:daemon
+npm run dev:coder
 ```
 Answer the prompts:
 - **API URL**: The public URL of your bot.
@@ -173,6 +173,6 @@ journalctl --user -u chatcoder-coder.service -f
 | Symptom | Fix |
 |---------|-----|
 | `NODE_MODULE_VERSION` mismatch | `npm rebuild better-sqlite3` |
-| `401 UNAUTHORIZED` | Re-run **New Session** in Telegram, then `daemon setup`. |
+| `401 UNAUTHORIZED` | Re-run **New Session** in Telegram, then `chatcoder coder --setup`. |
 | `node-pty` build fails | `apt install build-essential python3` |
 | Daemon offline | Check `BOT_HEARTBEAT_STALE_MS` (default 60s). |
