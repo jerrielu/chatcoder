@@ -54,3 +54,6 @@
 - Rebuilt runtime outputs with `npm run build:runtime` so committed `packages/daemon/dist/*` artifacts match source changes.
 - Changed Codex scoped home layout from `~/.chatcoder/codex/<profile>/` to `~/.chatcoder/<profile>/`, so each OpenAI profile folder directly contains full `config.toml` and `auth.json` copies under `.chatcoder`.
 - Added Codex home coverage asserting `codexHomeFor(name)` resolves to `~/.chatcoder/<name>`, and re-verified setup/toolExecutor/codexHome behavior with focused daemon tests.
+- Identified that the environment does not use `systemd` as the init process (PID 1 is `run.sh`), causing `systemctl --user` to fail.
+- Started `chatcoder chat` and `chatcoder coder` in the background using `nohup` as an alternative, then terminated them per user request.
+- Added a `guide.md` PM2 section with start, status/log, restart/stop, and boot-persistence commands for running `chatcoder chat` and `chatcoder coder` without systemd.

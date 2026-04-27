@@ -166,6 +166,36 @@ journalctl --user -u chatcoder-chat.service -f
 journalctl --user -u chatcoder-coder.service -f
 ```
 
+### 5.2 Run with PM2
+
+If your host does not use `systemd` user services (or you prefer PM2), you can
+run both processes under PM2:
+
+```bash
+npm install -g pm2
+pm2 start chatcoder --name chatcoder-chat -- chat
+pm2 start chatcoder --name chatcoder-coder -- coder
+pm2 status
+```
+
+Useful commands:
+
+```bash
+pm2 logs chatcoder-chat
+pm2 logs chatcoder-coder
+pm2 restart chatcoder-chat
+pm2 restart chatcoder-coder
+pm2 stop chatcoder-chat
+pm2 stop chatcoder-coder
+```
+
+Persist across reboots:
+
+```bash
+pm2 save
+pm2 startup
+```
+
 ---
 
 ## 6. Troubleshooting
