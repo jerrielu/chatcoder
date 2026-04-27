@@ -46,3 +46,11 @@
 - Verified with `npm run build:runtime`, `npm run prepare`, `npm_config_global=true node scripts/prepare.mjs`, and `npm install -g git+file://<temp-repo>` (install succeeded).
 - Merged local `dev` into local `main` as a fast-forward (`5153f24` -> `adc7b0a`) to synchronize local branches.
 - Force-pushed local `main` to `origin/main` with lease, per explicit request to make local branch content authoritative over remote divergence.
+
+# 2026-04-27
+
+- Changed daemon default config path from `~/.chatcoder-daemon/config.yml` to `~/.chatcoder/config.yml` in runtime path resolution.
+- Updated Codex profile home root from `~/.chatcoder-daemon/codex/` to `~/.chatcoder/codex/` and aligned related guide/design references.
+- Rebuilt runtime outputs with `npm run build:runtime` so committed `packages/daemon/dist/*` artifacts match source changes.
+- Changed Codex scoped home layout from `~/.chatcoder/codex/<profile>/` to `~/.chatcoder/<profile>/`, so each OpenAI profile folder directly contains full `config.toml` and `auth.json` copies under `.chatcoder`.
+- Added Codex home coverage asserting `codexHomeFor(name)` resolves to `~/.chatcoder/<name>`, and re-verified setup/toolExecutor/codexHome behavior with focused daemon tests.

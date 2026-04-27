@@ -21,7 +21,7 @@ export const DaemonConfig = z.object({
 export type DaemonConfig = z.infer<typeof DaemonConfig>;
 
 export function defaultConfigPath(): string {
-  return path.join(os.homedir(), ".chatcoder-daemon", "config.yml");
+  return path.join(os.homedir(), ".chatcoder", "config.yml");
 }
 
 export function loadConfig(p = defaultConfigPath()): DaemonConfig {

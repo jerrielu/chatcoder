@@ -6,7 +6,7 @@ import type { CodexConfig } from "./profile.js";
  * When the daemon runs several Codex profiles against different API keys or
  * base URLs, sharing that directory would clobber keys between profiles.
  * We instead write a per-profile directory under
- * `$HOME/.chatcoder-daemon/codex/<name>/` and set `CODEX_HOME` for the
+ * `$HOME/.chatcoder/<name>/` and set `CODEX_HOME` for the
  * spawned child process.
  *
  * The TOML and JSON writers are TS ports of coder:611-919 — same target

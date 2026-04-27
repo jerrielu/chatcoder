@@ -306,7 +306,7 @@ liveness even if polling is momentarily starved.
 ### Decision: env-vars for the bot (12-factor), interactive setup → YAML file for the daemon
 
 The bot is a service — env-vars are natural. The daemon is a user tool run on
-a laptop/VM — a walkthrough-generated `~/.chatcoder-daemon/config.yml` is more
+a laptop/VM — a walkthrough-generated `~/.chatcoder/config.yml` is more
 ergonomic.
 
 Bot env-vars (all parsed through zod in `packages/bot/src/config.ts`):

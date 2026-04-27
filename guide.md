@@ -141,7 +141,7 @@ Answer the prompts:
 - **API Key**: The `cc_...` key from Telegram.
 - **Profiles/Tool config**: choose and configure at least one profile.
 
-Config is saved to `~/.chatcoder-daemon/config.yml` (0600).
+Config is saved to `~/.chatcoder/config.yml` (0600).
 
 ### 5.1 Register user systemd services
 

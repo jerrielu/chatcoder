@@ -71,6 +71,12 @@ describe("renderCodexAuthJson", () => {
 });
 
 describe("ensureCodexHome", () => {
+  it("uses ~/.chatcoder/<profile> for codex homes", () => {
+    setCodexRootOverride(null);
+    expect(codexHomeFor("layout-check")).toBe(path.join(os.homedir(), ".chatcoder", "layout-check"));
+    setCodexRootOverride(tmpRoot);
+  });
+
   it("writes config.toml + auth.json and marks it idempotent", () => {
     const first = ensureCodexHome("prof-a", {
       apiKey: "sk-1",

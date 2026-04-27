@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
  * When the daemon runs several Codex profiles against different API keys or
  * base URLs, sharing that directory would clobber keys between profiles.
  * We instead write a per-profile directory under
- * `$HOME/.chatcoder-daemon/codex/<name>/` and set `CODEX_HOME` for the
+ * `$HOME/.chatcoder/<name>/` and set `CODEX_HOME` for the
  * spawned child process.
  *
  * The TOML and JSON writers are TS ports of coder:611-919 — same target
@@ -19,7 +19,7 @@ export const DEFAULT_CODEX_BASE_URL = "https://api.openai.com/v1";
 /**
  * Optional override for the root directory that holds per-profile Codex
  * configs. `null` means "derive from HOME" (the default). Tests set this to
- * a temp dir so they never touch the user's real `~/.chatcoder-daemon/`.
+ * a temp dir so they never touch the user's real `~/.chatcoder/`.
  */
 let codexRootOverride = null;
 let sourceCodexHomeOverride = null;
@@ -32,7 +32,7 @@ export function setSourceCodexHomeOverride(root) {
 export function codexHomeRoot() {
     if (codexRootOverride !== null)
         return codexRootOverride;
-    return path.join(os.homedir(), ".chatcoder-daemon", "codex");
+    return path.join(os.homedir(), ".chatcoder");
 }
 function sourceCodexHome() {
     if (sourceCodexHomeOverride !== null)

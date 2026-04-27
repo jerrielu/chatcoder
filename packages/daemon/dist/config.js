@@ -17,7 +17,7 @@ export const DaemonConfig = z.object({
     profiles: z.array(Profile).min(1).max(MAX_PROFILES_PER_DAEMON)
 });
 export function defaultConfigPath() {
-    return path.join(os.homedir(), ".chatcoder-daemon", "config.yml");
+    return path.join(os.homedir(), ".chatcoder", "config.yml");
 }
 export function loadConfig(p = defaultConfigPath()) {
     const raw = fs.readFileSync(p, "utf8");
