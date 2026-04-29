@@ -44,6 +44,9 @@ function rowToMessage(row) {
         sessionId: row.session_id,
         content: row.content,
         resumeLastSession: resume,
+        ...(row.codex_reasoning_effort
+            ? { codexReasoningEffort: row.codex_reasoning_effort }
+            : {}),
         processingStartedAt: toNum(row.processing_started_at),
         createdAt: Math.floor(raw / 1024)
     };

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { MAX_QUEUE_DEPTH } from "@chatcoder/shared";
+import type { CodexReasoningEffort } from "@chatcoder/shared";
 import type { Db } from "./index.js";
 
 export interface QueuedMessage {
@@ -7,6 +8,7 @@ export interface QueuedMessage {
   sessionId: string;
   content: string;
   resumeLastSession: boolean;
+  codexReasoningEffort?: CodexReasoningEffort;
   processingStartedAt: number | null;
   createdAt: number;
 }
@@ -23,6 +25,7 @@ function rowToMessage(row: {
   session_id: string;
   content: string;
   resume_last_session: number | string | bigint | boolean;
+  codex_reasoning_effort: CodexReasoningEffort | null;
   processing_started_at: number | string | bigint | null;
   created_at: number | string | bigint;
 }): QueuedMessage {
@@ -38,6 +41,9 @@ function rowToMessage(row: {
     sessionId: row.session_id,
     content: row.content,
     resumeLastSession: toBool(row.resume_last_session),
+    ...(row.codex_reasoning_effort
+      ? { codexReasoningEffort: row.codex_reasoning_effort }
+      : {}),
     processingStartedAt,
     // External callers see the millisecond timestamp; the sub-ms seq bits are
     // stripped so comparisons with Date.now()-based clocks stay sane.
@@ -75,6 +81,7 @@ export class MessagesRepo {
     sessionId: string;
     content: string;
     resumeLastSession?: boolean;
+    codexReasoningEffort?: CodexReasoningEffort;
   }): Promise<EnqueueResult> {
     const ts = this.nextStamp();
     const id = randomUUID();
@@ -87,6 +94,7 @@ export class MessagesRepo {
           session_id: args.sessionId,
           content: args.content,
           resume_last_session: resumeLastSession ? 1 : 0,
+          codex_reasoning_effort: args.codexReasoningEffort ?? null,
           processing_started_at: null,
           created_at: ts
         })

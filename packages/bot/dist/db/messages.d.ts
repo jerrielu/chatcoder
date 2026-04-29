@@ -1,9 +1,11 @@
+import type { CodexReasoningEffort } from "@chatcoder/shared";
 import type { Db } from "./index.js";
 export interface QueuedMessage {
     id: string;
     sessionId: string;
     content: string;
     resumeLastSession: boolean;
+    codexReasoningEffort?: CodexReasoningEffort;
     processingStartedAt: number | null;
     createdAt: number;
 }
@@ -31,6 +33,7 @@ export declare class MessagesRepo {
         sessionId: string;
         content: string;
         resumeLastSession?: boolean;
+        codexReasoningEffort?: CodexReasoningEffort;
     }): Promise<EnqueueResult>;
     /** Pop ALL pending instructions for a session (legacy tests/admin helpers). */
     drain(sessionId: string): Promise<QueuedMessage[]>;

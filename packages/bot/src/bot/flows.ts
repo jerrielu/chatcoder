@@ -1,3 +1,5 @@
+import type { CodexReasoningEffort } from "@chatcoder/shared";
+
 /**
  * Per-chat flow state for the grammY bot.
  *
@@ -11,8 +13,11 @@ export type FlowState =
   | { kind: "awaiting_profile"; apiKeyId: string }
   | { kind: "awaiting_instruction"; resumeLastSession: boolean };
 
+const DEFAULT_CODEX_REASONING_EFFORT: CodexReasoningEffort = "medium";
+
 export class FlowStore {
   private readonly map = new Map<string, FlowState>();
+  private readonly codexEffortMap = new Map<string, CodexReasoningEffort>();
 
   private key(chatId: number, userId: number): string {
     return `${chatId}:${userId}`;
@@ -28,5 +33,20 @@ export class FlowStore {
   }
   clear(chatId: number, userId: number): void {
     this.map.delete(this.key(chatId, userId));
+  }
+
+  getCodexReasoningEffort(chatId: number, userId: number): CodexReasoningEffort {
+    return (
+      this.codexEffortMap.get(this.key(chatId, userId)) ??
+      DEFAULT_CODEX_REASONING_EFFORT
+    );
+  }
+
+  setCodexReasoningEffort(
+    chatId: number,
+    userId: number,
+    effort: CodexReasoningEffort
+  ): void {
+    this.codexEffortMap.set(this.key(chatId, userId), effort);
   }
 }

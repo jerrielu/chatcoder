@@ -206,6 +206,31 @@ describe("buildLaunch", () => {
     ]);
   });
 
+  it("applies Codex reasoning effort override when provided", () => {
+    const profile: Profile = {
+      name: "o4",
+      cwd: "/tmp",
+      tool: "OPENAI",
+      codex: {
+        apiKey: "k",
+        fullAuto: true,
+        extraArgs: []
+      }
+    };
+    const launch = buildLaunch(profile, "go", true, "xhigh");
+    expect(launch.args).toEqual([
+      "exec",
+      "resume",
+      "--last",
+      "--full-auto",
+      "-c",
+      "model_reasoning_effort=xhigh",
+      "-o",
+      expect.stringMatching(/chatcoder-codex-final-o4-/),
+      `go\n\n${CODEX_FINAL_RESPONSE_PROMPT}`
+    ]);
+  });
+
   it("CUSTOM appended placement adds message as last arg", () => {
     const profile: Profile = {
       name: "c",

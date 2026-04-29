@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  CODEX_REASONING_EFFORTS,
   MAX_INSTRUCTION_BYTES,
   MAX_PROFILES_PER_DAEMON,
   MAX_PROFILE_NAME_LENGTH,
@@ -14,6 +15,8 @@ export const DaemonMessage = z.object({
   content: z.string().min(1).max(MAX_INSTRUCTION_BYTES),
   /** true = daemon should resume last CLI session; false = start fresh. */
   resumeLastSession: z.boolean().default(true),
+  /** Optional Codex reasoning effort override for OPENAI profiles. */
+  codexReasoningEffort: z.enum(CODEX_REASONING_EFFORTS).optional(),
   createdAt: z.number().int().nonnegative()
 });
 export type DaemonMessage = z.infer<typeof DaemonMessage>;

@@ -57,3 +57,15 @@
 - Identified that the environment does not use `systemd` as the init process (PID 1 is `run.sh`), causing `systemctl --user` to fail.
 - Started `chatcoder chat` and `chatcoder coder` in the background using `nohup` as an alternative, then terminated them per user request.
 - Added a `guide.md` PM2 section with start, status/log, restart/stop, and boot-persistence commands for running `chatcoder chat` and `chatcoder coder` without systemd.
+
+# 2026-04-29
+
+- Added a Codex effort control to the Telegram main menu with a dedicated effort picker (`low`, `medium`, `high`, `xhigh`) and callbacks to update per chat/user selection.
+- Wired selected effort through instruction enqueueing for OPENAI sessions only, including bot DB storage (`messages.codex_reasoning_effort`), API poll transport, daemon dispatch, and Codex launch handling.
+- Added DB migration version 5 to add `codex_reasoning_effort` to `messages`, and updated shared/admin/protocol schemas and constants with `codexReasoningEffort`.
+- Updated bot/daemon/shared tests to cover effort menu behavior, queue persistence, `/v1/poll` transport, and daemon executor/orchestrator propagation.
+- Rebuilt `@chatcoder/shared` dist output so workspace package imports expose the new shared constants/schemas.
+- Verified with:
+  - `npm run build -w @chatcoder/shared`
+  - `npx vitest run packages/shared/test/protocol.test.ts packages/shared/test/admin.test.ts packages/bot/test/db.messages.test.ts packages/bot/test/bot.handlers.test.ts packages/bot/test/bot.wired.test.ts packages/bot/test/api.test.ts packages/daemon/test/toolExecutor.test.ts packages/daemon/test/orchestrator.test.ts`
+  - `npm run typecheck`

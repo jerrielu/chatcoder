@@ -5,6 +5,7 @@ import { DaemonConfig } from "../src/config.js";
 import { ProfilePool } from "../src/profilePool.js";
 import type { ToolExecutor } from "../src/toolExecutor.js";
 import type { Profile } from "../src/profile.js";
+import type { CodexReasoningEffort } from "@chatcoder/shared";
 
 function cfg(): DaemonConfig {
   return DaemonConfig.parse({
@@ -33,23 +34,46 @@ function sampleProfile(): Profile {
 
 class FakeToolExecutor {
   nextOutput = "hi back";
-  calls: Array<{ profile: string; message: string; resumeLastSession: boolean }> = [];
+  calls: Array<{
+    profile: string;
+    message: string;
+    resumeLastSession: boolean;
+    codexReasoningEffort?: CodexReasoningEffort;
+  }> = [];
   async execute(
     profile: Profile,
     message: string,
-    execOpts?: { resumeLastSession?: boolean }
+    execOpts?: {
+      resumeLastSession?: boolean;
+      codexReasoningEffort?: CodexReasoningEffort;
+    }
   ): Promise<string> {
+    const effort = execOpts?.codexReasoningEffort;
     this.calls.push({
       profile: profile.name,
       message,
-      resumeLastSession: execOpts?.resumeLastSession ?? true
+      resumeLastSession: execOpts?.resumeLastSession ?? true,
+      ...(effort ? { codexReasoningEffort: effort } : {})
     });
     return this.nextOutput;
   }
 }
 
 function makeFetch(scenarios: {
-  poll?: Array<{ sessions?: Array<{ sessionId: string; profileName: string; messages: Array<{ id: string; content: string; createdAt: number; resumeLastSession?: boolean }> }>; reset?: boolean } | "401" | "410" | "5xx">;
+  poll?: Array<{
+    sessions?: Array<{
+      sessionId: string;
+      profileName: string;
+      messages: Array<{
+        id: string;
+        content: string;
+        createdAt: number;
+        resumeLastSession?: boolean;
+        codexReasoningEffort?: CodexReasoningEffort;
+      }>;
+    }>;
+    reset?: boolean;
+  } | "401" | "410" | "5xx">;
   heartbeat?: Array<"ok" | "401" | "410" | "5xx">;
   responses?: Array<"ok" | "401" | "410" | "5xx">;
 }): { fn: typeof fetch; calls: string[]; postBodies: Array<{ sessionId: string; content: string }> } {
@@ -176,6 +200,56 @@ describe("Orchestrator", () => {
     await flushMicrotasks();
     await pool.drainAll();
     expect(tool.calls).toEqual([{ profile: "main", message: "ping", resumeLastSession: false }]);
+    await orch.stop();
+  });
+
+  it("passes codexReasoningEffort from poll messages into the executor", async () => {
+    const tool = new FakeToolExecutor();
+    const { fn } = makeFetch({
+      poll: [
+        {
+          sessions: [
+            {
+              sessionId: "s1",
+              profileName: "main",
+              messages: [
+                {
+                  id: "m1",
+                  content: "ping",
+                  createdAt: 1,
+                  codexReasoningEffort: "xhigh"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+    const client = new ApiClient({
+      apiUrl: "https://x.example.com",
+      apiKey: "long-enough-api-key-abcdef",
+      fetchImpl: fn,
+      retries: 0
+    });
+    const c = cfg();
+    const pool = new ProfilePool({
+      profiles: c.profiles,
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async () => undefined
+    });
+    const orch = new Orchestrator({ config: c, client, pool });
+    orch.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await flushMicrotasks();
+    await pool.drainAll();
+    expect(tool.calls).toEqual([
+      {
+        profile: "main",
+        message: "ping",
+        resumeLastSession: true,
+        codexReasoningEffort: "xhigh"
+      }
+    ]);
     await orch.stop();
   });
 

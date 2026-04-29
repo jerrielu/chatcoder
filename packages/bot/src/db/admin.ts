@@ -3,7 +3,7 @@ import type { Session } from "./sessions.js";
 import type { ApiKeyRecord } from "./apiKeys.js";
 import type { ProfileRecord } from "./profiles.js";
 import type { QueuedMessage } from "./messages.js";
-import type { ToolKind } from "@chatcoder/shared";
+import type { CodexReasoningEffort, ToolKind } from "@chatcoder/shared";
 
 type NumLike = number | string | bigint;
 const toNum = (v: NumLike | null): number | null =>
@@ -79,6 +79,7 @@ function rowToMessage(row: {
   session_id: string;
   content: string;
   resume_last_session: NumLike | boolean;
+  codex_reasoning_effort: CodexReasoningEffort | null;
   processing_started_at: NumLike | null;
   created_at: NumLike;
 }): QueuedMessage {
@@ -93,6 +94,9 @@ function rowToMessage(row: {
     sessionId: row.session_id,
     content: row.content,
     resumeLastSession: resume,
+    ...(row.codex_reasoning_effort
+      ? { codexReasoningEffort: row.codex_reasoning_effort }
+      : {}),
     processingStartedAt: toNum(row.processing_started_at),
     createdAt: Math.floor(raw / 1024)
   };

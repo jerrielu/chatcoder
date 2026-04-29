@@ -95,9 +95,10 @@ describe("admin wire schemas", () => {
         id: "m1",
         sessionId: "s1",
         content: "hi",
+        codexReasoningEffort: "high",
         createdAt: 1
-      }).content
-    ).toBe("hi");
+      }).codexReasoningEffort
+    ).toBe("high");
   });
 
   it("ListSessionsQuery coerces strings to numbers", () => {
@@ -143,6 +144,7 @@ describe("admin wire schemas", () => {
   it("EnqueueMessageBody caps content at MAX_INSTRUCTION_BYTES", () => {
     expect(EnqueueMessageBody.parse({ content: "hi" }).content).toBe("hi");
     expect(EnqueueMessageBody.parse({ content: "hi" }).resumeLastSession).toBeUndefined();
+    expect(EnqueueMessageBody.parse({ content: "hi" }).codexReasoningEffort).toBeUndefined();
     expect(() =>
       EnqueueMessageBody.parse({ content: "x".repeat(MAX_INSTRUCTION_BYTES + 1) })
     ).toThrow();
@@ -155,6 +157,7 @@ describe("admin wire schemas", () => {
         sessionId: "s1",
         content: "x",
         resumeLastSession: false,
+        codexReasoningEffort: "low",
         createdAt: 1
       },
       droppedOldestId: null

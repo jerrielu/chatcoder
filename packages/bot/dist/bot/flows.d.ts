@@ -1,3 +1,4 @@
+import type { CodexReasoningEffort } from "@chatcoder/shared";
 /**
  * Per-chat flow state for the grammY bot.
  *
@@ -17,9 +18,12 @@ export type FlowState = {
 };
 export declare class FlowStore {
     private readonly map;
+    private readonly codexEffortMap;
     private key;
     get(chatId: number, userId: number): FlowState;
     set(chatId: number, userId: number, s: FlowState): void;
     clear(chatId: number, userId: number): void;
+    getCodexReasoningEffort(chatId: number, userId: number): CodexReasoningEffort;
+    setCodexReasoningEffort(chatId: number, userId: number, effort: CodexReasoningEffort): void;
 }
 //# sourceMappingURL=flows.d.ts.map

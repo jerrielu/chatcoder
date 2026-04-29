@@ -4,6 +4,7 @@ import type { HandlerDeps, Reply } from "./handlers.js";
 import {
   handleApiKeySubmission,
   handleCodeRequest,
+  handleCodexEffortMenu,
   handleInstructionSubmission,
   handleLatestProgress,
   handleMenu,
@@ -12,11 +13,17 @@ import {
   handleNewSessionRequest,
   handlePlainText,
   handleProfilePicked,
+  handleSetCodexEffort,
   handleStart,
   handleStatus,
   handleTokenUsage
 } from "./handlers.js";
-import { CB, mainMenu, parseProfileCallback } from "./menus.js";
+import {
+  CB,
+  mainMenu,
+  parseCodexEffortCallback,
+  parseProfileCallback
+} from "./menus.js";
 import { sendTelegramWithRetry } from "./telegramSend.js";
 
 export interface CreateBotOptions extends HandlerDeps {
@@ -68,6 +75,12 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
     await send(ctx, await handleTokenUsage(deps, ctx.chat.id));
   });
 
+  bot.callbackQuery(CB.codexEffortMenu, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!ctx.chat || !ctx.from) return;
+    await send(ctx, await handleCodexEffortMenu(deps, ctx.chat.id, ctx.from.id));
+  });
+
   bot.callbackQuery(CB.newSession, async (ctx) => {
     await ctx.answerCallbackQuery();
     if (!ctx.chat || !ctx.from) return;
@@ -94,6 +107,15 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
 
   bot.on("callback_query:data", async (ctx) => {
     const data = ctx.callbackQuery.data;
+    const effort = parseCodexEffortCallback(data);
+    if (effort && ctx.chat && ctx.from) {
+      await ctx.answerCallbackQuery();
+      await send(
+        ctx,
+        await handleSetCodexEffort(deps, ctx.chat.id, ctx.from.id, effort)
+      );
+      return;
+    }
     const profileId = parseProfileCallback(data);
     if (!profileId || !ctx.chat || !ctx.from) return;
     await ctx.answerCallbackQuery();

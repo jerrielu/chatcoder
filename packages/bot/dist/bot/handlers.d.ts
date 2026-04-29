@@ -3,6 +3,7 @@
  * pieces of the incoming update and returns the reply(s) the bot should send.
  */
 import type { InlineKeyboard } from "grammy";
+import { type CodexReasoningEffort } from "@chatcoder/shared";
 import type { ApiKeysRepo } from "../db/apiKeys.js";
 import type { ProfilesRepo } from "../db/profiles.js";
 import type { SessionsRepo } from "../db/sessions.js";
@@ -27,6 +28,8 @@ export interface HandlerDeps {
 }
 export declare function handleStart(): Reply;
 export declare function handleMenu(): Reply;
+export declare function handleCodexEffortMenu(deps: HandlerDeps, chatId: number, telegramUser: number): Promise<Reply>;
+export declare function handleSetCodexEffort(deps: HandlerDeps, chatId: number, telegramUser: number, effort: CodexReasoningEffort): Promise<Reply>;
 export declare function handleLatestProgress(deps: HandlerDeps, chatId: number): Promise<Reply>;
 export declare function handleTokenUsage(deps: HandlerDeps, chatId: number): Promise<Reply>;
 export declare function handleStatus(deps: HandlerDeps, chatId: number): Promise<Reply>;
@@ -45,6 +48,6 @@ export declare function handleProfilePicked(deps: HandlerDeps, chatId: number, t
 export declare function handleCodeRequest(deps: HandlerDeps, chatId: number, telegramUser: number): Reply;
 export declare function handleNewCodeRequest(deps: HandlerDeps, chatId: number, telegramUser: number): Reply;
 export declare function handleInstructionSubmission(deps: HandlerDeps, chatId: number, telegramUser: number, text: string): Promise<Reply | null>;
-export declare function handleCode(deps: HandlerDeps, chatId: number, instruction: string, resumeLastSession?: boolean): Promise<Reply>;
+export declare function handleCode(deps: HandlerDeps, chatId: number, instruction: string, resumeLastSession?: boolean, codexReasoningEffort?: CodexReasoningEffort): Promise<Reply>;
 export declare function handlePlainText(): Reply;
 //# sourceMappingURL=handlers.d.ts.map

@@ -1,11 +1,7 @@
-/**
- * Per-chat flow state for the grammY bot.
- *
- * The "new session" flow is now a two-step: ask for the daemon's API key,
- * then present a profile picker tied to that api_key.
- */
+const DEFAULT_CODEX_REASONING_EFFORT = "medium";
 export class FlowStore {
     map = new Map();
+    codexEffortMap = new Map();
     key(chatId, userId) {
         return `${chatId}:${userId}`;
     }
@@ -21,6 +17,13 @@ export class FlowStore {
     }
     clear(chatId, userId) {
         this.map.delete(this.key(chatId, userId));
+    }
+    getCodexReasoningEffort(chatId, userId) {
+        return (this.codexEffortMap.get(this.key(chatId, userId)) ??
+            DEFAULT_CODEX_REASONING_EFFORT);
+    }
+    setCodexReasoningEffort(chatId, userId, effort) {
+        this.codexEffortMap.set(this.key(chatId, userId), effort);
     }
 }
 //# sourceMappingURL=flows.js.map

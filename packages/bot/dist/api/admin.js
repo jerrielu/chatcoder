@@ -40,6 +40,7 @@ function toAdminMessage(m) {
         sessionId: m.sessionId,
         content: m.content,
         resumeLastSession: m.resumeLastSession,
+        codexReasoningEffort: m.codexReasoningEffort,
         processingStartedAt: m.processingStartedAt,
         createdAt: m.createdAt
     });
@@ -167,7 +168,8 @@ export function registerAdminRoutes(app, deps) {
         const { message, droppedOldestId } = await deps.messages.enqueue({
             sessionId: id,
             content: body.content,
-            resumeLastSession: body.resumeLastSession
+            resumeLastSession: body.resumeLastSession,
+            codexReasoningEffort: body.codexReasoningEffort
         });
         return {
             message: toAdminMessage(message),

@@ -76,7 +76,11 @@ export async function buildServer(opts) {
             }
             else if (resumeInProgress) {
                 msg = await opts.messagesRepo.getProcessing(s.id).then((inProgress) => inProgress
-                    ? { ...inProgress, content: RESUME_IN_PROGRESS_CONTENT, resumeLastSession: true }
+                    ? {
+                        ...inProgress,
+                        content: RESUME_IN_PROGRESS_CONTENT,
+                        resumeLastSession: true
+                    }
                     : null);
             }
             else {
@@ -102,6 +106,7 @@ export async function buildServer(opts) {
                         id: msg.id,
                         content: msg.content,
                         resumeLastSession: msg.resumeLastSession,
+                        codexReasoningEffort: msg.codexReasoningEffort,
                         createdAt: msg.createdAt
                     })
                 ]

@@ -41,6 +41,9 @@ export declare const MIN_API_KEY_LENGTH = 16;
 /** Tool kinds supported by a profile. */
 export declare const TOOL_KINDS: readonly ["CLAUDE_CODE", "OPENAI", "CUSTOM"];
 export type ToolKind = (typeof TOOL_KINDS)[number];
+/** Codex reasoning effort levels supported by the Telegram bot menu. */
+export declare const CODEX_REASONING_EFFORTS: readonly ["low", "medium", "high", "xhigh"];
+export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
 /** Codex slash command used to request token totals. */
 export declare const CODEX_TOKEN_USAGE_COMMAND = "/token";
 //# sourceMappingURL=constants.d.ts.map

@@ -1,3 +1,4 @@
+import type { CodexReasoningEffort } from "@chatcoder/shared";
 import type { Profile } from "./profile.js";
 import type { ToolExecutor } from "./toolExecutor.js";
 export interface ProfileRunnerTask {
@@ -5,6 +6,7 @@ export interface ProfileRunnerTask {
     messageId: string;
     content: string;
     resumeLastSession?: boolean;
+    codexReasoningEffort?: CodexReasoningEffort;
     interrupt?: boolean;
 }
 export interface ProfileRunnerDeps {

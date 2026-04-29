@@ -18,9 +18,9 @@ export declare const DaemonConfig: z.ZodObject<{
             outputFormat: z.ZodDefault<z.ZodEnum<["text", "stream-json"]>>;
             extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
         }, "strip", z.ZodTypeAny, {
-            extraArgs: string[];
             skipPermissions: boolean;
             outputFormat: "text" | "stream-json";
+            extraArgs: string[];
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
@@ -28,9 +28,9 @@ export declare const DaemonConfig: z.ZodObject<{
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            extraArgs?: string[] | undefined;
             skipPermissions?: boolean | undefined;
             outputFormat?: "text" | "stream-json" | undefined;
+            extraArgs?: string[] | undefined;
         }>;
         name: z.ZodString;
         cwd: z.ZodString;
@@ -38,9 +38,9 @@ export declare const DaemonConfig: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         tool: "CLAUDE_CODE";
         claudeCode: {
-            extraArgs: string[];
             skipPermissions: boolean;
             outputFormat: "text" | "stream-json";
+            extraArgs: string[];
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
@@ -54,9 +54,9 @@ export declare const DaemonConfig: z.ZodObject<{
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            extraArgs?: string[] | undefined;
             skipPermissions?: boolean | undefined;
             outputFormat?: "text" | "stream-json" | undefined;
+            extraArgs?: string[] | undefined;
         };
         name: string;
         cwd: string;
@@ -73,9 +73,9 @@ export declare const DaemonConfig: z.ZodObject<{
             bypassApprovalsAndSandbox: z.ZodDefault<z.ZodBoolean>;
             extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
         }, "strip", z.ZodTypeAny, {
+            extraArgs: string[];
             fullAuto: boolean;
             bypassApprovalsAndSandbox: boolean;
-            extraArgs: string[];
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
@@ -85,44 +85,44 @@ export declare const DaemonConfig: z.ZodObject<{
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
+            extraArgs?: string[] | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
             fullAuto?: boolean | undefined;
             bypassApprovalsAndSandbox?: boolean | undefined;
-            extraArgs?: string[] | undefined;
         }>;
         name: z.ZodString;
         cwd: z.ZodString;
         metadata: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
+        tool: "OPENAI";
+        name: string;
+        cwd: string;
         codex: {
+            extraArgs: string[];
             fullAuto: boolean;
             bypassApprovalsAndSandbox: boolean;
-            extraArgs: string[];
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         };
+        metadata?: string | undefined;
+    }, {
         tool: "OPENAI";
         name: string;
         cwd: string;
-        metadata?: string | undefined;
-    }, {
         codex: {
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
+            extraArgs?: string[] | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
             fullAuto?: boolean | undefined;
             bypassApprovalsAndSandbox?: boolean | undefined;
-            extraArgs?: string[] | undefined;
         };
-        tool: "OPENAI";
-        name: string;
-        cwd: string;
         metadata?: string | undefined;
     }>, z.ZodObject<{
         tool: z.ZodLiteral<"CUSTOM">;
@@ -179,9 +179,9 @@ export declare const DaemonConfig: z.ZodObject<{
     profiles: ({
         tool: "CLAUDE_CODE";
         claudeCode: {
-            extraArgs: string[];
             skipPermissions: boolean;
             outputFormat: "text" | "stream-json";
+            extraArgs: string[];
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
@@ -190,19 +190,19 @@ export declare const DaemonConfig: z.ZodObject<{
         cwd: string;
         metadata?: string | undefined;
     } | {
+        tool: "OPENAI";
+        name: string;
+        cwd: string;
         codex: {
+            extraArgs: string[];
             fullAuto: boolean;
             bypassApprovalsAndSandbox: boolean;
-            extraArgs: string[];
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         };
-        tool: "OPENAI";
-        name: string;
-        cwd: string;
         metadata?: string | undefined;
     } | {
         tool: "CUSTOM";
@@ -225,27 +225,27 @@ export declare const DaemonConfig: z.ZodObject<{
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            extraArgs?: string[] | undefined;
             skipPermissions?: boolean | undefined;
             outputFormat?: "text" | "stream-json" | undefined;
+            extraArgs?: string[] | undefined;
         };
         name: string;
         cwd: string;
         metadata?: string | undefined;
     } | {
+        tool: "OPENAI";
+        name: string;
+        cwd: string;
         codex: {
             apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
+            extraArgs?: string[] | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
             fullAuto?: boolean | undefined;
             bypassApprovalsAndSandbox?: boolean | undefined;
-            extraArgs?: string[] | undefined;
         };
-        tool: "OPENAI";
-        name: string;
-        cwd: string;
         metadata?: string | undefined;
     } | {
         tool: "CUSTOM";

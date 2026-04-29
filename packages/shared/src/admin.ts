@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  CODEX_REASONING_EFFORTS,
   MAX_INSTRUCTION_BYTES,
   MAX_PROFILE_NAME_LENGTH,
   MIN_API_KEY_LENGTH,
@@ -53,6 +54,7 @@ export const AdminMessage = z.object({
   sessionId: z.string(),
   content: z.string(),
   resumeLastSession: z.boolean().default(true),
+  codexReasoningEffort: z.enum(CODEX_REASONING_EFFORTS).optional(),
   processingStartedAt: z.number().int().nullable().default(null),
   createdAt: z.number().int()
 });
@@ -112,7 +114,8 @@ export const ReservedOptionalKey = optionalKey;
 
 export const EnqueueMessageBody = z.object({
   content: z.string().min(1).max(MAX_INSTRUCTION_BYTES),
-  resumeLastSession: z.boolean().optional()
+  resumeLastSession: z.boolean().optional(),
+  codexReasoningEffort: z.enum(CODEX_REASONING_EFFORTS).optional()
 });
 export type EnqueueMessageBody = z.infer<typeof EnqueueMessageBody>;
 

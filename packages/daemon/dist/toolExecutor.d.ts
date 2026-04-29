@@ -1,3 +1,4 @@
+import type { CodexReasoningEffort } from "@chatcoder/shared";
 import type { Profile } from "./profile.js";
 export interface ExecuteOptions {
     onOutput?: (chunk: string) => void;
@@ -5,6 +6,8 @@ export interface ExecuteOptions {
     signal?: AbortSignal;
     /** true = pass resume flags to Claude/Codex CLIs. */
     resumeLastSession?: boolean;
+    /** Optional per-instruction Codex reasoning effort override. */
+    codexReasoningEffort?: CodexReasoningEffort;
 }
 export interface ToolExecutorOptions {
     log?: (msg: string, extra?: unknown) => void;
@@ -18,7 +21,7 @@ interface Launch {
     finalOutputPath: string | null;
 }
 export declare const CODEX_FINAL_RESPONSE_PROMPT = "Final response: reply only in English; be concise; summarize only what was done and any important verification result; do not include raw logs, command output, stack traces, or verbose build/test output.";
-export declare function buildLaunch(profile: Profile, message: string, resumeLastSession?: boolean): Launch;
+export declare function buildLaunch(profile: Profile, message: string, resumeLastSession?: boolean, codexReasoningEffort?: CodexReasoningEffort): Launch;
 /**
  * Executes a profile with an instruction. Streams stdout+stderr (ANSI-stripped
  * via the caller's `onOutput`). Resolves with the full combined output; if the

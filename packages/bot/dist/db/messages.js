@@ -21,6 +21,9 @@ function rowToMessage(row) {
         sessionId: row.session_id,
         content: row.content,
         resumeLastSession: toBool(row.resume_last_session),
+        ...(row.codex_reasoning_effort
+            ? { codexReasoningEffort: row.codex_reasoning_effort }
+            : {}),
         processingStartedAt,
         // External callers see the millisecond timestamp; the sub-ms seq bits are
         // stripped so comparisons with Date.now()-based clocks stay sane.
@@ -62,6 +65,7 @@ export class MessagesRepo {
                 session_id: args.sessionId,
                 content: args.content,
                 resume_last_session: resumeLastSession ? 1 : 0,
+                codex_reasoning_effort: args.codexReasoningEffort ?? null,
                 processing_started_at: null,
                 created_at: ts
             })

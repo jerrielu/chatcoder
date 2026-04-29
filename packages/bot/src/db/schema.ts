@@ -37,6 +37,8 @@ export interface MessagesTable {
   content: string;
   /** 1 = resume existing CLI session, 0 = start fresh. */
   resume_last_session: number;
+  /** Optional Codex reasoning effort override for OPENAI profile messages. */
+  codex_reasoning_effort: "low" | "medium" | "high" | "xhigh" | null;
   /** Non-null while a daemon has claimed this instruction and is processing it. */
   processing_started_at: number | null;
   created_at: number;

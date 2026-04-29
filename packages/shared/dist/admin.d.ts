@@ -8,16 +8,16 @@ export declare const AdminApiKey: z.ZodObject<{
     lastHeartbeat: z.ZodNullable<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
     id: string;
-    apiKeyPrefix: string;
-    status: "active" | "revoked";
     createdAt: number;
+    status: "active" | "revoked";
+    apiKeyPrefix: string;
     revokedAt: number | null;
     lastHeartbeat: number | null;
 }, {
     id: string;
-    apiKeyPrefix: string;
-    status: "active" | "revoked";
     createdAt: number;
+    status: "active" | "revoked";
+    apiKeyPrefix: string;
     revokedAt: number | null;
     lastHeartbeat: number | null;
 }>;
@@ -32,17 +32,17 @@ export declare const AdminProfile: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     id: string;
     createdAt: number;
-    apiKeyId: string;
     name: string;
     tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     metadata: string | null;
+    apiKeyId: string;
 }, {
     id: string;
     createdAt: number;
-    apiKeyId: string;
     name: string;
     tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     metadata: string | null;
+    apiKeyId: string;
 }>;
 export type AdminProfile = z.infer<typeof AdminProfile>;
 export declare const AdminSession: z.ZodObject<{
@@ -59,27 +59,27 @@ export declare const AdminSession: z.ZodObject<{
     revokedAt: z.ZodNullable<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
     id: string;
-    apiKeyPrefix: string;
-    status: "active" | "revoked";
     createdAt: number;
-    revokedAt: number | null;
+    status: "active" | "revoked";
+    profileName: string;
     apiKeyId: string;
+    apiKeyPrefix: string;
+    revokedAt: number | null;
     chatId: number;
     apiKeyLastHeartbeat: number | null;
     profileId: string;
-    profileName: string;
     profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
 }, {
     id: string;
-    apiKeyPrefix: string;
-    status: "active" | "revoked";
     createdAt: number;
-    revokedAt: number | null;
+    status: "active" | "revoked";
+    profileName: string;
     apiKeyId: string;
+    apiKeyPrefix: string;
+    revokedAt: number | null;
     chatId: number;
     apiKeyLastHeartbeat: number | null;
     profileId: string;
-    profileName: string;
     profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
 }>;
 export type AdminSession = z.infer<typeof AdminSession>;
@@ -88,21 +88,24 @@ export declare const AdminMessage: z.ZodObject<{
     sessionId: z.ZodString;
     content: z.ZodString;
     resumeLastSession: z.ZodDefault<z.ZodBoolean>;
+    codexReasoningEffort: z.ZodOptional<z.ZodEnum<["low", "medium", "high", "xhigh"]>>;
     processingStartedAt: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
     createdAt: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
     id: string;
-    createdAt: number;
-    sessionId: string;
     content: string;
     resumeLastSession: boolean;
-    processingStartedAt: number | null;
-}, {
-    id: string;
     createdAt: number;
     sessionId: string;
+    processingStartedAt: number | null;
+    codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
+}, {
+    id: string;
     content: string;
+    createdAt: number;
+    sessionId: string;
     resumeLastSession?: boolean | undefined;
+    codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     processingStartedAt?: number | null | undefined;
 }>;
 export type AdminMessage = z.infer<typeof AdminMessage>;
@@ -116,16 +119,16 @@ export declare const ListApiKeysResponse: z.ZodObject<{
         lastHeartbeat: z.ZodNullable<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
+        status: "active" | "revoked";
+        apiKeyPrefix: string;
         revokedAt: number | null;
         lastHeartbeat: number | null;
     }, {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
+        status: "active" | "revoked";
+        apiKeyPrefix: string;
         revokedAt: number | null;
         lastHeartbeat: number | null;
     }>, "many">;
@@ -133,9 +136,9 @@ export declare const ListApiKeysResponse: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     apiKeys: {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
+        status: "active" | "revoked";
+        apiKeyPrefix: string;
         revokedAt: number | null;
         lastHeartbeat: number | null;
     }[];
@@ -143,9 +146,9 @@ export declare const ListApiKeysResponse: z.ZodObject<{
 }, {
     apiKeys: {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
+        status: "active" | "revoked";
+        apiKeyPrefix: string;
         revokedAt: number | null;
         lastHeartbeat: number | null;
     }[];
@@ -162,16 +165,16 @@ export declare const ApiKeyDetailResponse: z.ZodObject<{
         lastHeartbeat: z.ZodNullable<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
+        status: "active" | "revoked";
+        apiKeyPrefix: string;
         revokedAt: number | null;
         lastHeartbeat: number | null;
     }, {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
+        status: "active" | "revoked";
+        apiKeyPrefix: string;
         revokedAt: number | null;
         lastHeartbeat: number | null;
     }>;
@@ -185,17 +188,17 @@ export declare const ApiKeyDetailResponse: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         id: string;
         createdAt: number;
-        apiKeyId: string;
         name: string;
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
         metadata: string | null;
+        apiKeyId: string;
     }, {
         id: string;
         createdAt: number;
-        apiKeyId: string;
         name: string;
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
         metadata: string | null;
+        apiKeyId: string;
     }>, "many">;
     sessions: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
@@ -211,89 +214,89 @@ export declare const ApiKeyDetailResponse: z.ZodObject<{
         revokedAt: z.ZodNullable<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }, {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
-    apiKey: {
-        id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
-        createdAt: number;
-        revokedAt: number | null;
-        lastHeartbeat: number | null;
-    };
-    profiles: {
-        id: string;
-        createdAt: number;
-        apiKeyId: string;
-        name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
-        metadata: string | null;
-    }[];
     sessions: {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }[];
+    profiles: {
+        id: string;
+        createdAt: number;
+        name: string;
+        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        metadata: string | null;
+        apiKeyId: string;
+    }[];
+    apiKey: {
+        id: string;
+        createdAt: number;
+        status: "active" | "revoked";
+        apiKeyPrefix: string;
+        revokedAt: number | null;
+        lastHeartbeat: number | null;
+    };
 }, {
-    apiKey: {
-        id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
-        createdAt: number;
-        revokedAt: number | null;
-        lastHeartbeat: number | null;
-    };
-    profiles: {
-        id: string;
-        createdAt: number;
-        apiKeyId: string;
-        name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
-        metadata: string | null;
-    }[];
     sessions: {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }[];
+    profiles: {
+        id: string;
+        createdAt: number;
+        name: string;
+        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        metadata: string | null;
+        apiKeyId: string;
+    }[];
+    apiKey: {
+        id: string;
+        createdAt: number;
+        status: "active" | "revoked";
+        apiKeyPrefix: string;
+        revokedAt: number | null;
+        lastHeartbeat: number | null;
+    };
 }>;
 export type ApiKeyDetailResponse = z.infer<typeof ApiKeyDetailResponse>;
 export declare const ListSessionsQuery: z.ZodObject<{
@@ -331,60 +334,60 @@ export declare const ListSessionsResponse: z.ZodObject<{
         revokedAt: z.ZodNullable<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }, {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }>, "many">;
     total: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
-    total: number;
     sessions: {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }[];
+    total: number;
 }, {
-    total: number;
     sessions: {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }[];
+    total: number;
 }>;
 export type ListSessionsResponse = z.infer<typeof ListSessionsResponse>;
 export declare const SessionDetailResponse: z.ZodObject<{
@@ -402,27 +405,27 @@ export declare const SessionDetailResponse: z.ZodObject<{
         revokedAt: z.ZodNullable<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }, {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }>;
     pending: z.ZodNumber;
@@ -431,69 +434,74 @@ export declare const SessionDetailResponse: z.ZodObject<{
         sessionId: z.ZodString;
         content: z.ZodString;
         resumeLastSession: z.ZodDefault<z.ZodBoolean>;
+        codexReasoningEffort: z.ZodOptional<z.ZodEnum<["low", "medium", "high", "xhigh"]>>;
         processingStartedAt: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
         createdAt: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        createdAt: number;
-        sessionId: string;
         content: string;
         resumeLastSession: boolean;
-        processingStartedAt: number | null;
-    }, {
-        id: string;
         createdAt: number;
         sessionId: string;
+        processingStartedAt: number | null;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
+    }, {
+        id: string;
         content: string;
+        createdAt: number;
+        sessionId: string;
         resumeLastSession?: boolean | undefined;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         processingStartedAt?: number | null | undefined;
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
-    session: {
-        id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
-        createdAt: number;
-        revokedAt: number | null;
-        apiKeyId: string;
-        chatId: number;
-        apiKeyLastHeartbeat: number | null;
-        profileId: string;
-        profileName: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
-    };
-    pending: number;
     messages: {
         id: string;
-        createdAt: number;
-        sessionId: string;
         content: string;
         resumeLastSession: boolean;
+        createdAt: number;
+        sessionId: string;
         processingStartedAt: number | null;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }[];
-}, {
     session: {
         id: string;
-        apiKeyPrefix: string;
-        status: "active" | "revoked";
         createdAt: number;
-        revokedAt: number | null;
+        status: "active" | "revoked";
+        profileName: string;
         apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileName: string;
         profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     };
     pending: number;
+}, {
     messages: {
         id: string;
+        content: string;
         createdAt: number;
         sessionId: string;
-        content: string;
         resumeLastSession?: boolean | undefined;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         processingStartedAt?: number | null | undefined;
     }[];
+    session: {
+        id: string;
+        createdAt: number;
+        status: "active" | "revoked";
+        profileName: string;
+        apiKeyId: string;
+        apiKeyPrefix: string;
+        revokedAt: number | null;
+        chatId: number;
+        apiKeyLastHeartbeat: number | null;
+        profileId: string;
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+    };
+    pending: number;
 }>;
 export type SessionDetailResponse = z.infer<typeof SessionDetailResponse>;
 /** Kept for test compatibility with the old admin transport contract. */
@@ -501,12 +509,15 @@ export declare const ReservedOptionalKey: z.ZodUnion<[z.ZodOptional<z.ZodString>
 export declare const EnqueueMessageBody: z.ZodObject<{
     content: z.ZodString;
     resumeLastSession: z.ZodOptional<z.ZodBoolean>;
+    codexReasoningEffort: z.ZodOptional<z.ZodEnum<["low", "medium", "high", "xhigh"]>>;
 }, "strip", z.ZodTypeAny, {
     content: string;
     resumeLastSession?: boolean | undefined;
+    codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
 }, {
     content: string;
     resumeLastSession?: boolean | undefined;
+    codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
 }>;
 export type EnqueueMessageBody = z.infer<typeof EnqueueMessageBody>;
 export declare const EnqueueMessageResponse: z.ZodObject<{
@@ -515,41 +526,46 @@ export declare const EnqueueMessageResponse: z.ZodObject<{
         sessionId: z.ZodString;
         content: z.ZodString;
         resumeLastSession: z.ZodDefault<z.ZodBoolean>;
+        codexReasoningEffort: z.ZodOptional<z.ZodEnum<["low", "medium", "high", "xhigh"]>>;
         processingStartedAt: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
         createdAt: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        createdAt: number;
-        sessionId: string;
         content: string;
         resumeLastSession: boolean;
-        processingStartedAt: number | null;
-    }, {
-        id: string;
         createdAt: number;
         sessionId: string;
+        processingStartedAt: number | null;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
+    }, {
+        id: string;
         content: string;
+        createdAt: number;
+        sessionId: string;
         resumeLastSession?: boolean | undefined;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         processingStartedAt?: number | null | undefined;
     }>;
     droppedOldestId: z.ZodNullable<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     message: {
         id: string;
-        createdAt: number;
-        sessionId: string;
         content: string;
         resumeLastSession: boolean;
+        createdAt: number;
+        sessionId: string;
         processingStartedAt: number | null;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     };
     droppedOldestId: string | null;
 }, {
     message: {
         id: string;
+        content: string;
         createdAt: number;
         sessionId: string;
-        content: string;
         resumeLastSession?: boolean | undefined;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         processingStartedAt?: number | null | undefined;
     };
     droppedOldestId: string | null;
@@ -569,39 +585,44 @@ export declare const ListMessagesResponse: z.ZodObject<{
         sessionId: z.ZodString;
         content: z.ZodString;
         resumeLastSession: z.ZodDefault<z.ZodBoolean>;
+        codexReasoningEffort: z.ZodOptional<z.ZodEnum<["low", "medium", "high", "xhigh"]>>;
         processingStartedAt: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
         createdAt: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        createdAt: number;
-        sessionId: string;
         content: string;
         resumeLastSession: boolean;
-        processingStartedAt: number | null;
-    }, {
-        id: string;
         createdAt: number;
         sessionId: string;
+        processingStartedAt: number | null;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
+    }, {
+        id: string;
         content: string;
+        createdAt: number;
+        sessionId: string;
         resumeLastSession?: boolean | undefined;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         processingStartedAt?: number | null | undefined;
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
     messages: {
         id: string;
-        createdAt: number;
-        sessionId: string;
         content: string;
         resumeLastSession: boolean;
+        createdAt: number;
+        sessionId: string;
         processingStartedAt: number | null;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }[];
 }, {
     messages: {
         id: string;
+        content: string;
         createdAt: number;
         sessionId: string;
-        content: string;
         resumeLastSession?: boolean | undefined;
+        codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         processingStartedAt?: number | null | undefined;
     }[];
 }>;

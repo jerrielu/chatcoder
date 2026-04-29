@@ -21,6 +21,15 @@ describe("protocol schemas", () => {
     expect(m.content).toBe("hi");
     expect(m.resumeLastSession).toBe(true);
   });
+  it("parses DaemonMessage with codexReasoningEffort", () => {
+    const m = DaemonMessage.parse({
+      id: "a",
+      content: "hi",
+      codexReasoningEffort: "xhigh",
+      createdAt: 100
+    });
+    expect(m.codexReasoningEffort).toBe("xhigh");
+  });
   it("rejects empty content", () => {
     expect(() => DaemonMessage.parse({ id: "a", content: "", createdAt: 0 })).toThrow();
   });

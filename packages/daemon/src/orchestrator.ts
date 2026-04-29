@@ -110,6 +110,7 @@ export class Orchestrator {
             messageId: msg.id,
             content: msg.content,
             resumeLastSession: msg.resumeLastSession ?? true,
+            codexReasoningEffort: msg.codexReasoningEffort,
             interrupt: msg.resumeLastSession === false
           });
         }

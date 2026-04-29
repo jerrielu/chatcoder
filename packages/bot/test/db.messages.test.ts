@@ -27,6 +27,16 @@ describe("MessagesRepo enqueue + cap", () => {
     expect(m?.resumeLastSession).toBe(false);
   });
 
+  it("stores codexReasoningEffort when requested", async () => {
+    await h.messages.enqueue({
+      sessionId,
+      content: "msg-0",
+      codexReasoningEffort: "xhigh"
+    });
+    const [m] = await h.messages.drain(sessionId);
+    expect(m?.codexReasoningEffort).toBe("xhigh");
+  });
+
   it("enqueues and retains FIFO", async () => {
     for (let i = 0; i < 3; i++) {
       h.advanceTime(1);

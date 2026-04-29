@@ -184,7 +184,8 @@ export class ProfileRunner {
                     rawOutput += chunk;
                 },
                 signal,
-                resumeLastSession: task.resumeLastSession ?? true
+                resumeLastSession: task.resumeLastSession ?? true,
+                codexReasoningEffort: task.codexReasoningEffort
             });
             finished = true;
             if (updateTimer) {

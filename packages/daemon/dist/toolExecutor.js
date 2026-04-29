@@ -42,7 +42,7 @@ function baseEnv() {
     }
     return out;
 }
-export function buildLaunch(profile, message, resumeLastSession = true) {
+export function buildLaunch(profile, message, resumeLastSession = true, codexReasoningEffort) {
     const env = baseEnv();
     if (profile.tool === "CLAUDE_CODE") {
         const c = profile.claudeCode;
@@ -96,6 +96,9 @@ export function buildLaunch(profile, message, resumeLastSession = true) {
         }
         if (c.model)
             args.push("--model", c.model);
+        if (codexReasoningEffort) {
+            args.push("-c", `model_reasoning_effort=${codexReasoningEffort}`);
+        }
         args.push(...c.extraArgs);
         args.push("-o", finalOutputPath);
         args.push(promptedMessage);
@@ -151,7 +154,7 @@ export class ToolExecutor {
         this.log = opts.log ?? (() => void 0);
     }
     async execute(profile, message, execOpts = {}) {
-        const launch = buildLaunch(profile, message, execOpts.resumeLastSession ?? true);
+        const launch = buildLaunch(profile, message, execOpts.resumeLastSession ?? true, execOpts.codexReasoningEffort);
         this.log("executing", {
             profile: profile.name,
             cmd: launch.cmd,

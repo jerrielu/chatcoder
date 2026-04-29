@@ -3,6 +3,7 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { CodexReasoningEffort } from "@chatcoder/shared";
 import { ensureCodexHome } from "./codexHome.js";
 import type { Profile } from "./profile.js";
 import { stripAnsi } from "./ansi.js";
@@ -13,6 +14,8 @@ export interface ExecuteOptions {
   signal?: AbortSignal;
   /** true = pass resume flags to Claude/Codex CLIs. */
   resumeLastSession?: boolean;
+  /** Optional per-instruction Codex reasoning effort override. */
+  codexReasoningEffort?: CodexReasoningEffort;
 }
 
 export interface ToolExecutorOptions {
@@ -71,7 +74,8 @@ function baseEnv(): NodeJS.ProcessEnv {
 export function buildLaunch(
   profile: Profile,
   message: string,
-  resumeLastSession = true
+  resumeLastSession = true,
+  codexReasoningEffort?: CodexReasoningEffort
 ): Launch {
   const env = baseEnv();
 
@@ -116,6 +120,9 @@ export function buildLaunch(
       if (c.approvalMode) args.push("--ask-for-approval", c.approvalMode);
     }
     if (c.model) args.push("--model", c.model);
+    if (codexReasoningEffort) {
+      args.push("-c", `model_reasoning_effort=${codexReasoningEffort}`);
+    }
     args.push(...c.extraArgs);
     args.push("-o", finalOutputPath);
     args.push(promptedMessage);
@@ -177,7 +184,12 @@ export class ToolExecutor {
     message: string,
     execOpts: ExecuteOptions = {}
   ): Promise<string> {
-    const launch = buildLaunch(profile, message, execOpts.resumeLastSession ?? true);
+    const launch = buildLaunch(
+      profile,
+      message,
+      execOpts.resumeLastSession ?? true,
+      execOpts.codexReasoningEffort
+    );
     this.log("executing", {
       profile: profile.name,
       cmd: launch.cmd,

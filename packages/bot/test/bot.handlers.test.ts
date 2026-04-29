@@ -4,6 +4,7 @@ import { FlowStore } from "../src/bot/flows.js";
 import {
   handleApiKeySubmission,
   handleCodeRequest,
+  handleCodexEffortMenu,
   handleInstructionSubmission,
   handleLatestProgress,
   handleCode,
@@ -13,6 +14,7 @@ import {
   handleNewSessionRequest,
   handlePlainText,
   handleProfilePicked,
+  handleSetCodexEffort,
   handleStart,
   handleStatus
 } from "../src/bot/handlers.js";
@@ -52,6 +54,27 @@ describe("simple replies", () => {
   it("handlePlainText nudges toward menu actions", () => {
     expect(handlePlainText().text).toMatch(/Code/);
     expect(handlePlainText().text).toMatch(/New Code/);
+  });
+});
+
+describe("codex effort menu", () => {
+  it("rejects effort menu for non-Codex profiles", async () => {
+    await h.seedSession({ chatId: 1, tool: "CLAUDE_CODE" });
+    const r = await handleCodexEffortMenu(deps(), 1, 2);
+    expect(r.text).toMatch(/only available for Codex profiles/i);
+  });
+
+  it("shows default medium effort for Codex profiles", async () => {
+    await h.seedSession({ chatId: 1, tool: "OPENAI" });
+    const r = await handleCodexEffortMenu(deps(), 1, 2);
+    expect(r.text).toMatch(/Current effort: `medium`/);
+  });
+
+  it("updates selected effort for Codex profiles", async () => {
+    await h.seedSession({ chatId: 1, tool: "OPENAI" });
+    const r = await handleSetCodexEffort(deps(), 1, 2, "xhigh");
+    expect(r.text).toMatch(/Current effort: `xhigh`/);
+    expect(flows.getCodexReasoningEffort(1, 2)).toBe("xhigh");
   });
 });
 
@@ -243,6 +266,21 @@ describe("handleCode", () => {
     expect(msg?.resumeLastSession).toBe(false);
   });
 
+  it("queues codexReasoningEffort for OPENAI sessions", async () => {
+    const seed = await h.seedSession({ chatId: 1, tool: "OPENAI" });
+    const r = await handleCode(deps(), 1, "lint", true, "high");
+    expect(r.text).toMatch(/effort `high`/);
+    const [msg] = await h.messages.drain(seed.session.id);
+    expect(msg?.codexReasoningEffort).toBe("high");
+  });
+
+  it("does not queue codexReasoningEffort for non-OPENAI sessions", async () => {
+    const seed = await h.seedSession({ chatId: 1, tool: "CLAUDE_CODE" });
+    await handleCode(deps(), 1, "lint", true, "high");
+    const [msg] = await h.messages.drain(seed.session.id);
+    expect(msg?.codexReasoningEffort).toBeUndefined();
+  });
+
   it("rate-limits second call within 1 s", async () => {
     await h.seedSession({ chatId: 1 });
     await handleCode(deps(), 1, "first");
@@ -269,10 +307,15 @@ describe("handleCode", () => {
   });
 
   it("instruction submission consumes awaiting_instruction flow", async () => {
-    await h.seedSession({ chatId: 1 });
+    await h.seedSession({ chatId: 1, tool: "OPENAI" });
+    flows.setCodexReasoningEffort(1, 2, "xhigh");
     handleCodeRequest(deps(), 1, 2);
     const r = await handleInstructionSubmission(deps(), 1, 2, "hello");
     expect(r?.text).toMatch(/Queued/);
+    expect(r?.text).toMatch(/xhigh/);
+    const active = await h.sessions.getLatestActiveByChatId(1);
+    const [msg] = await h.messages.drain(active!.id);
+    expect(msg?.codexReasoningEffort).toBe("xhigh");
     expect(flows.get(1, 2).kind).toBe("idle");
   });
 
@@ -304,5 +347,16 @@ describe("FlowStore", () => {
     flows.set(1, 3, { kind: "awaiting_profile", apiKeyId: "a1" });
     expect(flows.get(1, 2).kind).toBe("awaiting_api_key");
     expect(flows.get(1, 3).kind).toBe("awaiting_profile");
+  });
+
+  it("defaults codex effort to medium", () => {
+    expect(flows.getCodexReasoningEffort(1, 2)).toBe("medium");
+  });
+
+  it("stores codex effort per chat+user", () => {
+    flows.setCodexReasoningEffort(1, 2, "xhigh");
+    flows.setCodexReasoningEffort(1, 3, "low");
+    expect(flows.getCodexReasoningEffort(1, 2)).toBe("xhigh");
+    expect(flows.getCodexReasoningEffort(1, 3)).toBe("low");
   });
 });

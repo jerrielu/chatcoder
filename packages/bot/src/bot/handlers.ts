@@ -6,18 +6,20 @@ import type { InlineKeyboard } from "grammy";
 import {
   API_KEY_PREFIX,
   ApiError,
+  type CodexReasoningEffort,
   CODEX_TOKEN_USAGE_COMMAND,
   MAX_INSTRUCTION_BYTES,
   MAX_QUEUE_DEPTH
 } from "@chatcoder/shared";
 import { hashApiKey, validateUserSuppliedKey } from "../db/crypto.js";
 import type { ApiKeysRepo } from "../db/apiKeys.js";
-import type { ProfilesRepo } from "../db/profiles.js";
+import type { ProfileRecord, ProfilesRepo } from "../db/profiles.js";
 import type { SessionsRepo } from "../db/sessions.js";
 import type { MessagesRepo } from "../db/messages.js";
 import type { FlowStore } from "./flows.js";
 import {
   backToMenu,
+  codexEffortPickerMenu,
   mainMenu,
   profilePickerMenu,
   toolIcon
@@ -67,6 +69,90 @@ export function handleStart(): Reply {
 
 export function handleMenu(): Reply {
   return { text: "Main menu", keyboard: mainMenu() };
+}
+
+async function getLatestSessionProfile(
+  deps: HandlerDeps,
+  chatId: number
+): Promise<
+  | { error: Reply }
+  | { sessionId: string; profile: ProfileRecord }
+> {
+  const session = await deps.sessions.getLatestActiveByChatId(chatId);
+  if (!session) {
+    return {
+      error: {
+        text: "No active session. Tap *New Session* first.",
+        keyboard: mainMenu(),
+        parseMode: "Markdown"
+      }
+    };
+  }
+  const profile = await deps.profiles.getById(session.profileId);
+  if (!profile) {
+    return {
+      error: {
+        text: "❌ Session profile not found. Tap *New Session* to relink.",
+        keyboard: mainMenu(),
+        parseMode: "Markdown"
+      }
+    };
+  }
+  return { sessionId: session.id, profile };
+}
+
+export async function handleCodexEffortMenu(
+  deps: HandlerDeps,
+  chatId: number,
+  telegramUser: number
+): Promise<Reply> {
+  const current = await getLatestSessionProfile(deps, chatId);
+  if ("error" in current) return current.error;
+  if (current.profile.tool !== "OPENAI") {
+    return {
+      text:
+        "🧠 Effort selection is only available for Codex profiles.\n\n" +
+        `${toolIcon(current.profile.tool)} Current profile: \`${current.profile.name}\``,
+      keyboard: mainMenu(),
+      parseMode: "Markdown"
+    };
+  }
+  const selected = deps.flows.getCodexReasoningEffort(chatId, telegramUser);
+  return {
+    text:
+      "🧠 *Codex effort*\n\n" +
+      `Current effort: \`${selected}\`\n` +
+      "Choose a level below.",
+    keyboard: codexEffortPickerMenu(selected),
+    parseMode: "Markdown"
+  };
+}
+
+export async function handleSetCodexEffort(
+  deps: HandlerDeps,
+  chatId: number,
+  telegramUser: number,
+  effort: CodexReasoningEffort
+): Promise<Reply> {
+  const current = await getLatestSessionProfile(deps, chatId);
+  if ("error" in current) return current.error;
+  if (current.profile.tool !== "OPENAI") {
+    return {
+      text:
+        "🧠 Effort selection is only available for Codex profiles.\n\n" +
+        `${toolIcon(current.profile.tool)} Current profile: \`${current.profile.name}\``,
+      keyboard: mainMenu(),
+      parseMode: "Markdown"
+    };
+  }
+  deps.flows.setCodexReasoningEffort(chatId, telegramUser, effort);
+  return {
+    text:
+      "✅ *Codex effort updated*\n\n" +
+      `Current effort: \`${effort}\``,
+    keyboard: codexEffortPickerMenu(effort),
+    parseMode: "Markdown"
+  };
 }
 
 export async function handleLatestProgress(
@@ -412,7 +498,14 @@ export async function handleInstructionSubmission(
     };
   }
 
-  const reply = await handleCode(deps, chatId, instruction, state.resumeLastSession);
+  const codexReasoningEffort = deps.flows.getCodexReasoningEffort(chatId, telegramUser);
+  const reply = await handleCode(
+    deps,
+    chatId,
+    instruction,
+    state.resumeLastSession,
+    codexReasoningEffort
+  );
   deps.flows.clear(chatId, telegramUser);
   return reply;
 }
@@ -421,7 +514,8 @@ export async function handleCode(
   deps: HandlerDeps,
   chatId: number,
   instruction: string,
-  resumeLastSession = true
+  resumeLastSession = true,
+  codexReasoningEffort?: CodexReasoningEffort
 ): Promise<Reply> {
   if (instruction.length === 0) {
     return { text: "❌ Instruction cannot be empty." };
@@ -449,16 +543,23 @@ export async function handleCode(
       text: `❌ Queue full (${MAX_QUEUE_DEPTH} pending). Wait for your daemon to drain it.`
     };
   }
+  const profile = await deps.profiles.getById(session.profileId);
+  const appliedEffort =
+    profile?.tool === "OPENAI" ? codexReasoningEffort : undefined;
   await deps.messages.enqueue({
     sessionId: session.id,
     content: instruction,
-    resumeLastSession
+    resumeLastSession,
+    codexReasoningEffort: appliedEffort
   });
   await deps.sessions.setLatestMessage(session.id, null);
-  const profile = await deps.profiles.getById(session.profileId);
   const suffix = profile ? ` → \`${profile.name}\`` : "";
   const mode = resumeLastSession ? "resume" : "fresh";
-  return { text: `📥 Queued for daemon${suffix} (${mode}).`, parseMode: "Markdown" };
+  const effortSuffix = appliedEffort ? ` · effort \`${appliedEffort}\`` : "";
+  return {
+    text: `📥 Queued for daemon${suffix} (${mode}${effortSuffix}).`,
+    parseMode: "Markdown"
+  };
 }
 
 /* =============== Plain text fallback =============== */

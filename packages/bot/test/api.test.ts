@@ -169,6 +169,22 @@ describe("GET /v1/poll", () => {
     expect(sendProcessing).toHaveBeenCalledTimes(1);
   });
 
+  it("returns codexReasoningEffort for queued Codex messages", async () => {
+    const seed = await h.seedSession({ chatId: 7, tool: "OPENAI", profileName: "codex" });
+    await h.messages.enqueue({
+      sessionId: seed.session.id,
+      content: "do work",
+      codexReasoningEffort: "high"
+    });
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/poll",
+      headers: { authorization: `Bearer ${seed.rawApiKey}` }
+    });
+    const [group] = res.json().sessions;
+    expect(group.messages[0].codexReasoningEffort).toBe("high");
+  });
+
   it("replaces in-progress work only when a newer new-code message is queued", async () => {
     await h.messages.enqueue({ sessionId, content: "old work" });
     await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
