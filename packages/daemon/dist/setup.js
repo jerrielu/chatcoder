@@ -10,7 +10,7 @@ const defaultIO = {
     log: (m) => process.stdout.write(m + "\n")
 };
 const LINE = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-const LANDING_PAGE_SIZE = 6;
+export const LANDING_PAGE_SIZE = 6;
 export const validators = {
     apiUrl: (v) => /^https?:\/\//.test(v) ? true : "Must be a http(s):// URL",
     apiKey: (v) => v.length >= 16 ? true : "Key must be ≥16 chars",
@@ -19,7 +19,7 @@ export const validators = {
         : "Name must be slug-like (letters, digits, _, -, .)",
     nonEmpty: (v) => (v && v.length > 0 ? true : "Required")
 };
-function toolLabel(tool) {
+export function toolLabel(tool) {
     switch (tool) {
         case "CLAUDE_CODE":
             return "Claude Code";
@@ -29,7 +29,7 @@ function toolLabel(tool) {
             return "Custom Tool";
     }
 }
-function toolChoiceIndex(tool) {
+export function toolChoiceIndex(tool) {
     if (tool === "OPENAI")
         return 1;
     if (tool === "CUSTOM")
@@ -65,7 +65,7 @@ function syncOpenAiProfileHomes(cfg) {
 function canUseCoderStyle(io) {
     return io === defaultIO && process.stdin.isTTY && process.stdout.isTTY;
 }
-function makeCoderUi() {
+export function makeCoderUi() {
     const isColor = process.stdout.isTTY && process.env["TERM"] !== "dumb";
     if (!isColor) {
         return {
@@ -96,41 +96,41 @@ function makeCoderUi() {
 function out(line = "") {
     process.stdout.write(line + "\n");
 }
-function clearScreen() {
+export function clearScreen() {
     if (process.stdout.isTTY)
         process.stdout.write("\x1Bc");
 }
-function printLine(ui) {
+export function printLine(ui) {
     out(`${ui.CARD_BORDER}${LINE}${ui.RESET}`);
 }
-function printBanner(ui) {
+export function printBanner(ui) {
     printLine(ui);
     out(`${ui.BOLD}${ui.CARD_ACCENT}  coder${ui.RESET}${ui.DIM}  profile manager${ui.RESET}`);
     printLine(ui);
 }
-function printSection(ui, title) {
+export function printSection(ui, title) {
     out("");
     out(`${ui.BOLD}${title}${ui.RESET}`);
     printLine(ui);
 }
-function printPickerOption(ui, selected, label) {
+export function printPickerOption(ui, selected, label) {
     const marker = selected ? "›" : " ";
     const accent = selected ? ui.CARD_ACCENT : ui.CARD_BORDER;
     out(`${accent}${marker}${ui.RESET} ${ui.BOLD}${label}${ui.RESET}`);
 }
-function footerItem(ui, key, label) {
+export function footerItem(ui, key, label) {
     return `${ui.CARD_ACCENT}[${key}]${ui.RESET} ${label}  `;
 }
-function printInfo(ui, message) {
+export function printInfo(ui, message) {
     out(`${ui.BLUE}info${ui.RESET} ${message}`);
 }
-function printSuccess(ui, message) {
+export function printSuccess(ui, message) {
     out(`${ui.GREEN}success${ui.RESET} ${message}`);
 }
-function printWarning(ui, message) {
+export function printWarning(ui, message) {
     out(`${ui.YELLOW}warning${ui.RESET} ${message}`);
 }
-async function readKey() {
+export async function readKey() {
     if (!process.stdin.isTTY)
         return null;
     return new Promise((resolve) => {
@@ -162,7 +162,7 @@ async function readKey() {
         stdin.on("data", onData);
     });
 }
-async function askLine(promptText, initial) {
+export async function askLine(promptText, initial) {
     const rl = createInterface({
         input: process.stdin,
         output: process.stdout,
@@ -182,19 +182,19 @@ async function askLine(promptText, initial) {
         rl.close();
     }
 }
-async function ask(ui, promptText) {
+export async function ask(ui, promptText) {
     return askLine(`${ui.CARD_ACCENT}›${ui.RESET} ${promptText}`);
 }
-async function askWithDefault(ui, promptText, initial) {
+export async function askWithDefault(ui, promptText, initial) {
     const outValue = await askLine(`${ui.CARD_ACCENT}›${ui.RESET} ${promptText}`, initial);
     if (outValue === null)
         return null;
     return outValue.length === 0 ? initial : outValue;
 }
-async function pause(ui) {
+export async function pause(ui) {
     await askLine(`\n${ui.DIM}Press Enter to continue...${ui.RESET}`);
 }
-async function askValidated(ui, promptText, initial, validate) {
+export async function askValidated(ui, promptText, initial, validate) {
     let nextInitial = initial;
     for (;;) {
         const v = await askWithDefault(ui, promptText, nextInitial);
@@ -208,7 +208,7 @@ async function askValidated(ui, promptText, initial, validate) {
     }
     return null;
 }
-async function askYesNo(ui, promptText, initial) {
+export async function askYesNo(ui, promptText, initial) {
     const defaultText = initial ? "y" : "n";
     for (;;) {
         const input = await askWithDefault(ui, `${promptText} (y/N): `, defaultText);
@@ -223,7 +223,7 @@ async function askYesNo(ui, promptText, initial) {
     }
     return null;
 }
-async function pickWithArrows(ui, section, promptText, options, initial = 0) {
+export async function pickWithArrows(ui, section, promptText, options, initial = 0) {
     let selected = Math.max(0, Math.min(initial, options.length - 1));
     for (;;) {
         clearScreen();
@@ -280,7 +280,7 @@ function parseEnvRaw(raw) {
 function formatEnvRaw(env) {
     return Object.entries(env).map(([k, v]) => `${k}=${v}`).join(" ");
 }
-function selectedProfileIndex(page, selectedSlot, total) {
+export function selectedProfileIndex(page, selectedSlot, total) {
     const idx = page * LANDING_PAGE_SIZE + selectedSlot;
     return idx < total ? idx : null;
 }
@@ -333,16 +333,16 @@ async function pickTool(ui, initialTool) {
     return selected;
 }
 async function promptClaude(ui, prev) {
-    const editAuth = await askYesNo(ui, "Edit authentication for this profile?", prev?.apiKey === undefined);
+    const editAuth = await askYesNo(ui, "Edit authentication for this profile?", prev?.authToken === undefined);
     if (editAuth === null)
         return null;
-    let apiKey = prev?.apiKey;
+    let authToken = prev?.authToken;
     let baseUrl = prev?.baseUrl;
     if (editAuth) {
-        const nextApiKey = await askValidated(ui, "ANTHROPIC_API_KEY: ", prev?.apiKey ?? "", validators.nonEmpty);
-        if (nextApiKey === null)
+        const nextAuthToken = await askValidated(ui, "ANTHROPIC_AUTH_TOKEN: ", prev?.authToken ?? "", validators.nonEmpty);
+        if (nextAuthToken === null)
             return null;
-        apiKey = nextApiKey;
+        authToken = nextAuthToken;
         const nextBaseUrl = await askWithDefault(ui, "ANTHROPIC_BASE_URL (blank = default): ", prev?.baseUrl ?? "");
         if (nextBaseUrl === null)
             return null;
@@ -350,7 +350,7 @@ async function promptClaude(ui, prev) {
             const ok = validators.apiUrl(nextBaseUrl);
             if (ok !== true) {
                 printWarning(ui, ok);
-                return promptClaude(ui, { ...prev, apiKey, baseUrl: nextBaseUrl });
+                return promptClaude(ui, { ...prev, authToken, baseUrl: nextBaseUrl });
             }
         }
         baseUrl = nextBaseUrl || undefined;
@@ -358,6 +358,36 @@ async function promptClaude(ui, prev) {
     const model = await askWithDefault(ui, "Model (blank = Claude default): ", prev?.model ?? "");
     if (model === null)
         return null;
+    const editAdvanced = await askYesNo(ui, "Edit advanced environment variables?", false);
+    if (editAdvanced === null)
+        return null;
+    let defaultOpusModel = prev?.defaultOpusModel;
+    let defaultSonnetModel = prev?.defaultSonnetModel;
+    let defaultHaikuModel = prev?.defaultHaikuModel;
+    let disableNonessentialTraffic = prev?.disableNonessentialTraffic ?? false;
+    let effortLevel = prev?.effortLevel;
+    if (editAdvanced) {
+        const nextOpus = await askWithDefault(ui, "ANTHROPIC_DEFAULT_OPUS_MODEL (blank = unset): ", prev?.defaultOpusModel ?? "");
+        if (nextOpus === null)
+            return null;
+        defaultOpusModel = nextOpus || undefined;
+        const nextSonnet = await askWithDefault(ui, "ANTHROPIC_DEFAULT_SONNET_MODEL (blank = unset): ", prev?.defaultSonnetModel ?? "");
+        if (nextSonnet === null)
+            return null;
+        defaultSonnetModel = nextSonnet || undefined;
+        const nextHaiku = await askWithDefault(ui, "ANTHROPIC_DEFAULT_HAIKU_MODEL (blank = unset): ", prev?.defaultHaikuModel ?? "");
+        if (nextHaiku === null)
+            return null;
+        defaultHaikuModel = nextHaiku || undefined;
+        const nextDisable = await askYesNo(ui, "Set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC?", prev?.disableNonessentialTraffic ?? false);
+        if (nextDisable === null)
+            return null;
+        disableNonessentialTraffic = nextDisable;
+        const nextEffort = await askWithDefault(ui, "CLAUDE_CODE_EFFORT_LEVEL (blank = unset): ", prev?.effortLevel ?? "");
+        if (nextEffort === null)
+            return null;
+        effortLevel = nextEffort || undefined;
+    }
     const skipPermissions = await askYesNo(ui, "Pass --dangerously-skip-permissions?", prev?.skipPermissions ?? true);
     if (skipPermissions === null)
         return null;
@@ -369,9 +399,14 @@ async function promptClaude(ui, prev) {
     if (outputFormat === null || outputFormat === "__BACK__")
         return null;
     return {
-        apiKey,
         baseUrl,
         model: model || undefined,
+        authToken,
+        defaultOpusModel,
+        defaultSonnetModel,
+        defaultHaikuModel,
+        disableNonessentialTraffic,
+        effortLevel,
         skipPermissions,
         outputFormat,
         extraArgs: prev?.extraArgs ?? []
@@ -452,7 +487,7 @@ async function promptCustom(ui, prev) {
         messagePlacement
     };
 }
-async function promptProfileEditor(ui, existing, takenNames) {
+export async function promptProfileEditor(ui, existing, takenNames) {
     clearScreen();
     printBanner(ui);
     printSection(ui, existing ? "Update Profile" : "Add Profile");
@@ -467,9 +502,6 @@ async function promptProfileEditor(ui, existing, takenNames) {
     });
     if (name === null)
         return null;
-    const cwd = await askValidated(ui, "Working directory for this profile: ", existing?.cwd ?? process.cwd(), validators.nonEmpty);
-    if (cwd === null)
-        return null;
     const metadata = await askWithDefault(ui, "Metadata/notes (optional): ", existing?.metadata ?? "");
     if (metadata === null)
         return null;
@@ -480,7 +512,6 @@ async function promptProfileEditor(ui, existing, takenNames) {
             return null;
         return {
             name,
-            cwd,
             tool: "CLAUDE_CODE",
             metadata: metadata || undefined,
             claudeCode: claude
@@ -493,7 +524,6 @@ async function promptProfileEditor(ui, existing, takenNames) {
             return null;
         return {
             name,
-            cwd,
             tool: "OPENAI",
             metadata: metadata || undefined,
             codex
@@ -505,7 +535,6 @@ async function promptProfileEditor(ui, existing, takenNames) {
         return null;
     return {
         name,
-        cwd,
         tool: "CUSTOM",
         metadata: metadata || undefined,
         custom
@@ -558,7 +587,6 @@ async function deleteProfile(ui, profiles, index) {
     printSection(ui, "Delete Profile");
     out(`${ui.BOLD}Selected profile${ui.RESET}`);
     out(`${ui.DIM}Tool:${ui.RESET} ${toolLabel(existing.tool)}`);
-    out(`${ui.DIM}CWD:${ui.RESET} ${existing.cwd}`);
     out(`${ui.DIM}Metadata:${ui.RESET} ${existing.metadata ?? "<none>"}`);
     out("");
     if (!(await confirmDelete(ui, `Delete "${existing.name}"`))) {
@@ -672,13 +700,13 @@ async function manageProfiles(ui, profiles) {
     }
     return false;
 }
-async function promptApiUrl(ui, initial) {
+export async function promptApiUrl(ui, initial) {
     clearScreen();
     printBanner(ui);
     printSection(ui, "Bot Connection");
     return askValidated(ui, "Bot API URL (e.g. https://bot.example.com): ", initial, validators.apiUrl);
 }
-async function promptApiKey(ui, existing) {
+export async function promptApiKey(ui, existing) {
     const mode = await pickWithArrows(ui, "API Key", "Choose how to configure your daemon API key.", [
         { label: "Generate a new key for me", value: "generate" },
         { label: "I'll paste one I already have", value: "existing" },
@@ -701,7 +729,7 @@ async function promptApiKey(ui, existing) {
     printSection(ui, "API Key");
     return askValidated(ui, "Paste API key (≥16 chars): ", existing ?? "", validators.apiKey);
 }
-async function promptMaxConcurrency(ui, initial) {
+export async function promptMaxConcurrency(ui, initial) {
     clearScreen();
     printBanner(ui);
     printSection(ui, "Daemon");
@@ -762,7 +790,7 @@ async function runSetupCoderStyle(existing, targetPath) {
     printSection(ui, "Saved");
     printSuccess(ui, `wrote ${targetPath} (mode 0600)`);
     out(`• ${cfg.profiles.length} profile(s): ${cfg.profiles.map((p) => p.name).join(", ")}`);
-    out("Start the coder service with: chatcoder coder");
+    out("Run the daemon with: chatcoder coder run");
     return targetPath;
 }
 /* -------------------------------------------------------------------------- */
@@ -790,7 +818,7 @@ function printProfilesSimple(io, profiles) {
     }
     for (let i = 0; i < profiles.length; i += 1) {
         const p = profiles[i];
-        io.log(`[${i + 1}] ${p.name} · ${toolLabel(p.tool)} · cwd=${p.cwd}`);
+        io.log(`[${i + 1}] ${p.name} · ${toolLabel(p.tool)}`);
     }
 }
 async function promptOneProfilePromptWizard(io, index, takenNames, existing) {
@@ -812,13 +840,6 @@ async function promptOneProfilePromptWizard(io, index, takenNames, existing) {
             }
         },
         {
-            type: "text",
-            name: "cwd",
-            message: "Working directory for this profile",
-            initial: existing?.cwd ?? process.cwd(),
-            validate: validators.nonEmpty
-        },
-        {
             type: "select",
             name: "tool",
             message: "Tool",
@@ -836,7 +857,7 @@ async function promptOneProfilePromptWizard(io, index, takenNames, existing) {
             initial: existing?.metadata ?? ""
         }
     ]);
-    if (!base.name || !base.cwd || !base.tool)
+    if (!base.name || !base.tool)
         return null;
     if (base.tool === "CLAUDE_CODE") {
         const prev = existing?.tool === "CLAUDE_CODE" ? existing.claudeCode : undefined;
@@ -844,21 +865,21 @@ async function promptOneProfilePromptWizard(io, index, takenNames, existing) {
             type: "toggle",
             name: "editAuthentication",
             message: "Edit authentication for this profile?",
-            initial: prev?.apiKey === undefined,
+            initial: prev?.authToken === undefined,
             active: "yes",
             inactive: "no"
         });
         if (auth.editAuthentication === undefined)
             return null;
-        let apiKey = prev?.apiKey;
+        let authToken = prev?.authToken;
         let baseUrl = prev?.baseUrl;
         if (auth.editAuthentication) {
             const a = await io.prompt([
                 {
                     type: "password",
-                    name: "apiKey",
-                    message: "ANTHROPIC_API_KEY",
-                    initial: prev?.apiKey ?? "",
+                    name: "authToken",
+                    message: "ANTHROPIC_AUTH_TOKEN",
+                    initial: prev?.authToken ?? "",
                     validate: validators.nonEmpty
                 },
                 {
@@ -868,9 +889,9 @@ async function promptOneProfilePromptWizard(io, index, takenNames, existing) {
                     initial: prev?.baseUrl ?? ""
                 }
             ]);
-            if (!a.apiKey)
+            if (!a.authToken)
                 return null;
-            apiKey = a.apiKey;
+            authToken = a.authToken;
             baseUrl = a.baseUrl || undefined;
         }
         const c = await io.prompt([
@@ -897,17 +918,75 @@ async function promptOneProfilePromptWizard(io, index, takenNames, existing) {
                     { title: "stream-json", value: "stream-json" }
                 ],
                 initial: outputFormatChoiceIndex(prev?.outputFormat)
+            },
+            {
+                type: "toggle",
+                name: "editAdvanced",
+                message: "Edit advanced environment variables?",
+                initial: false,
+                active: "yes",
+                inactive: "no"
             }
         ]);
+        let defaultOpusModel = prev?.defaultOpusModel;
+        let defaultSonnetModel = prev?.defaultSonnetModel;
+        let defaultHaikuModel = prev?.defaultHaikuModel;
+        let disableNonessentialTraffic = prev?.disableNonessentialTraffic ?? false;
+        let effortLevel = prev?.effortLevel;
+        if (c.editAdvanced) {
+            const adv = await io.prompt([
+                {
+                    type: "text",
+                    name: "defaultOpusModel",
+                    message: "ANTHROPIC_DEFAULT_OPUS_MODEL (blank = unset)",
+                    initial: prev?.defaultOpusModel ?? ""
+                },
+                {
+                    type: "text",
+                    name: "defaultSonnetModel",
+                    message: "ANTHROPIC_DEFAULT_SONNET_MODEL (blank = unset)",
+                    initial: prev?.defaultSonnetModel ?? ""
+                },
+                {
+                    type: "text",
+                    name: "defaultHaikuModel",
+                    message: "ANTHROPIC_DEFAULT_HAIKU_MODEL (blank = unset)",
+                    initial: prev?.defaultHaikuModel ?? ""
+                },
+                {
+                    type: "toggle",
+                    name: "disableNonessentialTraffic",
+                    message: "Set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC?",
+                    initial: prev?.disableNonessentialTraffic ?? false,
+                    active: "yes",
+                    inactive: "no"
+                },
+                {
+                    type: "text",
+                    name: "effortLevel",
+                    message: "CLAUDE_CODE_EFFORT_LEVEL (blank = unset)",
+                    initial: prev?.effortLevel ?? ""
+                }
+            ]);
+            defaultOpusModel = adv.defaultOpusModel || undefined;
+            defaultSonnetModel = adv.defaultSonnetModel || undefined;
+            defaultHaikuModel = adv.defaultHaikuModel || undefined;
+            disableNonessentialTraffic = !!adv.disableNonessentialTraffic;
+            effortLevel = adv.effortLevel || undefined;
+        }
         return {
             name: base.name,
-            cwd: base.cwd,
             tool: "CLAUDE_CODE",
             metadata: base.metadata || undefined,
             claudeCode: {
-                apiKey,
                 baseUrl,
                 model: c.model || undefined,
+                authToken,
+                defaultOpusModel,
+                defaultSonnetModel,
+                defaultHaikuModel,
+                disableNonessentialTraffic,
+                effortLevel,
                 skipPermissions: !!c.skipPermissions,
                 outputFormat: c.outputFormat ?? "text",
                 extraArgs: prev?.extraArgs ?? []
@@ -975,7 +1054,6 @@ async function promptOneProfilePromptWizard(io, index, takenNames, existing) {
         ]);
         return {
             name: base.name,
-            cwd: base.cwd,
             tool: "OPENAI",
             metadata: base.metadata || undefined,
             codex: {
@@ -1027,7 +1105,6 @@ async function promptOneProfilePromptWizard(io, index, takenNames, existing) {
         return null;
     return {
         name: base.name,
-        cwd: base.cwd,
         tool: "CUSTOM",
         metadata: base.metadata || undefined,
         custom: {
@@ -1187,7 +1264,7 @@ async function runSetupPromptWizard(existing, io = defaultIO, targetPath = defau
     printSectionSimple(io, "Saved");
     io.log(`✓ wrote ${targetPath} (mode 0600)`);
     io.log(`• ${cfg.profiles.length} profile(s): ${cfg.profiles.map((p) => p.name).join(", ")}`);
-    io.log("Start the coder service with: chatcoder coder");
+    io.log("Run the daemon with: chatcoder coder run");
     return targetPath;
 }
 /* -------------------------------------------------------------------------- */

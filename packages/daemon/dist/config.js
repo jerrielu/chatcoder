@@ -24,6 +24,23 @@ export function loadConfig(p = defaultConfigPath()) {
     const parsed = parseYaml(raw);
     return DaemonConfig.parse(parsed);
 }
+/** Load raw YAML data without Zod validation — returns null if file missing or unparseable. */
+export function loadRawConfig(p = defaultConfigPath()) {
+    if (!fs.existsSync(p))
+        return null;
+    try {
+        const raw = fs.readFileSync(p, "utf8");
+        return parseYaml(raw);
+    }
+    catch {
+        return null;
+    }
+}
+/** Write raw YAML without Zod validation — used by menu to save partial configs. */
+export function writeRawConfig(data, p = defaultConfigPath()) {
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, stringifyYaml(data), { mode: 0o600 });
+}
 export function writeConfig(cfg, p = defaultConfigPath()) {
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, stringifyYaml(cfg), { mode: 0o600 });

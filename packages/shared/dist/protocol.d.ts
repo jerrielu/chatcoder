@@ -9,14 +9,14 @@ export declare const DaemonMessage: z.ZodObject<{
     createdAt: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
     id: string;
+    createdAt: number;
     content: string;
     resumeLastSession: boolean;
-    createdAt: number;
     codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
 }, {
     id: string;
-    content: string;
     createdAt: number;
+    content: string;
     resumeLastSession?: boolean | undefined;
     codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
 }>;
@@ -35,34 +35,34 @@ export declare const PollSession: z.ZodObject<{
         createdAt: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
         id: string;
+        createdAt: number;
         content: string;
         resumeLastSession: boolean;
-        createdAt: number;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }, {
         id: string;
-        content: string;
         createdAt: number;
+        content: string;
         resumeLastSession?: boolean | undefined;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
-    sessionId: string;
     profileName: string;
+    sessionId: string;
     messages: {
         id: string;
+        createdAt: number;
         content: string;
         resumeLastSession: boolean;
-        createdAt: number;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }[];
 }, {
-    sessionId: string;
     profileName: string;
+    sessionId: string;
     messages: {
         id: string;
-        content: string;
         createdAt: number;
+        content: string;
         resumeLastSession?: boolean | undefined;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }[];
@@ -83,64 +83,64 @@ export declare const PollResponse: z.ZodObject<{
             createdAt: z.ZodNumber;
         }, "strip", z.ZodTypeAny, {
             id: string;
+            createdAt: number;
             content: string;
             resumeLastSession: boolean;
-            createdAt: number;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }, {
             id: string;
-            content: string;
             createdAt: number;
+            content: string;
             resumeLastSession?: boolean | undefined;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }>, "many">;
     }, "strip", z.ZodTypeAny, {
-        sessionId: string;
         profileName: string;
+        sessionId: string;
         messages: {
             id: string;
+            createdAt: number;
             content: string;
             resumeLastSession: boolean;
-            createdAt: number;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }[];
     }, {
-        sessionId: string;
         profileName: string;
+        sessionId: string;
         messages: {
             id: string;
-            content: string;
             createdAt: number;
+            content: string;
             resumeLastSession?: boolean | undefined;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }[];
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
-    reset: boolean;
     sessions: {
-        sessionId: string;
         profileName: string;
+        sessionId: string;
         messages: {
             id: string;
+            createdAt: number;
             content: string;
             resumeLastSession: boolean;
-            createdAt: number;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }[];
     }[];
-}, {
     reset: boolean;
+}, {
     sessions: {
-        sessionId: string;
         profileName: string;
+        sessionId: string;
         messages: {
             id: string;
-            content: string;
             createdAt: number;
+            content: string;
             resumeLastSession?: boolean | undefined;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }[];
     }[];
+    reset: boolean;
 }>;
 export type PollResponse = z.infer<typeof PollResponse>;
 export declare const PostResponseBody: z.ZodObject<{
@@ -151,13 +151,13 @@ export declare const PostResponseBody: z.ZodObject<{
     /** Optional echo of originating instruction id for tracing. */
     replyTo: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    content: string;
     sessionId: string;
+    content: string;
     final: boolean;
     replyTo?: string | undefined;
 }, {
-    content: string;
     sessionId: string;
+    content: string;
     final?: boolean | undefined;
     replyTo?: string | undefined;
 }>;
@@ -247,19 +247,19 @@ export declare const DaemonRegisterResponse: z.ZodObject<{
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
+    apiKeyId: string;
     profiles: {
         id: string;
         name: string;
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }[];
-    apiKeyId: string;
 }, {
+    apiKeyId: string;
     profiles: {
         id: string;
         name: string;
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }[];
-    apiKeyId: string;
 }>;
 export type DaemonRegisterResponse = z.infer<typeof DaemonRegisterResponse>;
 //# sourceMappingURL=protocol.d.ts.map

@@ -47,7 +47,7 @@ afterEach(() => {
 
 /**
  * The walkthrough calls `prompt` several times: top-level (apiUrl + keyMode),
- * profile-action menu, per-profile (name, cwd, tool, metadata), the per-tool
+ * profile-action menu, per-profile (name, tool, metadata), the per-tool
  * prompts, and finally a concurrency number. `scriptedPrompt` serves answers
  * from a queue, letting tests drive the wizard deterministically.
  */
@@ -76,13 +76,12 @@ describe("runSetup", () => {
         { action: "add" },
         {
           name: "main",
-          cwd: "/tmp",
           tool: "CLAUDE_CODE",
           metadata: ""
         },
         { editAuthentication: true },
         {
-          apiKey: "sk-ant-x",
+          authToken: "sk-ant-x",
           baseUrl: ""
         },
         {
@@ -115,7 +114,6 @@ describe("runSetup", () => {
         { action: "add" },
         {
           name: "codex-main",
-          cwd: "/tmp",
           tool: "OPENAI",
           metadata: ""
         },

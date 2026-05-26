@@ -147,9 +147,10 @@ WantedBy=default.target
 }
 
 function main() {
-  const [, , command, ...rest] = process.argv;
-  if (!command || command === "-h" || command === "--help") {
-    usage(command ? 0 : 1);
+  let [, , command, ...rest] = process.argv;
+  if (!command) command = "coder";
+  if (command === "-h" || command === "--help") {
+    usage(0);
   }
 
   const wantsSystemd = rest.includes("--systemd");
@@ -172,7 +173,7 @@ function main() {
 
     let daemonArgs;
     if (forwardedArgs.length === 0) {
-      daemonArgs = ["run"];
+      daemonArgs = [];
     } else if (forwardedArgs[0] === "--setup") {
       daemonArgs = ["setup", ...forwardedArgs.slice(1)];
     } else {

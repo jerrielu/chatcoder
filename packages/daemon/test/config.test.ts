@@ -16,8 +16,7 @@ function baseInput(overrides: Record<string, unknown> = {}): Record<string, unkn
       {
         tool: "CLAUDE_CODE",
         name: "main",
-        cwd: "/tmp",
-        claudeCode: { apiKey: "sk-ant-test" }
+        claudeCode: { authToken: "sk-ant-test" }
       }
     ],
     ...overrides
@@ -66,19 +65,16 @@ describe("DaemonConfig", () => {
           {
             tool: "CLAUDE_CODE",
             name: "cc",
-            cwd: "/tmp",
-            claudeCode: { apiKey: "k" }
+            claudeCode: { authToken: "k" }
           },
           {
             tool: "OPENAI",
             name: "ox",
-            cwd: "/tmp",
             codex: { apiKey: "k", fullAuto: true }
           },
           {
             tool: "CUSTOM",
             name: "cu",
-            cwd: "/tmp",
             custom: { launchBin: "/bin/echo" }
           }
         ]

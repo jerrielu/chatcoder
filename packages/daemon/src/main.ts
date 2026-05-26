@@ -2,13 +2,14 @@
 import * as fs from "node:fs";
 import { defaultConfigPath, loadConfig } from "./config.js";
 import { runSetup } from "./setup.js";
+import { showMainMenu } from "./menu.js";
 import { ApiClient } from "./client.js";
 import { Orchestrator } from "./orchestrator.js";
 import { ProfilePool } from "./profilePool.js";
 import { ToolExecutor } from "./toolExecutor.js";
 
 function normalizeCommand(raw: string | undefined): string {
-  if (!raw) return "setup";
+  if (!raw) return "menu";
   if (raw === "--setup") return "setup";
   if (raw === "--run") return "run";
   return raw;
@@ -16,7 +17,7 @@ function normalizeCommand(raw: string | undefined): string {
 
 async function promptRunFromSetup(): Promise<boolean> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    console.log("[daemon] Setup complete. Run with: chatcoder coder");
+    console.log("[daemon] Setup complete. Run the daemon with: chatcoder coder run");
     return false;
   }
 
@@ -138,8 +139,13 @@ async function main(): Promise<void> {
     return;
   }
 
-  process.stderr.write("usage: chatcoder coder [--setup|run|config-path]\n");
-  process.stderr.write("       default command: run\n");
+  if (cmd === "menu") {
+    await showMainMenu();
+    return;
+  }
+
+  process.stderr.write("usage: chatcoder coder [setup|run|config-path]\n");
+  process.stderr.write("       default command: menu\n");
   process.exit(2);
 }
 

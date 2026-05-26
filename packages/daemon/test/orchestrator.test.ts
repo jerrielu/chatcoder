@@ -21,10 +21,9 @@ function cfg(): DaemonConfig {
 function sampleProfile(): Profile {
   return {
     name: "main",
-    cwd: "/tmp",
     tool: "CLAUDE_CODE",
     claudeCode: {
-      apiKey: "k",
+      authToken: "k",
       skipPermissions: false,
       outputFormat: "text",
       extraArgs: []

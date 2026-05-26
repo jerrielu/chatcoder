@@ -9,14 +9,18 @@ const ProfileName = z
 
 const BaseProfile = {
   name: ProfileName,
-  cwd: z.string().min(1),
   metadata: z.string().max(500).optional()
 } as const;
 
 export const ClaudeCodeConfig = z.object({
-  apiKey: z.string().min(1).optional(),
   baseUrl: z.string().url().optional(),
   model: z.string().optional(),
+  authToken: z.string().min(1),
+  defaultOpusModel: z.string().optional(),
+  defaultSonnetModel: z.string().optional(),
+  defaultHaikuModel: z.string().optional(),
+  disableNonessentialTraffic: z.boolean().default(false),
+  effortLevel: z.string().optional(),
   skipPermissions: z.boolean().default(false),
   outputFormat: z.enum(["text", "stream-json"]).default("text"),
   extraArgs: z.array(z.string()).default([])

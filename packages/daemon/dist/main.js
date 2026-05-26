@@ -2,13 +2,14 @@
 import * as fs from "node:fs";
 import { defaultConfigPath, loadConfig } from "./config.js";
 import { runSetup } from "./setup.js";
+import { showMainMenu } from "./menu.js";
 import { ApiClient } from "./client.js";
 import { Orchestrator } from "./orchestrator.js";
 import { ProfilePool } from "./profilePool.js";
 import { ToolExecutor } from "./toolExecutor.js";
 function normalizeCommand(raw) {
     if (!raw)
-        return "setup";
+        return "menu";
     if (raw === "--setup")
         return "setup";
     if (raw === "--run")
@@ -17,7 +18,7 @@ function normalizeCommand(raw) {
 }
 async function promptRunFromSetup() {
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
-        console.log("[daemon] Setup complete. Run with: chatcoder coder");
+        console.log("[daemon] Setup complete. Run the daemon with: chatcoder coder run");
         return false;
     }
     process.stdout.write("\n[daemon] Press R to run now, or any other key to exit.\n");
@@ -127,8 +128,12 @@ async function main() {
         process.stdout.write(defaultConfigPath() + "\n");
         return;
     }
-    process.stderr.write("usage: chatcoder coder [--setup|run|config-path]\n");
-    process.stderr.write("       default command: run\n");
+    if (cmd === "menu") {
+        await showMainMenu();
+        return;
+    }
+    process.stderr.write("usage: chatcoder coder [setup|run|config-path]\n");
+    process.stderr.write("       default command: menu\n");
     process.exit(2);
 }
 main().catch((err) => {

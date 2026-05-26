@@ -46,10 +46,19 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
     const env = baseEnv();
     if (profile.tool === "CLAUDE_CODE") {
         const c = profile.claudeCode;
-        if (c.apiKey)
-            env["ANTHROPIC_API_KEY"] = c.apiKey;
         if (c.baseUrl)
             env["ANTHROPIC_BASE_URL"] = c.baseUrl;
+        env["ANTHROPIC_AUTH_TOKEN"] = c.authToken;
+        if (c.defaultOpusModel)
+            env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = c.defaultOpusModel;
+        if (c.defaultSonnetModel)
+            env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = c.defaultSonnetModel;
+        if (c.defaultHaikuModel)
+            env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = c.defaultHaikuModel;
+        if (c.disableNonessentialTraffic)
+            env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "true";
+        if (c.effortLevel)
+            env["CLAUDE_CODE_EFFORT_LEVEL"] = c.effortLevel;
         const args = ["--print"];
         if (resumeLastSession)
             args.push("-c");
@@ -66,7 +75,7 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
             cmd: "claude",
             args,
             env,
-            cwd: profile.cwd,
+            cwd: process.cwd(),
             stdinText: null,
             finalOutputPath: null
         };
@@ -106,7 +115,7 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
             cmd: "codex",
             args,
             env,
-            cwd: profile.cwd,
+            cwd: process.cwd(),
             stdinText: null,
             finalOutputPath
         };
@@ -135,7 +144,7 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
         cmd: c.launchBin,
         args,
         env,
-        cwd: profile.cwd,
+        cwd: process.cwd(),
         stdinText,
         finalOutputPath: null
     };

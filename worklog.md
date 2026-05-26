@@ -58,6 +58,29 @@
 - Started `chatcoder chat` and `chatcoder coder` in the background using `nohup` as an alternative, then terminated them per user request.
 - Added a `guide.md` PM2 section with start, status/log, restart/stop, and boot-persistence commands for running `chatcoder chat` and `chatcoder coder` without systemd.
 
+# 2026-05-26
+
+- Changed `chatcoder coder` default from `run` (daemon mode) to `menu` (interactive TUI).
+- Changed `chatcoder` (no args) to default to the `coder` subcommand.
+- Created `packages/daemon/src/menu.ts` — coder-style interactive TUI with profile list, arrow-key navigation, and actions: Activate (Enter), Add (A), Update (U), Delete (D), Run Daemon (R), Settings (S), Quit (Q).
+- Created `packages/daemon/src/launcher.ts` — launches a profile's tool (claude/codex/custom) with its env vars and `inherit` stdio, returning to the menu when the tool exits.
+- Added `loadRawConfig()` and `writeRawConfig()` to config.ts for TUI-friendly config loading without strict Zod validation.
+- Exported coder-style UI primitives and profile editor functions from setup.ts for reuse in menu.ts.
+- Added SIGINT suppression during tool activation and daemon spawning so Ctrl+C doesn't kill the menu process.
+- Updated reference messages from "Start the coder service with: chatcoder coder" to "Run the daemon with: chatcoder coder run".
+- Verified with `npm run build` and `npx vitest run` (308 tests pass).
+- Added new Claude Code profile fields: ANTHROPIC_AUTH_TOKEN, ANTHROPIC_DEFAULT_OPUS_MODEL, ANTHROPIC_DEFAULT_SONNET_MODEL, ANTHROPIC_DEFAULT_HAIKU_MODEL, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC, CLAUDE_CODE_EFFORT_LEVEL.
+- Updated ClaudeCodeConfig zod schema, setup prompts (both coder-style and wizard), and launcher/toolExecutor env var exports for the new fields.
+- Verified with `npm run build` and `npx vitest run` (308 tests pass).
+- Removed `cwd` from profile schema and setup prompts — working directory is now managed globally, not per-profile.
+- Updated `launcher.ts` to accept optional `cwd` parameter (defaults to `process.cwd()`).
+- Updated `toolExecutor.ts` `buildLaunch()` to use `process.cwd()` instead of `profile.cwd`.
+- Changed `W` menu item to manage a list of working directories (`workDirs`), with Add/Delete sub-actions.
+- Working directories are only used for daemon mode, not for profile activation.
+- Replaced `ANTHROPIC_API_KEY` with `ANTHROPIC_AUTH_TOKEN` as the mandatory auth field for CLAUDE_CODE profiles — removed `apiKey` from schema, made `authToken` required.
+- Updated all setup prompts (coder-style and wizard), launcher, toolExecutor, tests, and profile schemas for the authToken rename.
+- Verified with `npm run build` and `npx vitest run` (308 tests pass).
+
 # 2026-04-29
 
 - Added a Codex effort control to the Telegram main menu with a dedicated effort picker (`low`, `medium`, `high`, `xhigh`) and callbacks to update per chat/user selection.

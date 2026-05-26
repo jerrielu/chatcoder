@@ -18,7 +18,7 @@ const defaultIO: SetupIO = {
 };
 
 const LINE = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-const LANDING_PAGE_SIZE = 6;
+export const LANDING_PAGE_SIZE = 6;
 
 export const validators = {
   apiUrl: (v: string): true | string =>
@@ -32,7 +32,7 @@ export const validators = {
   nonEmpty: (v: string): true | string => (v && v.length > 0 ? true : "Required")
 };
 
-function toolLabel(tool: Profile["tool"]): string {
+export function toolLabel(tool: Profile["tool"]): string {
   switch (tool) {
     case "CLAUDE_CODE":
       return "Claude Code";
@@ -43,7 +43,7 @@ function toolLabel(tool: Profile["tool"]): string {
   }
 }
 
-function toolChoiceIndex(tool: Profile["tool"] | undefined): number {
+export function toolChoiceIndex(tool: Profile["tool"] | undefined): number {
   if (tool === "OPENAI") return 1;
   if (tool === "CUSTOM") return 2;
   return 0;
@@ -81,7 +81,7 @@ function syncOpenAiProfileHomes(cfg: DaemonConfig): void {
 /* Coder-style full-screen UI                                                 */
 /* -------------------------------------------------------------------------- */
 
-interface CoderUi {
+export interface CoderUi {
   RESET: string;
   BOLD: string;
   DIM: string;
@@ -93,7 +93,7 @@ interface CoderUi {
   CARD_ACCENT: string;
 }
 
-interface PickerOption<T extends string> {
+export interface PickerOption<T extends string> {
   label: string;
   value: T;
 }
@@ -102,7 +102,7 @@ function canUseCoderStyle(io: SetupIO): boolean {
   return io === defaultIO && process.stdin.isTTY && process.stdout.isTTY;
 }
 
-function makeCoderUi(): CoderUi {
+export function makeCoderUi(): CoderUi {
   const isColor = process.stdout.isTTY && process.env["TERM"] !== "dumb";
   if (!isColor) {
     return {
@@ -135,49 +135,49 @@ function out(line = ""): void {
   process.stdout.write(line + "\n");
 }
 
-function clearScreen(): void {
+export function clearScreen(): void {
   if (process.stdout.isTTY) process.stdout.write("\x1Bc");
 }
 
-function printLine(ui: CoderUi): void {
+export function printLine(ui: CoderUi): void {
   out(`${ui.CARD_BORDER}${LINE}${ui.RESET}`);
 }
 
-function printBanner(ui: CoderUi): void {
+export function printBanner(ui: CoderUi): void {
   printLine(ui);
   out(`${ui.BOLD}${ui.CARD_ACCENT}  coder${ui.RESET}${ui.DIM}  profile manager${ui.RESET}`);
   printLine(ui);
 }
 
-function printSection(ui: CoderUi, title: string): void {
+export function printSection(ui: CoderUi, title: string): void {
   out("");
   out(`${ui.BOLD}${title}${ui.RESET}`);
   printLine(ui);
 }
 
-function printPickerOption(ui: CoderUi, selected: boolean, label: string): void {
+export function printPickerOption(ui: CoderUi, selected: boolean, label: string): void {
   const marker = selected ? "›" : " ";
   const accent = selected ? ui.CARD_ACCENT : ui.CARD_BORDER;
   out(`${accent}${marker}${ui.RESET} ${ui.BOLD}${label}${ui.RESET}`);
 }
 
-function footerItem(ui: CoderUi, key: string, label: string): string {
+export function footerItem(ui: CoderUi, key: string, label: string): string {
   return `${ui.CARD_ACCENT}[${key}]${ui.RESET} ${label}  `;
 }
 
-function printInfo(ui: CoderUi, message: string): void {
+export function printInfo(ui: CoderUi, message: string): void {
   out(`${ui.BLUE}info${ui.RESET} ${message}`);
 }
 
-function printSuccess(ui: CoderUi, message: string): void {
+export function printSuccess(ui: CoderUi, message: string): void {
   out(`${ui.GREEN}success${ui.RESET} ${message}`);
 }
 
-function printWarning(ui: CoderUi, message: string): void {
+export function printWarning(ui: CoderUi, message: string): void {
   out(`${ui.YELLOW}warning${ui.RESET} ${message}`);
 }
 
-async function readKey(): Promise<string | null> {
+export async function readKey(): Promise<string | null> {
   if (!process.stdin.isTTY) return null;
 
   return new Promise((resolve) => {
@@ -210,7 +210,7 @@ async function readKey(): Promise<string | null> {
   });
 }
 
-async function askLine(promptText: string, initial?: string): Promise<string | null> {
+export async function askLine(promptText: string, initial?: string): Promise<string | null> {
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -229,11 +229,11 @@ async function askLine(promptText: string, initial?: string): Promise<string | n
   }
 }
 
-async function ask(ui: CoderUi, promptText: string): Promise<string | null> {
+export async function ask(ui: CoderUi, promptText: string): Promise<string | null> {
   return askLine(`${ui.CARD_ACCENT}›${ui.RESET} ${promptText}`);
 }
 
-async function askWithDefault(
+export async function askWithDefault(
   ui: CoderUi,
   promptText: string,
   initial: string
@@ -243,11 +243,11 @@ async function askWithDefault(
   return outValue.length === 0 ? initial : outValue;
 }
 
-async function pause(ui: CoderUi): Promise<void> {
+export async function pause(ui: CoderUi): Promise<void> {
   await askLine(`\n${ui.DIM}Press Enter to continue...${ui.RESET}`);
 }
 
-async function askValidated(
+export async function askValidated(
   ui: CoderUi,
   promptText: string,
   initial: string,
@@ -265,7 +265,7 @@ async function askValidated(
   return null;
 }
 
-async function askYesNo(
+export async function askYesNo(
   ui: CoderUi,
   promptText: string,
   initial: boolean
@@ -282,7 +282,7 @@ async function askYesNo(
   return null;
 }
 
-async function pickWithArrows<T extends string>(
+export async function pickWithArrows<T extends string>(
   ui: CoderUi,
   section: string,
   promptText: string,
@@ -345,7 +345,7 @@ function formatEnvRaw(env: Record<string, string>): string {
   return Object.entries(env).map(([k, v]) => `${k}=${v}`).join(" ");
 }
 
-function selectedProfileIndex(page: number, selectedSlot: number, total: number): number | null {
+export function selectedProfileIndex(page: number, selectedSlot: number, total: number): number | null {
   const idx = page * LANDING_PAGE_SIZE + selectedSlot;
   return idx < total ? idx : null;
 }
@@ -425,21 +425,21 @@ async function promptClaude(ui: CoderUi, prev?: ClaudeCfg): Promise<ClaudeCfg | 
   const editAuth = await askYesNo(
     ui,
     "Edit authentication for this profile?",
-    prev?.apiKey === undefined
+    prev?.authToken === undefined
   );
   if (editAuth === null) return null;
 
-  let apiKey = prev?.apiKey;
+  let authToken = prev?.authToken;
   let baseUrl = prev?.baseUrl;
   if (editAuth) {
-    const nextApiKey = await askValidated(
+    const nextAuthToken = await askValidated(
       ui,
-      "ANTHROPIC_API_KEY: ",
-      prev?.apiKey ?? "",
+      "ANTHROPIC_AUTH_TOKEN: ",
+      prev?.authToken ?? "",
       validators.nonEmpty
     );
-    if (nextApiKey === null) return null;
-    apiKey = nextApiKey;
+    if (nextAuthToken === null) return null;
+    authToken = nextAuthToken;
     const nextBaseUrl = await askWithDefault(
       ui,
       "ANTHROPIC_BASE_URL (blank = default): ",
@@ -450,7 +450,7 @@ async function promptClaude(ui: CoderUi, prev?: ClaudeCfg): Promise<ClaudeCfg | 
       const ok = validators.apiUrl(nextBaseUrl);
       if (ok !== true) {
         printWarning(ui, ok);
-        return promptClaude(ui, { ...prev, apiKey, baseUrl: nextBaseUrl } as ClaudeCfg);
+        return promptClaude(ui, { ...prev, authToken, baseUrl: nextBaseUrl } as ClaudeCfg);
       }
     }
     baseUrl = nextBaseUrl || undefined;
@@ -458,6 +458,37 @@ async function promptClaude(ui: CoderUi, prev?: ClaudeCfg): Promise<ClaudeCfg | 
 
   const model = await askWithDefault(ui, "Model (blank = Claude default): ", prev?.model ?? "");
   if (model === null) return null;
+
+  const editAdvanced = await askYesNo(ui, "Edit advanced environment variables?", false);
+  if (editAdvanced === null) return null;
+
+  let defaultOpusModel = prev?.defaultOpusModel;
+  let defaultSonnetModel = prev?.defaultSonnetModel;
+  let defaultHaikuModel = prev?.defaultHaikuModel;
+  let disableNonessentialTraffic = prev?.disableNonessentialTraffic ?? false;
+  let effortLevel = prev?.effortLevel;
+
+  if (editAdvanced) {
+    const nextOpus = await askWithDefault(ui, "ANTHROPIC_DEFAULT_OPUS_MODEL (blank = unset): ", prev?.defaultOpusModel ?? "");
+    if (nextOpus === null) return null;
+    defaultOpusModel = nextOpus || undefined;
+
+    const nextSonnet = await askWithDefault(ui, "ANTHROPIC_DEFAULT_SONNET_MODEL (blank = unset): ", prev?.defaultSonnetModel ?? "");
+    if (nextSonnet === null) return null;
+    defaultSonnetModel = nextSonnet || undefined;
+
+    const nextHaiku = await askWithDefault(ui, "ANTHROPIC_DEFAULT_HAIKU_MODEL (blank = unset): ", prev?.defaultHaikuModel ?? "");
+    if (nextHaiku === null) return null;
+    defaultHaikuModel = nextHaiku || undefined;
+
+    const nextDisable = await askYesNo(ui, "Set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC?", prev?.disableNonessentialTraffic ?? false);
+    if (nextDisable === null) return null;
+    disableNonessentialTraffic = nextDisable;
+
+    const nextEffort = await askWithDefault(ui, "CLAUDE_CODE_EFFORT_LEVEL (blank = unset): ", prev?.effortLevel ?? "");
+    if (nextEffort === null) return null;
+    effortLevel = nextEffort || undefined;
+  }
 
   const skipPermissions = await askYesNo(
     ui,
@@ -480,9 +511,14 @@ async function promptClaude(ui: CoderUi, prev?: ClaudeCfg): Promise<ClaudeCfg | 
   if (outputFormat === null || outputFormat === "__BACK__") return null;
 
   return {
-    apiKey,
     baseUrl,
     model: model || undefined,
+    authToken,
+    defaultOpusModel,
+    defaultSonnetModel,
+    defaultHaikuModel,
+    disableNonessentialTraffic,
+    effortLevel,
     skipPermissions,
     outputFormat,
     extraArgs: prev?.extraArgs ?? []
@@ -603,7 +639,7 @@ async function promptCustom(ui: CoderUi, prev?: CustomCfg): Promise<CustomCfg | 
   };
 }
 
-async function promptProfileEditor(
+export async function promptProfileEditor(
   ui: CoderUi,
   existing: Profile | undefined,
   takenNames: Set<string>
@@ -627,14 +663,6 @@ async function promptProfileEditor(
   );
   if (name === null) return null;
 
-  const cwd = await askValidated(
-    ui,
-    "Working directory for this profile: ",
-    existing?.cwd ?? process.cwd(),
-    validators.nonEmpty
-  );
-  if (cwd === null) return null;
-
   const metadata = await askWithDefault(ui, "Metadata/notes (optional): ", existing?.metadata ?? "");
   if (metadata === null) return null;
 
@@ -644,7 +672,6 @@ async function promptProfileEditor(
     if (claude === null) return null;
     return {
       name,
-      cwd,
       tool: "CLAUDE_CODE",
       metadata: metadata || undefined,
       claudeCode: claude
@@ -657,7 +684,6 @@ async function promptProfileEditor(
     if (codex === null) return null;
     return {
       name,
-      cwd,
       tool: "OPENAI",
       metadata: metadata || undefined,
       codex
@@ -669,7 +695,6 @@ async function promptProfileEditor(
   if (custom === null) return null;
   return {
     name,
-    cwd,
     tool: "CUSTOM",
     metadata: metadata || undefined,
     custom
@@ -724,7 +749,6 @@ async function deleteProfile(ui: CoderUi, profiles: Profile[], index: number): P
   printSection(ui, "Delete Profile");
   out(`${ui.BOLD}Selected profile${ui.RESET}`);
   out(`${ui.DIM}Tool:${ui.RESET} ${toolLabel(existing.tool)}`);
-  out(`${ui.DIM}CWD:${ui.RESET} ${existing.cwd}`);
   out(`${ui.DIM}Metadata:${ui.RESET} ${existing.metadata ?? "<none>"}`);
   out("");
 
@@ -837,14 +861,14 @@ async function manageProfiles(ui: CoderUi, profiles: Profile[]): Promise<boolean
   return false;
 }
 
-async function promptApiUrl(ui: CoderUi, initial: string): Promise<string | null> {
+export async function promptApiUrl(ui: CoderUi, initial: string): Promise<string | null> {
   clearScreen();
   printBanner(ui);
   printSection(ui, "Bot Connection");
   return askValidated(ui, "Bot API URL (e.g. https://bot.example.com): ", initial, validators.apiUrl);
 }
 
-async function promptApiKey(ui: CoderUi, existing?: string): Promise<string | null> {
+export async function promptApiKey(ui: CoderUi, existing?: string): Promise<string | null> {
   const mode = await pickWithArrows<"generate" | "existing" | "abort">(
     ui,
     "API Key",
@@ -875,7 +899,7 @@ async function promptApiKey(ui: CoderUi, existing?: string): Promise<string | nu
   return askValidated(ui, "Paste API key (≥16 chars): ", existing ?? "", validators.apiKey);
 }
 
-async function promptMaxConcurrency(ui: CoderUi, initial: number): Promise<number | null> {
+export async function promptMaxConcurrency(ui: CoderUi, initial: number): Promise<number | null> {
   clearScreen();
   printBanner(ui);
   printSection(ui, "Daemon");
@@ -945,7 +969,7 @@ async function runSetupCoderStyle(
   printSection(ui, "Saved");
   printSuccess(ui, `wrote ${targetPath} (mode 0600)`);
   out(`• ${cfg.profiles.length} profile(s): ${cfg.profiles.map((p) => p.name).join(", ")}`);
-  out("Start the coder service with: chatcoder coder");
+  out("Run the daemon with: chatcoder coder run");
   return targetPath;
 }
 
@@ -978,7 +1002,7 @@ function printProfilesSimple(io: SetupIO, profiles: Profile[]): void {
   }
   for (let i = 0; i < profiles.length; i += 1) {
     const p = profiles[i]!;
-    io.log(`[${i + 1}] ${p.name} · ${toolLabel(p.tool)} · cwd=${p.cwd}`);
+    io.log(`[${i + 1}] ${p.name} · ${toolLabel(p.tool)}`);
   }
 }
 
@@ -1006,13 +1030,6 @@ async function promptOneProfilePromptWizard(
       }
     },
     {
-      type: "text",
-      name: "cwd",
-      message: "Working directory for this profile",
-      initial: existing?.cwd ?? process.cwd(),
-      validate: validators.nonEmpty
-    },
-    {
       type: "select",
       name: "tool",
       message: "Tool",
@@ -1031,7 +1048,7 @@ async function promptOneProfilePromptWizard(
     }
   ]);
 
-  if (!base.name || !base.cwd || !base.tool) return null;
+  if (!base.name || !base.tool) return null;
 
   if (base.tool === "CLAUDE_CODE") {
     const prev = existing?.tool === "CLAUDE_CODE" ? existing.claudeCode : undefined;
@@ -1039,20 +1056,20 @@ async function promptOneProfilePromptWizard(
       type: "toggle",
       name: "editAuthentication",
       message: "Edit authentication for this profile?",
-      initial: prev?.apiKey === undefined,
+      initial: prev?.authToken === undefined,
       active: "yes",
       inactive: "no"
     });
     if (auth.editAuthentication === undefined) return null;
-    let apiKey = prev?.apiKey;
+    let authToken = prev?.authToken;
     let baseUrl = prev?.baseUrl;
     if (auth.editAuthentication) {
       const a = await io.prompt([
         {
           type: "password",
-          name: "apiKey",
-          message: "ANTHROPIC_API_KEY",
-          initial: prev?.apiKey ?? "",
+          name: "authToken",
+          message: "ANTHROPIC_AUTH_TOKEN",
+          initial: prev?.authToken ?? "",
           validate: validators.nonEmpty
         },
         {
@@ -1062,8 +1079,8 @@ async function promptOneProfilePromptWizard(
           initial: prev?.baseUrl ?? ""
         }
       ]);
-      if (!a.apiKey) return null;
-      apiKey = a.apiKey;
+      if (!a.authToken) return null;
+      authToken = a.authToken;
       baseUrl = a.baseUrl || undefined;
     }
     const c = await io.prompt([
@@ -1090,17 +1107,78 @@ async function promptOneProfilePromptWizard(
           { title: "stream-json", value: "stream-json" }
         ],
         initial: outputFormatChoiceIndex(prev?.outputFormat)
+      },
+      {
+        type: "toggle",
+        name: "editAdvanced",
+        message: "Edit advanced environment variables?",
+        initial: false,
+        active: "yes",
+        inactive: "no"
       }
     ]);
+
+    let defaultOpusModel = prev?.defaultOpusModel;
+    let defaultSonnetModel = prev?.defaultSonnetModel;
+    let defaultHaikuModel = prev?.defaultHaikuModel;
+    let disableNonessentialTraffic = prev?.disableNonessentialTraffic ?? false;
+    let effortLevel = prev?.effortLevel;
+
+    if (c.editAdvanced) {
+      const adv = await io.prompt([
+        {
+          type: "text",
+          name: "defaultOpusModel",
+          message: "ANTHROPIC_DEFAULT_OPUS_MODEL (blank = unset)",
+          initial: prev?.defaultOpusModel ?? ""
+        },
+        {
+          type: "text",
+          name: "defaultSonnetModel",
+          message: "ANTHROPIC_DEFAULT_SONNET_MODEL (blank = unset)",
+          initial: prev?.defaultSonnetModel ?? ""
+        },
+        {
+          type: "text",
+          name: "defaultHaikuModel",
+          message: "ANTHROPIC_DEFAULT_HAIKU_MODEL (blank = unset)",
+          initial: prev?.defaultHaikuModel ?? ""
+        },
+        {
+          type: "toggle",
+          name: "disableNonessentialTraffic",
+          message: "Set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC?",
+          initial: prev?.disableNonessentialTraffic ?? false,
+          active: "yes",
+          inactive: "no"
+        },
+        {
+          type: "text",
+          name: "effortLevel",
+          message: "CLAUDE_CODE_EFFORT_LEVEL (blank = unset)",
+          initial: prev?.effortLevel ?? ""
+        }
+      ]);
+      defaultOpusModel = adv.defaultOpusModel || undefined;
+      defaultSonnetModel = adv.defaultSonnetModel || undefined;
+      defaultHaikuModel = adv.defaultHaikuModel || undefined;
+      disableNonessentialTraffic = !!adv.disableNonessentialTraffic;
+      effortLevel = adv.effortLevel || undefined;
+    }
+
     return {
       name: base.name,
-      cwd: base.cwd,
       tool: "CLAUDE_CODE",
       metadata: base.metadata || undefined,
       claudeCode: {
-        apiKey,
         baseUrl,
         model: c.model || undefined,
+        authToken,
+        defaultOpusModel,
+        defaultSonnetModel,
+        defaultHaikuModel,
+        disableNonessentialTraffic,
+        effortLevel,
         skipPermissions: !!c.skipPermissions,
         outputFormat: c.outputFormat ?? "text",
         extraArgs: prev?.extraArgs ?? []
@@ -1167,7 +1245,6 @@ async function promptOneProfilePromptWizard(
     ]);
     return {
       name: base.name,
-      cwd: base.cwd,
       tool: "OPENAI",
       metadata: base.metadata || undefined,
       codex: {
@@ -1219,7 +1296,6 @@ async function promptOneProfilePromptWizard(
   if (!c.launchBin) return null;
   return {
     name: base.name,
-    cwd: base.cwd,
     tool: "CUSTOM",
     metadata: base.metadata || undefined,
     custom: {
@@ -1389,7 +1465,7 @@ async function runSetupPromptWizard(
   printSectionSimple(io, "Saved");
   io.log(`✓ wrote ${targetPath} (mode 0600)`);
   io.log(`• ${cfg.profiles.length} profile(s): ${cfg.profiles.map((p) => p.name).join(", ")}`);
-  io.log("Start the coder service with: chatcoder coder");
+  io.log("Run the daemon with: chatcoder coder run");
   return targetPath;
 }
 

@@ -68,14 +68,12 @@ describe("system: bot ↔ daemon with profiles", () => {
         {
           tool: "CLAUDE_CODE",
           name: "alpha",
-          cwd: "/tmp",
-          claudeCode: { apiKey: "sk-ant-x" }
+          claudeCode: { authToken: "sk-ant-x" }
         },
         {
           tool: "CLAUDE_CODE",
           name: "beta",
-          cwd: "/tmp",
-          claudeCode: { apiKey: "sk-ant-y" }
+          claudeCode: { authToken: "sk-ant-y" }
         }
       ]
     });
@@ -159,8 +157,7 @@ describe("system: bot ↔ daemon with profiles", () => {
         {
           tool: "CLAUDE_CODE",
           name: "solo",
-          cwd: "/tmp",
-          claudeCode: { apiKey: "sk" }
+          claudeCode: { authToken: "sk" }
         }
       ]
     });

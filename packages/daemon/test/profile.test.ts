@@ -5,12 +5,12 @@ describe("Profile zod schema", () => {
   it("parses a CLAUDE_CODE profile with defaults", () => {
     const p = Profile.parse({
       name: "main",
-      cwd: "/tmp",
       tool: "CLAUDE_CODE",
-      claudeCode: { apiKey: "sk-ant-x" }
+      claudeCode: { authToken: "sk-ant-x" }
     });
     expect(p.tool).toBe("CLAUDE_CODE");
     if (p.tool === "CLAUDE_CODE") {
+      expect(p.claudeCode.authToken).toBe("sk-ant-x");
       expect(p.claudeCode.skipPermissions).toBe(false);
       expect(p.claudeCode.outputFormat).toBe("text");
       expect(p.claudeCode.extraArgs).toEqual([]);
@@ -20,7 +20,6 @@ describe("Profile zod schema", () => {
   it("parses an OPENAI profile", () => {
     const p = Profile.parse({
       name: "ops",
-      cwd: "/tmp",
       tool: "OPENAI",
       codex: { apiKey: "sk", fullAuto: true }
     });
@@ -31,27 +30,18 @@ describe("Profile zod schema", () => {
     }
   });
 
-  it("parses Claude and Codex profiles without explicit auth", () => {
-    const claude = Profile.parse({
-      name: "claude-host-auth",
-      cwd: "/tmp",
-      tool: "CLAUDE_CODE",
-      claudeCode: {}
-    });
+  it("parses Codex profiles without explicit auth", () => {
     const codex = Profile.parse({
       name: "codex-host-auth",
-      cwd: "/tmp",
       tool: "OPENAI",
       codex: {}
     });
-    expect(claude.tool).toBe("CLAUDE_CODE");
     expect(codex.tool).toBe("OPENAI");
   });
 
   it("parses a CUSTOM profile with defaults", () => {
     const p = Profile.parse({
       name: "cu",
-      cwd: "/tmp",
       tool: "CUSTOM",
       custom: { launchBin: "/bin/echo" }
     });
@@ -67,9 +57,8 @@ describe("Profile zod schema", () => {
     expect(() =>
       Profile.parse({
         name: "has space",
-        cwd: "/tmp",
-        tool: "CLAUDE_CODE",
-        claudeCode: { apiKey: "k" }
+          tool: "CLAUDE_CODE",
+        claudeCode: { authToken: "k" }
       })
     ).toThrow();
   });
@@ -78,8 +67,7 @@ describe("Profile zod schema", () => {
     expect(() =>
       Profile.parse({
         name: "x",
-        cwd: "/tmp",
-        tool: "CUSTOM",
+          tool: "CUSTOM",
         custom: { args: [] }
       })
     ).toThrow();
@@ -89,8 +77,7 @@ describe("Profile zod schema", () => {
     expect(() =>
       Profile.parse({
         name: "x",
-        cwd: "/tmp",
-        tool: "CUSTOM",
+          tool: "CUSTOM",
         custom: { launchBin: "/bin/true", env: { "bad key": "x" } }
       })
     ).toThrow();
@@ -100,9 +87,8 @@ describe("Profile zod schema", () => {
     expect(() =>
       Profile.parse({
         name: "x",
-        cwd: "/tmp",
-        tool: "SOMETHING",
-        claudeCode: { apiKey: "k" }
+          tool: "SOMETHING",
+        claudeCode: { authToken: "k" }
       })
     ).toThrow();
   });
