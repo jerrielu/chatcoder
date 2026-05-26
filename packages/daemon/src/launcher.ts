@@ -25,7 +25,7 @@ export async function launchProfile(profile: Profile, cwd?: string): Promise<num
   if (profile.tool === "CLAUDE_CODE") {
     const c = profile.claudeCode;
     if (c.baseUrl) env["ANTHROPIC_BASE_URL"] = c.baseUrl;
-    env["ANTHROPIC_AUTH_TOKEN"] = c.authToken;
+    if (c.authToken) env["ANTHROPIC_AUTH_TOKEN"] = c.authToken;
     if (c.defaultOpusModel) env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = c.defaultOpusModel;
     if (c.defaultSonnetModel) env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = c.defaultSonnetModel;
     if (c.defaultHaikuModel) env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = c.defaultHaikuModel;

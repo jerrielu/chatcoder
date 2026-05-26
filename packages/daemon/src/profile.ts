@@ -15,7 +15,7 @@ const BaseProfile = {
 export const ClaudeCodeConfig = z.object({
   baseUrl: z.string().url().optional(),
   model: z.string().optional(),
-  authToken: z.string().min(1),
+  authToken: z.string().min(1).optional(),
   defaultOpusModel: z.string().optional(),
   defaultSonnetModel: z.string().optional(),
   defaultHaikuModel: z.string().optional(),

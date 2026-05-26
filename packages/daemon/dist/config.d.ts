@@ -13,7 +13,7 @@ export declare const DaemonConfig: z.ZodObject<{
         claudeCode: z.ZodObject<{
             baseUrl: z.ZodOptional<z.ZodString>;
             model: z.ZodOptional<z.ZodString>;
-            authToken: z.ZodString;
+            authToken: z.ZodOptional<z.ZodString>;
             defaultOpusModel: z.ZodOptional<z.ZodString>;
             defaultSonnetModel: z.ZodOptional<z.ZodString>;
             defaultHaikuModel: z.ZodOptional<z.ZodString>;
@@ -23,21 +23,21 @@ export declare const DaemonConfig: z.ZodObject<{
             outputFormat: z.ZodDefault<z.ZodEnum<["text", "stream-json"]>>;
             extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
         }, "strip", z.ZodTypeAny, {
-            authToken: string;
             disableNonessentialTraffic: boolean;
             skipPermissions: boolean;
             outputFormat: "text" | "stream-json";
             extraArgs: string[];
             baseUrl?: string | undefined;
             model?: string | undefined;
+            authToken?: string | undefined;
             defaultOpusModel?: string | undefined;
             defaultSonnetModel?: string | undefined;
             defaultHaikuModel?: string | undefined;
             effortLevel?: string | undefined;
         }, {
-            authToken: string;
             baseUrl?: string | undefined;
             model?: string | undefined;
+            authToken?: string | undefined;
             defaultOpusModel?: string | undefined;
             defaultSonnetModel?: string | undefined;
             defaultHaikuModel?: string | undefined;
@@ -52,13 +52,13 @@ export declare const DaemonConfig: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         tool: "CLAUDE_CODE";
         claudeCode: {
-            authToken: string;
             disableNonessentialTraffic: boolean;
             skipPermissions: boolean;
             outputFormat: "text" | "stream-json";
             extraArgs: string[];
             baseUrl?: string | undefined;
             model?: string | undefined;
+            authToken?: string | undefined;
             defaultOpusModel?: string | undefined;
             defaultSonnetModel?: string | undefined;
             defaultHaikuModel?: string | undefined;
@@ -69,9 +69,9 @@ export declare const DaemonConfig: z.ZodObject<{
     }, {
         tool: "CLAUDE_CODE";
         claudeCode: {
-            authToken: string;
             baseUrl?: string | undefined;
             model?: string | undefined;
+            authToken?: string | undefined;
             defaultOpusModel?: string | undefined;
             defaultSonnetModel?: string | undefined;
             defaultHaikuModel?: string | undefined;
@@ -184,6 +184,7 @@ export declare const DaemonConfig: z.ZodObject<{
         name: string;
         metadata?: string | undefined;
     }>]>, "many">;
+    workDirs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
     apiKey: string;
     apiUrl: string;
@@ -195,13 +196,13 @@ export declare const DaemonConfig: z.ZodObject<{
     profiles: ({
         tool: "CLAUDE_CODE";
         claudeCode: {
-            authToken: string;
             disableNonessentialTraffic: boolean;
             skipPermissions: boolean;
             outputFormat: "text" | "stream-json";
             extraArgs: string[];
             baseUrl?: string | undefined;
             model?: string | undefined;
+            authToken?: string | undefined;
             defaultOpusModel?: string | undefined;
             defaultSonnetModel?: string | undefined;
             defaultHaikuModel?: string | undefined;
@@ -234,15 +235,16 @@ export declare const DaemonConfig: z.ZodObject<{
         name: string;
         metadata?: string | undefined;
     })[];
+    workDirs: string[];
 }, {
     apiKey: string;
     apiUrl: string;
     profiles: ({
         tool: "CLAUDE_CODE";
         claudeCode: {
-            authToken: string;
             baseUrl?: string | undefined;
             model?: string | undefined;
+            authToken?: string | undefined;
             defaultOpusModel?: string | undefined;
             defaultSonnetModel?: string | undefined;
             defaultHaikuModel?: string | undefined;
@@ -284,6 +286,7 @@ export declare const DaemonConfig: z.ZodObject<{
     heartbeatIntervalMs?: number | undefined;
     idleShutdownMs?: number | undefined;
     maxConcurrency?: number | undefined;
+    workDirs?: string[] | undefined;
 }>;
 export type DaemonConfig = z.infer<typeof DaemonConfig>;
 export declare function defaultConfigPath(): string;

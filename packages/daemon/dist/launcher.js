@@ -22,7 +22,8 @@ export async function launchProfile(profile, cwd) {
         const c = profile.claudeCode;
         if (c.baseUrl)
             env["ANTHROPIC_BASE_URL"] = c.baseUrl;
-        env["ANTHROPIC_AUTH_TOKEN"] = c.authToken;
+        if (c.authToken)
+            env["ANTHROPIC_AUTH_TOKEN"] = c.authToken;
         if (c.defaultOpusModel)
             env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = c.defaultOpusModel;
         if (c.defaultSonnetModel)

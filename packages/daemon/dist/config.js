@@ -14,7 +14,8 @@ export const DaemonConfig = z.object({
     idleShutdownMs: z.number().int().min(1_000).default(60 * 60_000),
     /** Global in-flight cap across profiles. */
     maxConcurrency: z.number().int().min(1).max(32).default(4),
-    profiles: z.array(Profile).min(1).max(MAX_PROFILES_PER_DAEMON)
+    profiles: z.array(Profile).min(1).max(MAX_PROFILES_PER_DAEMON),
+    workDirs: z.array(z.string()).default([])
 });
 export function defaultConfigPath() {
     return path.join(os.homedir(), ".chatcoder", "config.yml");

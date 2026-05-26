@@ -80,6 +80,7 @@
 - Replaced `ANTHROPIC_API_KEY` with `ANTHROPIC_AUTH_TOKEN` as the mandatory auth field for CLAUDE_CODE profiles — removed `apiKey` from schema, made `authToken` required.
 - Updated all setup prompts (coder-style and wizard), launcher, toolExecutor, tests, and profile schemas for the authToken rename.
 - Verified with `npm run build` and `npx vitest run` (308 tests pass).
+- Fixed TS build errors: added `workDirs` to `DaemonConfig` zod schema; made `ClaudeCodeConfig.authToken` optional to match runtime flow; guarded `authToken` env var assignment in `launcher.ts` and `toolExecutor.ts`.
 
 # 2026-04-29
 

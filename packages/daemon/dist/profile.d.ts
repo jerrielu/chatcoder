@@ -3,7 +3,7 @@ import { TOOL_KINDS } from "@chatcoder/shared";
 export declare const ClaudeCodeConfig: z.ZodObject<{
     baseUrl: z.ZodOptional<z.ZodString>;
     model: z.ZodOptional<z.ZodString>;
-    authToken: z.ZodString;
+    authToken: z.ZodOptional<z.ZodString>;
     defaultOpusModel: z.ZodOptional<z.ZodString>;
     defaultSonnetModel: z.ZodOptional<z.ZodString>;
     defaultHaikuModel: z.ZodOptional<z.ZodString>;
@@ -13,21 +13,21 @@ export declare const ClaudeCodeConfig: z.ZodObject<{
     outputFormat: z.ZodDefault<z.ZodEnum<["text", "stream-json"]>>;
     extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
-    authToken: string;
     disableNonessentialTraffic: boolean;
     skipPermissions: boolean;
     outputFormat: "text" | "stream-json";
     extraArgs: string[];
     baseUrl?: string | undefined;
     model?: string | undefined;
+    authToken?: string | undefined;
     defaultOpusModel?: string | undefined;
     defaultSonnetModel?: string | undefined;
     defaultHaikuModel?: string | undefined;
     effortLevel?: string | undefined;
 }, {
-    authToken: string;
     baseUrl?: string | undefined;
     model?: string | undefined;
+    authToken?: string | undefined;
     defaultOpusModel?: string | undefined;
     defaultSonnetModel?: string | undefined;
     defaultHaikuModel?: string | undefined;
@@ -89,7 +89,7 @@ export declare const ClaudeCodeProfile: z.ZodObject<{
     claudeCode: z.ZodObject<{
         baseUrl: z.ZodOptional<z.ZodString>;
         model: z.ZodOptional<z.ZodString>;
-        authToken: z.ZodString;
+        authToken: z.ZodOptional<z.ZodString>;
         defaultOpusModel: z.ZodOptional<z.ZodString>;
         defaultSonnetModel: z.ZodOptional<z.ZodString>;
         defaultHaikuModel: z.ZodOptional<z.ZodString>;
@@ -99,21 +99,21 @@ export declare const ClaudeCodeProfile: z.ZodObject<{
         outputFormat: z.ZodDefault<z.ZodEnum<["text", "stream-json"]>>;
         extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
-        authToken: string;
         disableNonessentialTraffic: boolean;
         skipPermissions: boolean;
         outputFormat: "text" | "stream-json";
         extraArgs: string[];
         baseUrl?: string | undefined;
         model?: string | undefined;
+        authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
         defaultHaikuModel?: string | undefined;
         effortLevel?: string | undefined;
     }, {
-        authToken: string;
         baseUrl?: string | undefined;
         model?: string | undefined;
+        authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
         defaultHaikuModel?: string | undefined;
@@ -128,13 +128,13 @@ export declare const ClaudeCodeProfile: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     tool: "CLAUDE_CODE";
     claudeCode: {
-        authToken: string;
         disableNonessentialTraffic: boolean;
         skipPermissions: boolean;
         outputFormat: "text" | "stream-json";
         extraArgs: string[];
         baseUrl?: string | undefined;
         model?: string | undefined;
+        authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
         defaultHaikuModel?: string | undefined;
@@ -145,9 +145,9 @@ export declare const ClaudeCodeProfile: z.ZodObject<{
 }, {
     tool: "CLAUDE_CODE";
     claudeCode: {
-        authToken: string;
         baseUrl?: string | undefined;
         model?: string | undefined;
+        authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
         defaultHaikuModel?: string | undefined;
@@ -270,7 +270,7 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
     claudeCode: z.ZodObject<{
         baseUrl: z.ZodOptional<z.ZodString>;
         model: z.ZodOptional<z.ZodString>;
-        authToken: z.ZodString;
+        authToken: z.ZodOptional<z.ZodString>;
         defaultOpusModel: z.ZodOptional<z.ZodString>;
         defaultSonnetModel: z.ZodOptional<z.ZodString>;
         defaultHaikuModel: z.ZodOptional<z.ZodString>;
@@ -280,21 +280,21 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
         outputFormat: z.ZodDefault<z.ZodEnum<["text", "stream-json"]>>;
         extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
-        authToken: string;
         disableNonessentialTraffic: boolean;
         skipPermissions: boolean;
         outputFormat: "text" | "stream-json";
         extraArgs: string[];
         baseUrl?: string | undefined;
         model?: string | undefined;
+        authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
         defaultHaikuModel?: string | undefined;
         effortLevel?: string | undefined;
     }, {
-        authToken: string;
         baseUrl?: string | undefined;
         model?: string | undefined;
+        authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
         defaultHaikuModel?: string | undefined;
@@ -309,13 +309,13 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     tool: "CLAUDE_CODE";
     claudeCode: {
-        authToken: string;
         disableNonessentialTraffic: boolean;
         skipPermissions: boolean;
         outputFormat: "text" | "stream-json";
         extraArgs: string[];
         baseUrl?: string | undefined;
         model?: string | undefined;
+        authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
         defaultHaikuModel?: string | undefined;
@@ -326,9 +326,9 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
 }, {
     tool: "CLAUDE_CODE";
     claudeCode: {
-        authToken: string;
         baseUrl?: string | undefined;
         model?: string | undefined;
+        authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
         defaultHaikuModel?: string | undefined;
