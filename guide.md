@@ -145,7 +145,7 @@ Config is saved to `~/.chatcoder/config.yml` (0600).
 
 ### 5.1 Run with PM2
 
-Run both processes under PM2 (use the absolute path to the globally installed binary so PM2 can find it):
+Run both processes under PM2:
 
 ```bash
 npm install -g pm2
@@ -165,7 +165,13 @@ pm2 stop chatcoder-chat
 pm2 stop chatcoder-coder
 ```
 
-Persist across reboots:
+Remove PM2 jobs:
+
+```bash
+pm2 delete chatcoder-chat chatcoder-coder
+```
+
+Persist across reboots (run after starting):
 
 ```bash
 pm2 save
