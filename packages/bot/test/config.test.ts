@@ -1,5 +1,9 @@
+import * as path from "node:path";
+import * as os from "node:os";
 import { describe, it, expect } from "vitest";
 import { loadConfigFromEnv, parseConfig } from "../src/config.js";
+
+const defaultDbUrl = `sqlite:${path.join(os.homedir(), ".chatcoder", "chatcoder.db")}`;
 
 describe("bot config", () => {
   it("loads required fields from env", () => {
@@ -9,7 +13,7 @@ describe("bot config", () => {
     expect(cfg.listenPort).toBe(8080);
     expect(cfg.listenHost).toBe("0.0.0.0");
     expect(cfg.heartbeatStaleMs).toBe(60_000);
-    expect(cfg.databaseUrl).toBe("sqlite:./chatcoder.db");
+    expect(cfg.databaseUrl).toBe(defaultDbUrl);
   });
 
   it("respects overrides", () => {

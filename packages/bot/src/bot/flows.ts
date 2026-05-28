@@ -11,6 +11,8 @@ export type FlowState =
   | { kind: "idle" }
   | { kind: "awaiting_api_key" }
   | { kind: "awaiting_profile"; apiKeyId: string }
+  | { kind: "awaiting_profile_menu"; apiKeyId: string }
+  | { kind: "awaiting_workdir"; apiKeyId: string; profileId: string }
   | { kind: "awaiting_instruction"; resumeLastSession: boolean };
 
 const DEFAULT_CODEX_REASONING_EFFORT: CodexReasoningEffort = "medium";

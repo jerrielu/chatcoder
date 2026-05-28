@@ -8,6 +8,7 @@ export interface ApiKeysTable {
   created_at: number;
   revoked_at: number | null;
   last_heartbeat: number | null;
+  work_dirs: string | null;
 }
 
 export interface ProfilesTable {
@@ -29,6 +30,7 @@ export interface SessionsTable {
   revoked_at: number | null;
   last_code_at: number;
   latest_message: string | null;
+  work_dir: string | null;
 }
 
 export interface MessagesTable {

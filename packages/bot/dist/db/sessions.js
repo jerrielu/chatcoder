@@ -11,7 +11,8 @@ function rowToSession(row) {
         createdAt: n(row.created_at),
         revokedAt: n(row.revoked_at),
         lastCodeAt: n(row.last_code_at),
-        latestMessage: row.latest_message
+        latestMessage: row.latest_message,
+        workDir: row.work_dir ?? null
     };
 }
 export class SessionsRepo {
@@ -54,7 +55,8 @@ export class SessionsRepo {
                 created_at: ts,
                 revoked_at: null,
                 last_code_at: 0,
-                latest_message: null
+                latest_message: null,
+                work_dir: args.workDir ?? null
             })
                 .execute();
             const row = await tx
@@ -142,6 +144,13 @@ export class SessionsRepo {
             .where("id", "=", sessionId)
             .executeTakeFirst();
         return Number(res.numUpdatedRows ?? 0) === 1;
+    }
+    async setWorkDir(sessionId, workDir) {
+        await this.db
+            .updateTable("sessions")
+            .set({ work_dir: workDir })
+            .where("id", "=", sessionId)
+            .execute();
     }
 }
 //# sourceMappingURL=sessions.js.map

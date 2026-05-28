@@ -9,6 +9,7 @@ export interface ProfileRunnerTask {
   content: string;
   resumeLastSession?: boolean;
   codexReasoningEffort?: CodexReasoningEffort;
+  workDir?: string;
   interrupt?: boolean;
 }
 
@@ -216,7 +217,8 @@ export class ProfileRunner {
         },
         signal,
         resumeLastSession: task.resumeLastSession ?? true,
-        codexReasoningEffort: task.codexReasoningEffort
+        codexReasoningEffort: task.codexReasoningEffort,
+        workDir: task.workDir
       });
       finished = true;
       if (updateTimer) {

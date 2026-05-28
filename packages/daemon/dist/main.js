@@ -80,7 +80,8 @@ async function runDaemon() {
                 name: p.name,
                 tool: p.tool,
                 ...(p.metadata !== undefined ? { metadata: p.metadata } : {})
-            }))
+            })),
+            workDirs: cfg.workDirs.length > 0 ? cfg.workDirs : undefined
         });
     }
     catch (err) {

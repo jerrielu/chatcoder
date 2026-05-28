@@ -7,6 +7,7 @@ export interface ProfileRunnerTask {
     content: string;
     resumeLastSession?: boolean;
     codexReasoningEffort?: CodexReasoningEffort;
+    workDir?: string;
     interrupt?: boolean;
 }
 export interface ProfileRunnerDeps {

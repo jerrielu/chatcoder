@@ -16,6 +16,8 @@ export interface ExecuteOptions {
   resumeLastSession?: boolean;
   /** Optional per-instruction Codex reasoning effort override. */
   codexReasoningEffort?: CodexReasoningEffort;
+  /** Working directory for the spawned process. */
+  workDir?: string;
 }
 
 export interface ToolExecutorOptions {
@@ -75,7 +77,8 @@ export function buildLaunch(
   profile: Profile,
   message: string,
   resumeLastSession = true,
-  codexReasoningEffort?: CodexReasoningEffort
+  codexReasoningEffort?: CodexReasoningEffort,
+  workDir?: string
 ): Launch {
   const env = baseEnv();
 
@@ -101,7 +104,7 @@ export function buildLaunch(
       cmd: "claude",
       args,
       env,
-      cwd: process.cwd(),
+      cwd: workDir ?? process.cwd(),
       stdinText: null,
       finalOutputPath: null
     };
@@ -135,7 +138,7 @@ export function buildLaunch(
       cmd: "codex",
       args,
       env,
-      cwd: process.cwd(),
+      cwd: workDir ?? process.cwd(),
       stdinText: null,
       finalOutputPath
     };
@@ -165,7 +168,7 @@ export function buildLaunch(
     cmd: c.launchBin,
     args,
     env,
-    cwd: process.cwd(),
+    cwd: workDir ?? process.cwd(),
     stdinText,
     finalOutputPath: null
   };
@@ -193,7 +196,8 @@ export class ToolExecutor {
       profile,
       message,
       execOpts.resumeLastSession ?? true,
-      execOpts.codexReasoningEffort
+      execOpts.codexReasoningEffort,
+      execOpts.workDir
     );
     this.log("executing", {
       profile: profile.name,

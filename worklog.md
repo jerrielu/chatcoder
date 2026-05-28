@@ -1,3 +1,19 @@
+# 2026-05-28
+
+- Added workDir support: daemon sends `workDirs` during bot registration; they're stored on the `api_keys` table.
+- Added a workDir picker in the Telegram flow after profile selection, when the daemon has directories configured.
+- Selected workDir is stored on the session and passed through poll response → orchestrator → profileRunner → toolExecutor as the CWD for spawned processes.
+- Added migration v6 with `work_dirs` column on `api_keys` and `work_dir` column on `sessions`.
+- Changed default `DATABASE_URL` from relative `sqlite:./chatcoder.db` to absolute `sqlite:~/.chatcoder/chatcoder.db` so the database survives server restarts regardless of working directory.
+- Decoupled profile and folder selection into standalone menu items: added 👤 Profile and 📁 Folder buttons to the main menu. Profile selection creates/activates a session for the chosen profile. Folder selection updates the workDir on the latest session — both are independent operations.
+- Added periodic profile/workDir re-registration via heartbeat: daemon now includes `profiles` and `workDirs` in heartbeat calls every `reRegisterIntervalMs` (default 5 min). Bot API processes them in the heartbeat handler — same upsert logic as the register endpoint. This keeps the bot in sync if the daemon config changes while running or if the bot restarts after the daemon.
+
+# 2026-05-27
+
+- Added `run` as a shorthand command in `bin/chatcoder.js` (`chatcoder run` = `chatcoder coder run`).
+- Changed `dev:coder` npm script from `npm run dev -w @chatcoder/daemon` to `node bin/chatcoder.js run`, so it runs the daemon via the CLI entrypoint.
+- Updated CLI help text to document the `run` shorthand.
+
 # 2026-04-25
 
 - Added root guidance files for Codex and Claude Code instructing agents to update `worklog.md` for every repository change, grouped by date.

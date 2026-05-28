@@ -8,6 +8,8 @@ export declare const MAX_INSTRUCTION_BYTES: number;
 export declare const MAX_RESPONSE_BYTES: number;
 /** Max profile names a single daemon can register. */
 export declare const MAX_PROFILES_PER_DAEMON = 32;
+/** Max work dirs a single daemon can register. */
+export declare const MAX_WORK_DIRS = 32;
 /** Max length of a profile name. */
 export declare const MAX_PROFILE_NAME_LENGTH = 64;
 /** API path constants. Both bot and daemon import these. */

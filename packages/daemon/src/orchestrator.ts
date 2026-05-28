@@ -33,6 +33,7 @@ export class Orchestrator {
   private _status: OrchestratorStatus = "idle";
   private stopping = false;
   private shouldResumeInProgress = true;
+  private lastReRegisterAt = 0;
 
   constructor(private readonly deps: OrchestratorDeps) {
     this.log = deps.log ?? (() => void 0);
@@ -81,7 +82,20 @@ export class Orchestrator {
   private async tickHeartbeat(): Promise<void> {
     if (this.stopping) return;
     try {
-      await this.deps.client.heartbeat({ note: "running" });
+      const body: { note: string; profiles?: unknown[]; workDirs?: string[] } = { note: "running" };
+      const now = Date.now();
+      const profiles = now - this.lastReRegisterAt >= this.deps.config.reRegisterIntervalMs
+        ? this.deps.config.profiles.map((p) => ({
+            name: p.name,
+            tool: p.tool as "CLAUDE_CODE" | "OPENAI" | "CUSTOM",
+            ...(p.metadata !== undefined ? { metadata: p.metadata } : {})
+          }))
+        : undefined;
+      const workDirs = profiles && this.deps.config.workDirs.length > 0
+        ? this.deps.config.workDirs
+        : undefined;
+      if (profiles) this.lastReRegisterAt = now;
+      await this.deps.client.heartbeat({ note: "running", profiles, workDirs });
     } catch (e) {
       this.handleFatal(e);
     } finally {
@@ -111,6 +125,7 @@ export class Orchestrator {
             content: msg.content,
             resumeLastSession: msg.resumeLastSession ?? true,
             codexReasoningEffort: msg.codexReasoningEffort,
+            workDir: s.workDir,
             interrupt: msg.resumeLastSession === false
           });
         }

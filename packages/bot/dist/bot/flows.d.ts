@@ -13,6 +13,13 @@ export type FlowState = {
     kind: "awaiting_profile";
     apiKeyId: string;
 } | {
+    kind: "awaiting_profile_menu";
+    apiKeyId: string;
+} | {
+    kind: "awaiting_workdir";
+    apiKeyId: string;
+    profileId: string;
+} | {
     kind: "awaiting_instruction";
     resumeLastSession: boolean;
 };

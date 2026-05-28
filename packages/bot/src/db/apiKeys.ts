@@ -10,6 +10,7 @@ export interface ApiKeyRecord {
   createdAt: number;
   revokedAt: number | null;
   lastHeartbeat: number | null;
+  workDirs: string[];
 }
 
 function rowToRecord(row: {
@@ -20,6 +21,7 @@ function rowToRecord(row: {
   created_at: number | string | bigint;
   revoked_at: number | string | bigint | null;
   last_heartbeat: number | string | bigint | null;
+  work_dirs: string | null;
 }): ApiKeyRecord {
   const n = (v: number | string | bigint | null): number | null =>
     v == null ? null : typeof v === "number" ? v : Number(v);
@@ -30,8 +32,19 @@ function rowToRecord(row: {
     status: row.status,
     createdAt: n(row.created_at) as number,
     revokedAt: n(row.revoked_at),
-    lastHeartbeat: n(row.last_heartbeat)
+    lastHeartbeat: n(row.last_heartbeat),
+    workDirs: parseWorkDirs(row.work_dirs)
   };
+}
+
+function parseWorkDirs(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 export class ApiKeysRepo {
@@ -134,5 +147,13 @@ export class ApiKeysRepo {
       .where("id", "=", id)
       .executeTakeFirst();
     return Number(res.numDeletedRows) > 0;
+  }
+
+  async setWorkDirs(id: string, dirs: string[]): Promise<void> {
+    await this.db
+      .updateTable("api_keys")
+      .set({ work_dirs: dirs.length > 0 ? JSON.stringify(dirs) : null })
+      .where("id", "=", id)
+      .execute();
   }
 }

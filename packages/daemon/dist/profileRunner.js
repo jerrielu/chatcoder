@@ -185,7 +185,8 @@ export class ProfileRunner {
                 },
                 signal,
                 resumeLastSession: task.resumeLastSession ?? true,
-                codexReasoningEffort: task.codexReasoningEffort
+                codexReasoningEffort: task.codexReasoningEffort,
+                workDir: task.workDir
             });
             finished = true;
             if (updateTimer) {

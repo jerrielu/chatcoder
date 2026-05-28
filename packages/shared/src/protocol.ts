@@ -5,6 +5,7 @@ import {
   MAX_PROFILES_PER_DAEMON,
   MAX_PROFILE_NAME_LENGTH,
   MAX_RESPONSE_BYTES,
+  MAX_WORK_DIRS,
   TOOL_KINDS
 } from "./constants.js";
 
@@ -25,6 +26,7 @@ export type DaemonMessage = z.infer<typeof DaemonMessage>;
 export const PollSession = z.object({
   sessionId: z.string().min(1),
   profileName: z.string().min(1).max(MAX_PROFILE_NAME_LENGTH),
+  workDir: z.string().optional(),
   messages: z.array(DaemonMessage)
 });
 export type PollSession = z.infer<typeof PollSession>;
@@ -45,21 +47,6 @@ export const PostResponseBody = z.object({
 });
 export type PostResponseBody = z.infer<typeof PostResponseBody>;
 
-export const HeartbeatBody = z.object({
-  /** Semver of the running daemon, for future compatibility gates. */
-  version: z.string().min(1).max(32).optional(),
-  /** Free-form status blurb. */
-  note: z.string().max(200).optional()
-});
-export type HeartbeatBody = z.infer<typeof HeartbeatBody>;
-
-export const HeartbeatResponse = z.object({
-  ok: z.literal(true),
-  reset: z.boolean(),
-  serverTime: z.number().int().nonnegative()
-});
-export type HeartbeatResponse = z.infer<typeof HeartbeatResponse>;
-
 /* ===================== Daemon registration ===================== */
 
 const ProfileName = z
@@ -76,7 +63,8 @@ export const RegisteredProfile = z.object({
 export type RegisteredProfile = z.infer<typeof RegisteredProfile>;
 
 export const DaemonRegisterBody = z.object({
-  profiles: z.array(RegisteredProfile).max(MAX_PROFILES_PER_DAEMON)
+  profiles: z.array(RegisteredProfile).max(MAX_PROFILES_PER_DAEMON),
+  workDirs: z.array(z.string().min(1).max(512)).max(MAX_WORK_DIRS).optional()
 });
 export type DaemonRegisterBody = z.infer<typeof DaemonRegisterBody>;
 
@@ -91,3 +79,24 @@ export const DaemonRegisterResponse = z.object({
   )
 });
 export type DaemonRegisterResponse = z.infer<typeof DaemonRegisterResponse>;
+
+/* ===================== Heartbeat ===================== */
+
+export const HeartbeatBody = z.object({
+  /** Semver of the running daemon, for future compatibility gates. */
+  version: z.string().min(1).max(32).optional(),
+  /** Free-form status blurb. */
+  note: z.string().max(200).optional(),
+  /** Periodic re-registration of profiles (same shape as DaemonRegisterBody). */
+  profiles: z.array(RegisteredProfile).max(MAX_PROFILES_PER_DAEMON).optional(),
+  /** Periodic re-registration of work dirs. */
+  workDirs: z.array(z.string().min(1).max(512)).max(MAX_WORK_DIRS).optional()
+});
+export type HeartbeatBody = z.infer<typeof HeartbeatBody>;
+
+export const HeartbeatResponse = z.object({
+  ok: z.literal(true),
+  reset: z.boolean(),
+  serverTime: z.number().int().nonnegative()
+});
+export type HeartbeatResponse = z.infer<typeof HeartbeatResponse>;

@@ -42,7 +42,7 @@ function baseEnv() {
     }
     return out;
 }
-export function buildLaunch(profile, message, resumeLastSession = true, codexReasoningEffort) {
+export function buildLaunch(profile, message, resumeLastSession = true, codexReasoningEffort, workDir) {
     const env = baseEnv();
     if (profile.tool === "CLAUDE_CODE") {
         const c = profile.claudeCode;
@@ -76,7 +76,7 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
             cmd: "claude",
             args,
             env,
-            cwd: process.cwd(),
+            cwd: workDir ?? process.cwd(),
             stdinText: null,
             finalOutputPath: null
         };
@@ -116,7 +116,7 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
             cmd: "codex",
             args,
             env,
-            cwd: process.cwd(),
+            cwd: workDir ?? process.cwd(),
             stdinText: null,
             finalOutputPath
         };
@@ -145,7 +145,7 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
         cmd: c.launchBin,
         args,
         env,
-        cwd: process.cwd(),
+        cwd: workDir ?? process.cwd(),
         stdinText,
         finalOutputPath: null
     };
@@ -164,7 +164,7 @@ export class ToolExecutor {
         this.log = opts.log ?? (() => void 0);
     }
     async execute(profile, message, execOpts = {}) {
-        const launch = buildLaunch(profile, message, execOpts.resumeLastSession ?? true, execOpts.codexReasoningEffort);
+        const launch = buildLaunch(profile, message, execOpts.resumeLastSession ?? true, execOpts.codexReasoningEffort, execOpts.workDir);
         this.log("executing", {
             profile: profile.name,
             cmd: launch.cmd,

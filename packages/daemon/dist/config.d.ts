@@ -5,6 +5,8 @@ export declare const DaemonConfig: z.ZodObject<{
     pollIntervalMs: z.ZodDefault<z.ZodNumber>;
     pollJitterMs: z.ZodDefault<z.ZodNumber>;
     heartbeatIntervalMs: z.ZodDefault<z.ZodNumber>;
+    /** How often to re-register profiles/workDirs via heartbeat (ms). */
+    reRegisterIntervalMs: z.ZodDefault<z.ZodNumber>;
     idleShutdownMs: z.ZodDefault<z.ZodNumber>;
     /** Global in-flight cap across profiles. */
     maxConcurrency: z.ZodDefault<z.ZodNumber>;
@@ -98,16 +100,16 @@ export declare const DaemonConfig: z.ZodObject<{
             extraArgs: string[];
             fullAuto: boolean;
             bypassApprovalsAndSandbox: boolean;
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         }, {
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
             extraArgs?: string[] | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
             fullAuto?: boolean | undefined;
@@ -122,9 +124,9 @@ export declare const DaemonConfig: z.ZodObject<{
             extraArgs: string[];
             fullAuto: boolean;
             bypassApprovalsAndSandbox: boolean;
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         };
@@ -133,10 +135,10 @@ export declare const DaemonConfig: z.ZodObject<{
         tool: "OPENAI";
         name: string;
         codex: {
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
             extraArgs?: string[] | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
             fullAuto?: boolean | undefined;
@@ -186,11 +188,12 @@ export declare const DaemonConfig: z.ZodObject<{
     }>]>, "many">;
     workDirs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
-    apiKey: string;
     apiUrl: string;
+    apiKey: string;
     pollIntervalMs: number;
     pollJitterMs: number;
     heartbeatIntervalMs: number;
+    reRegisterIntervalMs: number;
     idleShutdownMs: number;
     maxConcurrency: number;
     profiles: ({
@@ -217,9 +220,9 @@ export declare const DaemonConfig: z.ZodObject<{
             extraArgs: string[];
             fullAuto: boolean;
             bypassApprovalsAndSandbox: boolean;
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         };
@@ -237,8 +240,8 @@ export declare const DaemonConfig: z.ZodObject<{
     })[];
     workDirs: string[];
 }, {
-    apiKey: string;
     apiUrl: string;
+    apiKey: string;
     profiles: ({
         tool: "CLAUDE_CODE";
         claudeCode: {
@@ -260,10 +263,10 @@ export declare const DaemonConfig: z.ZodObject<{
         tool: "OPENAI";
         name: string;
         codex: {
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
             extraArgs?: string[] | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
             fullAuto?: boolean | undefined;
@@ -284,6 +287,7 @@ export declare const DaemonConfig: z.ZodObject<{
     pollIntervalMs?: number | undefined;
     pollJitterMs?: number | undefined;
     heartbeatIntervalMs?: number | undefined;
+    reRegisterIntervalMs?: number | undefined;
     idleShutdownMs?: number | undefined;
     maxConcurrency?: number | undefined;
     workDirs?: string[] | undefined;

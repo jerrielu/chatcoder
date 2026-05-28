@@ -45,6 +45,18 @@ export declare function handleNewSessionCancel(deps: HandlerDeps, chatId: number
  */
 export declare function handleApiKeySubmission(deps: HandlerDeps, chatId: number, telegramUser: number, text: string): Promise<Reply | null>;
 export declare function handleProfilePicked(deps: HandlerDeps, chatId: number, telegramUser: number, profileId: string): Promise<Reply>;
+export declare function handleWorkDirPicked(deps: HandlerDeps, chatId: number, telegramUser: number, result: {
+    index: number;
+} | {
+    skip: true;
+}): Promise<Reply>;
+export declare function handleProfileMenu(deps: HandlerDeps, chatId: number, telegramUser: number): Promise<Reply>;
+export declare function handleFolderMenu(deps: HandlerDeps, chatId: number, telegramUser: number): Promise<Reply>;
+export declare function handleFolderPicked(deps: HandlerDeps, chatId: number, _telegramUser: number, result: {
+    index: number;
+} | {
+    useDefault: true;
+}): Promise<Reply>;
 export declare function handleCodeRequest(deps: HandlerDeps, chatId: number, telegramUser: number): Reply;
 export declare function handleNewCodeRequest(deps: HandlerDeps, chatId: number, telegramUser: number): Reply;
 export declare function handleInstructionSubmission(deps: HandlerDeps, chatId: number, telegramUser: number, text: string): Promise<Reply | null>;

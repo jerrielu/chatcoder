@@ -25,7 +25,7 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "dev:chat": "npm run dev -w @chatcoder/bot",
-    "dev:coder": "npm run dev -w @chatcoder/daemon",
+    "dev:coder": "node bin/chatcoder.js run",
     "dev:dashboard": "npm run dev -w @chatcoder/dashboard"
   },
   "devDependencies": {

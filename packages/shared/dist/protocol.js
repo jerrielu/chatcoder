@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CODEX_REASONING_EFFORTS, MAX_INSTRUCTION_BYTES, MAX_PROFILES_PER_DAEMON, MAX_PROFILE_NAME_LENGTH, MAX_RESPONSE_BYTES, TOOL_KINDS } from "./constants.js";
+import { CODEX_REASONING_EFFORTS, MAX_INSTRUCTION_BYTES, MAX_PROFILES_PER_DAEMON, MAX_PROFILE_NAME_LENGTH, MAX_RESPONSE_BYTES, MAX_WORK_DIRS, TOOL_KINDS } from "./constants.js";
 /* ===================== Wire types ===================== */
 export const DaemonMessage = z.object({
     id: z.string().min(1),
@@ -14,6 +14,7 @@ export const DaemonMessage = z.object({
 export const PollSession = z.object({
     sessionId: z.string().min(1),
     profileName: z.string().min(1).max(MAX_PROFILE_NAME_LENGTH),
+    workDir: z.string().optional(),
     messages: z.array(DaemonMessage)
 });
 export const PollResponse = z.object({
@@ -28,17 +29,6 @@ export const PostResponseBody = z.object({
     /** Optional echo of originating instruction id for tracing. */
     replyTo: z.string().min(1).optional()
 });
-export const HeartbeatBody = z.object({
-    /** Semver of the running daemon, for future compatibility gates. */
-    version: z.string().min(1).max(32).optional(),
-    /** Free-form status blurb. */
-    note: z.string().max(200).optional()
-});
-export const HeartbeatResponse = z.object({
-    ok: z.literal(true),
-    reset: z.boolean(),
-    serverTime: z.number().int().nonnegative()
-});
 /* ===================== Daemon registration ===================== */
 const ProfileName = z
     .string()
@@ -51,7 +41,8 @@ export const RegisteredProfile = z.object({
     metadata: z.string().max(500).optional()
 });
 export const DaemonRegisterBody = z.object({
-    profiles: z.array(RegisteredProfile).max(MAX_PROFILES_PER_DAEMON)
+    profiles: z.array(RegisteredProfile).max(MAX_PROFILES_PER_DAEMON),
+    workDirs: z.array(z.string().min(1).max(512)).max(MAX_WORK_DIRS).optional()
 });
 export const DaemonRegisterResponse = z.object({
     apiKeyId: z.string().min(1),
@@ -60,5 +51,21 @@ export const DaemonRegisterResponse = z.object({
         name: ProfileName,
         tool: z.enum(TOOL_KINDS)
     }))
+});
+/* ===================== Heartbeat ===================== */
+export const HeartbeatBody = z.object({
+    /** Semver of the running daemon, for future compatibility gates. */
+    version: z.string().min(1).max(32).optional(),
+    /** Free-form status blurb. */
+    note: z.string().max(200).optional(),
+    /** Periodic re-registration of profiles (same shape as DaemonRegisterBody). */
+    profiles: z.array(RegisteredProfile).max(MAX_PROFILES_PER_DAEMON).optional(),
+    /** Periodic re-registration of work dirs. */
+    workDirs: z.array(z.string().min(1).max(512)).max(MAX_WORK_DIRS).optional()
+});
+export const HeartbeatResponse = z.object({
+    ok: z.literal(true),
+    reset: z.boolean(),
+    serverTime: z.number().int().nonnegative()
 });
 //# sourceMappingURL=protocol.js.map

@@ -51,16 +51,16 @@ export declare const CodexConfig: z.ZodObject<{
     extraArgs: string[];
     fullAuto: boolean;
     bypassApprovalsAndSandbox: boolean;
+    apiKey?: string | undefined;
     baseUrl?: string | undefined;
     model?: string | undefined;
-    apiKey?: string | undefined;
     sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
     approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
 }, {
+    apiKey?: string | undefined;
     baseUrl?: string | undefined;
     model?: string | undefined;
     extraArgs?: string[] | undefined;
-    apiKey?: string | undefined;
     sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
     approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     fullAuto?: boolean | undefined;
@@ -176,16 +176,16 @@ export declare const OpenAIProfile: z.ZodObject<{
         extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     }, {
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
         extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
@@ -200,9 +200,9 @@ export declare const OpenAIProfile: z.ZodObject<{
         extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     };
@@ -211,10 +211,10 @@ export declare const OpenAIProfile: z.ZodObject<{
     tool: "OPENAI";
     name: string;
     codex: {
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
         extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
@@ -355,16 +355,16 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
         extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     }, {
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
         extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
@@ -379,9 +379,9 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
         extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     };
@@ -390,10 +390,10 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
     tool: "OPENAI";
     name: string;
     codex: {
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
         extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;

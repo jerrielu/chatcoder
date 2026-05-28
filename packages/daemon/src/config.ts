@@ -12,6 +12,8 @@ export const DaemonConfig = z.object({
   pollIntervalMs: z.number().int().min(50).max(60_000).default(2_000),
   pollJitterMs: z.number().int().min(0).max(5_000).default(250),
   heartbeatIntervalMs: z.number().int().min(50).max(60_000).default(15_000),
+  /** How often to re-register profiles/workDirs via heartbeat (ms). */
+  reRegisterIntervalMs: z.number().int().min(10_000).max(3_600_000).default(300_000),
   idleShutdownMs: z.number().int().min(1_000).default(60 * 60_000),
   /** Global in-flight cap across profiles. */
   maxConcurrency: z.number().int().min(1).max(32).default(4),

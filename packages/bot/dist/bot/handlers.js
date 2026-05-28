@@ -1,6 +1,6 @@
 import { API_KEY_PREFIX, ApiError, CODEX_TOKEN_USAGE_COMMAND, MAX_INSTRUCTION_BYTES, MAX_QUEUE_DEPTH } from "@chatcoder/shared";
 import { hashApiKey, validateUserSuppliedKey } from "../db/crypto.js";
-import { backToMenu, codexEffortPickerMenu, mainMenu, profilePickerMenu, toolIcon } from "./menus.js";
+import { backToMenu, codexEffortPickerMenu, folderPickerMenu, mainMenu, profilePickerMenu, toolIcon, workDirPickerMenu } from "./menus.js";
 const WELCOME = "👋 *Chatcoder*\n\n" +
     "I relay instructions to a `chatcoder coder` service running on your own machine.\n\n" +
     "• Tap *New Session* to link this chat to a coder profile.\n" +
@@ -286,7 +286,7 @@ function looksLikeDaemonApiKey(raw) {
 }
 export async function handleProfilePicked(deps, chatId, telegramUser, profileId) {
     const state = deps.flows.get(chatId, telegramUser);
-    if (state.kind !== "awaiting_profile") {
+    if (state.kind !== "awaiting_profile" && state.kind !== "awaiting_profile_menu") {
         return {
             text: "This flow expired. Tap *New Session* to start over.",
             keyboard: mainMenu(),
@@ -300,6 +300,41 @@ export async function handleProfilePicked(deps, chatId, telegramUser, profileId)
             keyboard: mainMenu()
         };
     }
+    // Coming from the standalone Profile menu — skip workDir picker, just set active profile
+    if (state.kind === "awaiting_profile_menu") {
+        const session = await deps.sessions.create({
+            chatId,
+            apiKeyId: state.apiKeyId,
+            profileId
+        });
+        deps.flows.clear(chatId, telegramUser);
+        return {
+            text: `👤 *Active profile set.*\n` +
+                `${toolIcon(profile.tool)} \`${profile.name}\`\n` +
+                `session id: \`${session.id.slice(0, 8)}\`\n\n` +
+                `Use *Code* or *New Code* to dispatch.`,
+            keyboard: backToMenu(),
+            parseMode: "Markdown"
+        };
+    }
+    // Coming from New Session flow — check workDirs as before
+    const apiKey = await deps.apiKeys.getById(state.apiKeyId);
+    const workDirs = apiKey?.workDirs ?? [];
+    if (workDirs.length > 0) {
+        deps.flows.set(chatId, telegramUser, {
+            kind: "awaiting_workdir",
+            apiKeyId: state.apiKeyId,
+            profileId
+        });
+        return {
+            text: `✅ Profile \`${profile.name}\` selected.\n\n` +
+                `This daemon has ${workDirs.length} working director${workDirs.length === 1 ? "y" : "ies"} configured. ` +
+                "Pick one for this session, or skip to use the daemon's default directory.",
+            keyboard: workDirPickerMenu(workDirs),
+            parseMode: "Markdown"
+        };
+    }
+    // No work dirs — create session immediately
     const session = await deps.sessions.create({
         chatId,
         apiKeyId: state.apiKeyId,
@@ -312,6 +347,141 @@ export async function handleProfilePicked(deps, chatId, telegramUser, profileId)
             `session id: \`${session.id.slice(0, 8)}\`\n\n` +
             `Use *Code* (resume) or *New Code* (fresh) from the menu to dispatch.`,
         keyboard: backToMenu(),
+        parseMode: "Markdown"
+    };
+}
+export async function handleWorkDirPicked(deps, chatId, telegramUser, result) {
+    const state = deps.flows.get(chatId, telegramUser);
+    if (state.kind !== "awaiting_workdir") {
+        return {
+            text: "This flow expired. Tap *New Session* to start over.",
+            keyboard: mainMenu(),
+            parseMode: "Markdown"
+        };
+    }
+    const profile = await deps.profiles.getById(state.profileId);
+    if (!profile || profile.apiKeyId !== state.apiKeyId) {
+        return {
+            text: "❌ Session setup expired. Tap *New Session* to start over.",
+            keyboard: mainMenu()
+        };
+    }
+    let workDir;
+    if ("skip" in result) {
+        workDir = undefined;
+    }
+    else {
+        const apiKey = await deps.apiKeys.getById(state.apiKeyId);
+        const workDirs = apiKey?.workDirs ?? [];
+        if (result.index < 0 || result.index >= workDirs.length) {
+            return {
+                text: "❌ Invalid directory selection. Try again or start over.",
+                keyboard: mainMenu()
+            };
+        }
+        workDir = workDirs[result.index];
+    }
+    const session = await deps.sessions.create({
+        chatId,
+        apiKeyId: state.apiKeyId,
+        profileId: state.profileId,
+        workDir
+    });
+    deps.flows.clear(chatId, telegramUser);
+    const dirLine = workDir ? `\n📁 work dir: \`${workDir}\`` : "";
+    return {
+        text: `✅ *Session linked.*\n` +
+            `${toolIcon(profile.tool)} profile: \`${profile.name}\`` +
+            dirLine +
+            `\nsession id: \`${session.id.slice(0, 8)}\`\n\n` +
+            `Use *Code* (resume) or *New Code* (fresh) from the menu to dispatch.`,
+        keyboard: backToMenu(),
+        parseMode: "Markdown"
+    };
+}
+/* =============== Standalone Profile & Folder menus =============== */
+export async function handleProfileMenu(deps, chatId, telegramUser) {
+    const session = await deps.sessions.getLatestActiveByChatId(chatId);
+    if (!session) {
+        return {
+            text: "No active session. Tap *New Session* first to link a daemon.",
+            keyboard: mainMenu(),
+            parseMode: "Markdown"
+        };
+    }
+    const apiKey = await deps.apiKeys.getById(session.apiKeyId);
+    if (!apiKey) {
+        return { text: "❌ Daemon not found.", keyboard: mainMenu() };
+    }
+    const profiles = await deps.profiles.listByApiKey(apiKey.id);
+    if (profiles.length === 0) {
+        return { text: "⚠️ No profiles available for this daemon.", keyboard: mainMenu() };
+    }
+    const currentProfile = await deps.profiles.getById(session.profileId);
+    deps.flows.set(chatId, telegramUser, { kind: "awaiting_profile_menu", apiKeyId: apiKey.id });
+    const currentLine = currentProfile
+        ? `\nCurrent: ${toolIcon(currentProfile.tool)} \`${currentProfile.name}\``
+        : "";
+    return {
+        text: `👤 *Select profile*${currentLine}\n\nChoose a profile:`,
+        keyboard: profilePickerMenu(profiles),
+        parseMode: "Markdown"
+    };
+}
+export async function handleFolderMenu(deps, chatId, telegramUser) {
+    const session = await deps.sessions.getLatestActiveByChatId(chatId);
+    if (!session) {
+        return {
+            text: "No active session. Tap *New Session* first.",
+            keyboard: mainMenu(),
+            parseMode: "Markdown"
+        };
+    }
+    const apiKey = await deps.apiKeys.getById(session.apiKeyId);
+    const workDirs = apiKey?.workDirs ?? [];
+    if (workDirs.length === 0) {
+        return {
+            text: "This daemon has no working directories configured.\n\n" +
+                "Add them via the daemon's menu (press W on the `chatcoder coder` screen).",
+            keyboard: mainMenu()
+        };
+    }
+    const currentDir = session.workDir;
+    const currentLine = currentDir
+        ? `Current: \`${currentDir}\``
+        : "Current: daemon's default directory";
+    return {
+        text: `📁 *Select working directory*\n\n${currentLine}\n\nChoose a directory:`,
+        keyboard: folderPickerMenu(workDirs),
+        parseMode: "Markdown"
+    };
+}
+export async function handleFolderPicked(deps, chatId, _telegramUser, result) {
+    const session = await deps.sessions.getLatestActiveByChatId(chatId);
+    if (!session) {
+        return {
+            text: "No active session. Tap *New Session* first.",
+            keyboard: mainMenu(),
+            parseMode: "Markdown"
+        };
+    }
+    let workDir;
+    if ("useDefault" in result) {
+        workDir = null;
+    }
+    else {
+        const apiKey = await deps.apiKeys.getById(session.apiKeyId);
+        const workDirs = apiKey?.workDirs ?? [];
+        if (result.index < 0 || result.index >= workDirs.length) {
+            return { text: "❌ Invalid selection.", keyboard: mainMenu() };
+        }
+        workDir = workDirs[result.index];
+    }
+    await deps.sessions.setWorkDir(session.id, workDir);
+    const dirLine = workDir ? `📁 \`${workDir}\`` : "📁 daemon's default directory";
+    return {
+        text: `✅ Work directory set to ${dirLine}.`,
+        keyboard: mainMenu(),
         parseMode: "Markdown"
     };
 }

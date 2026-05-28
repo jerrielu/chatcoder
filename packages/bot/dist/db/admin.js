@@ -1,4 +1,15 @@
 const toNum = (v) => v == null ? null : typeof v === "number" ? v : Number(v);
+function parseWorkDirs(raw) {
+    if (!raw)
+        return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((d) => typeof d === "string") : [];
+    }
+    catch {
+        return [];
+    }
+}
 function rowToJoined(row) {
     return {
         session: {
@@ -10,7 +21,8 @@ function rowToJoined(row) {
             createdAt: toNum(row.s_created_at),
             revokedAt: toNum(row.s_revoked_at),
             lastCodeAt: toNum(row.s_last_code_at),
-            latestMessage: row.s_latest_message
+            latestMessage: row.s_latest_message,
+            workDir: row.s_work_dir ?? null
         },
         profile: {
             id: row.p_id,
@@ -27,7 +39,8 @@ function rowToJoined(row) {
             status: row.a_status,
             createdAt: toNum(row.a_created_at),
             revokedAt: toNum(row.a_revoked_at),
-            lastHeartbeat: toNum(row.a_last_heartbeat)
+            lastHeartbeat: toNum(row.a_last_heartbeat),
+            workDirs: parseWorkDirs(row.a_work_dirs)
         }
     };
 }
@@ -77,6 +90,7 @@ export class AdminRepo {
             "s.revoked_at as s_revoked_at",
             "s.last_code_at as s_last_code_at",
             "s.latest_message as s_latest_message",
+            "s.work_dir as s_work_dir",
             "p.id as p_id",
             "p.api_key_id as p_api_key_id",
             "p.name as p_name",
@@ -89,7 +103,8 @@ export class AdminRepo {
             "a.status as a_status",
             "a.created_at as a_created_at",
             "a.revoked_at as a_revoked_at",
-            "a.last_heartbeat as a_last_heartbeat"
+            "a.last_heartbeat as a_last_heartbeat",
+            "a.work_dirs as a_work_dirs"
         ]);
     }
     async listSessions(args = {}) {

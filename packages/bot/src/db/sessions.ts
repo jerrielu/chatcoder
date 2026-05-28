@@ -12,6 +12,7 @@ export interface Session {
   revokedAt: number | null;
   lastCodeAt: number;
   latestMessage: string | null;
+  workDir: string | null;
 }
 
 function rowToSession(row: {
@@ -24,6 +25,7 @@ function rowToSession(row: {
   revoked_at: number | string | bigint | null;
   last_code_at: number | string | bigint;
   latest_message: string | null;
+  work_dir: string | null;
 }): Session {
   const n = (v: number | string | bigint | null): number | null =>
     v == null ? null : typeof v === "number" ? v : Number(v);
@@ -36,7 +38,8 @@ function rowToSession(row: {
     createdAt: n(row.created_at) as number,
     revokedAt: n(row.revoked_at),
     lastCodeAt: n(row.last_code_at) as number,
-    latestMessage: row.latest_message
+    latestMessage: row.latest_message,
+    workDir: row.work_dir ?? null
   };
 }
 
@@ -55,6 +58,7 @@ export class SessionsRepo {
     chatId: number;
     apiKeyId: string;
     profileId: string;
+    workDir?: string;
   }): Promise<Session> {
     return this.db.transaction().execute(async (tx) => {
       const existing = await tx
@@ -80,7 +84,8 @@ export class SessionsRepo {
           created_at: ts,
           revoked_at: null,
           last_code_at: 0,
-          latest_message: null
+          latest_message: null,
+          work_dir: args.workDir ?? null
         })
         .execute();
       const row = await tx
@@ -176,5 +181,13 @@ export class SessionsRepo {
       .where("id", "=", sessionId)
       .executeTakeFirst();
     return Number(res.numUpdatedRows ?? 0) === 1;
+  }
+
+  async setWorkDir(sessionId: string, workDir: string | null): Promise<void> {
+    await this.db
+      .updateTable("sessions")
+      .set({ work_dir: workDir })
+      .where("id", "=", sessionId)
+      .execute();
   }
 }

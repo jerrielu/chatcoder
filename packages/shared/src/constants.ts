@@ -13,6 +13,9 @@ export const MAX_RESPONSE_BYTES = 32 * 1024;
 /** Max profile names a single daemon can register. */
 export const MAX_PROFILES_PER_DAEMON = 32;
 
+/** Max work dirs a single daemon can register. */
+export const MAX_WORK_DIRS = 32;
+
 /** Max length of a profile name. */
 export const MAX_PROFILE_NAME_LENGTH = 64;
 

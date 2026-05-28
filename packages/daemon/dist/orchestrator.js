@@ -14,6 +14,7 @@ export class Orchestrator {
     _status = "idle";
     stopping = false;
     shouldResumeInProgress = true;
+    lastReRegisterAt = 0;
     constructor(deps) {
         this.deps = deps;
         this.log = deps.log ?? (() => void 0);
@@ -62,7 +63,21 @@ export class Orchestrator {
         if (this.stopping)
             return;
         try {
-            await this.deps.client.heartbeat({ note: "running" });
+            const body = { note: "running" };
+            const now = Date.now();
+            const profiles = now - this.lastReRegisterAt >= this.deps.config.reRegisterIntervalMs
+                ? this.deps.config.profiles.map((p) => ({
+                    name: p.name,
+                    tool: p.tool,
+                    ...(p.metadata !== undefined ? { metadata: p.metadata } : {})
+                }))
+                : undefined;
+            const workDirs = profiles && this.deps.config.workDirs.length > 0
+                ? this.deps.config.workDirs
+                : undefined;
+            if (profiles)
+                this.lastReRegisterAt = now;
+            await this.deps.client.heartbeat({ note: "running", profiles, workDirs });
         }
         catch (e) {
             this.handleFatal(e);
@@ -94,6 +109,7 @@ export class Orchestrator {
                         content: msg.content,
                         resumeLastSession: msg.resumeLastSession ?? true,
                         codexReasoningEffort: msg.codexReasoningEffort,
+                        workDir: s.workDir,
                         interrupt: msg.resumeLastSession === false
                     });
                 }

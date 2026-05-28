@@ -25,6 +25,7 @@ export declare class Orchestrator {
     private _status;
     private stopping;
     private shouldResumeInProgress;
+    private lastReRegisterAt;
     constructor(deps: OrchestratorDeps);
     get status(): OrchestratorStatus;
     start(): void;

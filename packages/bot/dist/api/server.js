@@ -44,6 +44,9 @@ export async function buildServer(opts) {
         }
         const body = DaemonRegisterBody.parse(req.body ?? {});
         const apiKey = await opts.apiKeysRepo.registerByRawKey(raw);
+        if (body.workDirs) {
+            await opts.apiKeysRepo.setWorkDirs(apiKey.id, body.workDirs);
+        }
         const profiles = await opts.profilesRepo.upsertForApiKey(apiKey.id, body.profiles.map((p) => ({
             name: p.name,
             tool: p.tool,
@@ -56,7 +59,17 @@ export async function buildServer(opts) {
     });
     /* ---------------- Daemon control loop ---------------- */
     app.post(API_PATHS.heartbeat, async (req) => {
-        HeartbeatBody.parse(req.body ?? {});
+        const body = HeartbeatBody.parse(req.body ?? {});
+        if (body.profiles) {
+            await opts.profilesRepo.upsertForApiKey(req.apiKey.id, body.profiles.map((p) => ({
+                name: p.name,
+                tool: p.tool,
+                metadata: p.metadata ?? null
+            })));
+            if (body.workDirs) {
+                await opts.apiKeysRepo.setWorkDirs(req.apiKey.id, body.workDirs);
+            }
+        }
         await opts.apiKeysRepo.updateHeartbeat(req.apiKey.id);
         return { ok: true, reset: false, serverTime: Date.now() };
     });
@@ -101,6 +114,7 @@ export async function buildServer(opts) {
             grouped.push({
                 sessionId: s.id,
                 profileName: profile.name,
+                workDir: s.workDir ?? undefined,
                 messages: [
                     DaemonMessage.parse({
                         id: msg.id,

@@ -9,6 +9,7 @@ export interface Session {
     revokedAt: number | null;
     lastCodeAt: number;
     latestMessage: string | null;
+    workDir: string | null;
 }
 export declare class SessionsRepo {
     private readonly db;
@@ -26,6 +27,7 @@ export declare class SessionsRepo {
         chatId: number;
         apiKeyId: string;
         profileId: string;
+        workDir?: string;
     }): Promise<Session>;
     getById(id: string): Promise<Session | null>;
     /** Most-recently created active session for a chat, across all profiles. */
@@ -41,5 +43,6 @@ export declare class SessionsRepo {
      */
     tryConsumeRate(sessionId: string): Promise<boolean>;
     setLatestMessage(sessionId: string, content: string | null): Promise<boolean>;
+    setWorkDir(sessionId: string, workDir: string | null): Promise<void>;
 }
 //# sourceMappingURL=sessions.d.ts.map

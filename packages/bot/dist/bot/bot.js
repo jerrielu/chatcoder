@@ -1,7 +1,7 @@
 import { Bot } from "grammy";
 import { ApiError, ERROR_CODES } from "@chatcoder/shared";
-import { handleApiKeySubmission, handleCodeRequest, handleCodexEffortMenu, handleInstructionSubmission, handleLatestProgress, handleMenu, handleNewCodeRequest, handleNewSessionCancel, handleNewSessionRequest, handlePlainText, handleProfilePicked, handleSetCodexEffort, handleStart, handleStatus, handleTokenUsage } from "./handlers.js";
-import { CB, mainMenu, parseCodexEffortCallback, parseProfileCallback } from "./menus.js";
+import { handleApiKeySubmission, handleCodeRequest, handleCodexEffortMenu, handleFolderMenu, handleFolderPicked, handleInstructionSubmission, handleLatestProgress, handleMenu, handleNewCodeRequest, handleNewSessionCancel, handleNewSessionRequest, handlePlainText, handleProfileMenu, handleProfilePicked, handleSetCodexEffort, handleStart, handleStatus, handleTokenUsage, handleWorkDirPicked } from "./handlers.js";
+import { CB, mainMenu, parseCodexEffortCallback, parseFolderCallback, parseProfileCallback, parseWorkDirCallback } from "./menus.js";
 import { sendTelegramWithRetry } from "./telegramSend.js";
 export function createBot(opts) {
     const bot = new Bot(opts.telegramBotToken);
@@ -51,6 +51,18 @@ export function wireBot(bot, deps) {
             return;
         await send(ctx, await handleCodexEffortMenu(deps, ctx.chat.id, ctx.from.id));
     });
+    bot.callbackQuery(CB.profileMenu, async (ctx) => {
+        await ctx.answerCallbackQuery();
+        if (!ctx.chat || !ctx.from)
+            return;
+        await send(ctx, await handleProfileMenu(deps, ctx.chat.id, ctx.from.id));
+    });
+    bot.callbackQuery(CB.folderMenu, async (ctx) => {
+        await ctx.answerCallbackQuery();
+        if (!ctx.chat || !ctx.from)
+            return;
+        await send(ctx, await handleFolderMenu(deps, ctx.chat.id, ctx.from.id));
+    });
     bot.callbackQuery(CB.newSession, async (ctx) => {
         await ctx.answerCallbackQuery();
         if (!ctx.chat || !ctx.from)
@@ -81,6 +93,18 @@ export function wireBot(bot, deps) {
         if (effort && ctx.chat && ctx.from) {
             await ctx.answerCallbackQuery();
             await send(ctx, await handleSetCodexEffort(deps, ctx.chat.id, ctx.from.id, effort));
+            return;
+        }
+        const workDir = parseWorkDirCallback(data);
+        if (workDir && ctx.chat && ctx.from) {
+            await ctx.answerCallbackQuery();
+            await send(ctx, await handleWorkDirPicked(deps, ctx.chat.id, ctx.from.id, workDir));
+            return;
+        }
+        const folder = parseFolderCallback(data);
+        if (folder && ctx.chat && ctx.from) {
+            await ctx.answerCallbackQuery();
+            await send(ctx, await handleFolderPicked(deps, ctx.chat.id, ctx.from.id, folder));
             return;
         }
         const profileId = parseProfileCallback(data);

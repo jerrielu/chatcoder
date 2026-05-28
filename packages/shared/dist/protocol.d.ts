@@ -9,14 +9,14 @@ export declare const DaemonMessage: z.ZodObject<{
     createdAt: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
     id: string;
-    createdAt: number;
     content: string;
     resumeLastSession: boolean;
+    createdAt: number;
     codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
 }, {
     id: string;
-    createdAt: number;
     content: string;
+    createdAt: number;
     resumeLastSession?: boolean | undefined;
     codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
 }>;
@@ -25,6 +25,7 @@ export type DaemonMessage = z.infer<typeof DaemonMessage>;
 export declare const PollSession: z.ZodObject<{
     sessionId: z.ZodString;
     profileName: z.ZodString;
+    workDir: z.ZodOptional<z.ZodString>;
     messages: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         content: z.ZodString;
@@ -35,37 +36,39 @@ export declare const PollSession: z.ZodObject<{
         createdAt: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        createdAt: number;
         content: string;
         resumeLastSession: boolean;
+        createdAt: number;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }, {
         id: string;
-        createdAt: number;
         content: string;
+        createdAt: number;
         resumeLastSession?: boolean | undefined;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
-    profileName: string;
     sessionId: string;
+    profileName: string;
     messages: {
         id: string;
-        createdAt: number;
         content: string;
         resumeLastSession: boolean;
+        createdAt: number;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }[];
+    workDir?: string | undefined;
 }, {
-    profileName: string;
     sessionId: string;
+    profileName: string;
     messages: {
         id: string;
-        createdAt: number;
         content: string;
+        createdAt: number;
         resumeLastSession?: boolean | undefined;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }[];
+    workDir?: string | undefined;
 }>;
 export type PollSession = z.infer<typeof PollSession>;
 export declare const PollResponse: z.ZodObject<{
@@ -73,6 +76,7 @@ export declare const PollResponse: z.ZodObject<{
     sessions: z.ZodArray<z.ZodObject<{
         sessionId: z.ZodString;
         profileName: z.ZodString;
+        workDir: z.ZodOptional<z.ZodString>;
         messages: z.ZodArray<z.ZodObject<{
             id: z.ZodString;
             content: z.ZodString;
@@ -83,64 +87,68 @@ export declare const PollResponse: z.ZodObject<{
             createdAt: z.ZodNumber;
         }, "strip", z.ZodTypeAny, {
             id: string;
-            createdAt: number;
             content: string;
             resumeLastSession: boolean;
+            createdAt: number;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }, {
             id: string;
-            createdAt: number;
             content: string;
+            createdAt: number;
             resumeLastSession?: boolean | undefined;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }>, "many">;
     }, "strip", z.ZodTypeAny, {
-        profileName: string;
         sessionId: string;
+        profileName: string;
         messages: {
             id: string;
-            createdAt: number;
             content: string;
             resumeLastSession: boolean;
+            createdAt: number;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }[];
+        workDir?: string | undefined;
     }, {
-        profileName: string;
         sessionId: string;
+        profileName: string;
         messages: {
             id: string;
-            createdAt: number;
             content: string;
+            createdAt: number;
             resumeLastSession?: boolean | undefined;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }[];
+        workDir?: string | undefined;
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
+    reset: boolean;
     sessions: {
-        profileName: string;
         sessionId: string;
+        profileName: string;
         messages: {
             id: string;
-            createdAt: number;
             content: string;
             resumeLastSession: boolean;
+            createdAt: number;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }[];
+        workDir?: string | undefined;
     }[];
-    reset: boolean;
 }, {
+    reset: boolean;
     sessions: {
-        profileName: string;
         sessionId: string;
+        profileName: string;
         messages: {
             id: string;
-            createdAt: number;
             content: string;
+            createdAt: number;
             resumeLastSession?: boolean | undefined;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }[];
+        workDir?: string | undefined;
     }[];
-    reset: boolean;
 }>;
 export type PollResponse = z.infer<typeof PollResponse>;
 export declare const PostResponseBody: z.ZodObject<{
@@ -151,44 +159,17 @@ export declare const PostResponseBody: z.ZodObject<{
     /** Optional echo of originating instruction id for tracing. */
     replyTo: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    sessionId: string;
     content: string;
+    sessionId: string;
     final: boolean;
     replyTo?: string | undefined;
 }, {
-    sessionId: string;
     content: string;
+    sessionId: string;
     final?: boolean | undefined;
     replyTo?: string | undefined;
 }>;
 export type PostResponseBody = z.infer<typeof PostResponseBody>;
-export declare const HeartbeatBody: z.ZodObject<{
-    /** Semver of the running daemon, for future compatibility gates. */
-    version: z.ZodOptional<z.ZodString>;
-    /** Free-form status blurb. */
-    note: z.ZodOptional<z.ZodString>;
-}, "strip", z.ZodTypeAny, {
-    version?: string | undefined;
-    note?: string | undefined;
-}, {
-    version?: string | undefined;
-    note?: string | undefined;
-}>;
-export type HeartbeatBody = z.infer<typeof HeartbeatBody>;
-export declare const HeartbeatResponse: z.ZodObject<{
-    ok: z.ZodLiteral<true>;
-    reset: z.ZodBoolean;
-    serverTime: z.ZodNumber;
-}, "strip", z.ZodTypeAny, {
-    reset: boolean;
-    ok: true;
-    serverTime: number;
-}, {
-    reset: boolean;
-    ok: true;
-    serverTime: number;
-}>;
-export type HeartbeatResponse = z.infer<typeof HeartbeatResponse>;
 export declare const RegisteredProfile: z.ZodObject<{
     name: z.ZodString;
     tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
@@ -217,18 +198,21 @@ export declare const DaemonRegisterBody: z.ZodObject<{
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
         metadata?: string | undefined;
     }>, "many">;
+    workDirs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
     profiles: {
         name: string;
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
         metadata?: string | undefined;
     }[];
+    workDirs?: string[] | undefined;
 }, {
     profiles: {
         name: string;
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
         metadata?: string | undefined;
     }[];
+    workDirs?: string[] | undefined;
 }>;
 export type DaemonRegisterBody = z.infer<typeof DaemonRegisterBody>;
 export declare const DaemonRegisterResponse: z.ZodObject<{
@@ -247,19 +231,74 @@ export declare const DaemonRegisterResponse: z.ZodObject<{
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
-    apiKeyId: string;
     profiles: {
         id: string;
         name: string;
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }[];
+    apiKeyId: string;
 }, {
-    apiKeyId: string;
     profiles: {
         id: string;
         name: string;
         tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
     }[];
+    apiKeyId: string;
 }>;
 export type DaemonRegisterResponse = z.infer<typeof DaemonRegisterResponse>;
+export declare const HeartbeatBody: z.ZodObject<{
+    /** Semver of the running daemon, for future compatibility gates. */
+    version: z.ZodOptional<z.ZodString>;
+    /** Free-form status blurb. */
+    note: z.ZodOptional<z.ZodString>;
+    /** Periodic re-registration of profiles (same shape as DaemonRegisterBody). */
+    profiles: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        name: z.ZodString;
+        tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+        metadata: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        metadata?: string | undefined;
+    }, {
+        name: string;
+        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        metadata?: string | undefined;
+    }>, "many">>;
+    /** Periodic re-registration of work dirs. */
+    workDirs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+}, "strip", z.ZodTypeAny, {
+    profiles?: {
+        name: string;
+        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        metadata?: string | undefined;
+    }[] | undefined;
+    workDirs?: string[] | undefined;
+    version?: string | undefined;
+    note?: string | undefined;
+}, {
+    profiles?: {
+        name: string;
+        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        metadata?: string | undefined;
+    }[] | undefined;
+    workDirs?: string[] | undefined;
+    version?: string | undefined;
+    note?: string | undefined;
+}>;
+export type HeartbeatBody = z.infer<typeof HeartbeatBody>;
+export declare const HeartbeatResponse: z.ZodObject<{
+    ok: z.ZodLiteral<true>;
+    reset: z.ZodBoolean;
+    serverTime: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    reset: boolean;
+    ok: true;
+    serverTime: number;
+}, {
+    reset: boolean;
+    ok: true;
+    serverTime: number;
+}>;
+export type HeartbeatResponse = z.infer<typeof HeartbeatResponse>;
 //# sourceMappingURL=protocol.d.ts.map

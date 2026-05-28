@@ -7,6 +7,7 @@ export interface ApiKeyRecord {
     createdAt: number;
     revokedAt: number | null;
     lastHeartbeat: number | null;
+    workDirs: string[];
 }
 export declare class ApiKeysRepo {
     private readonly db;
@@ -32,5 +33,6 @@ export declare class ApiKeysRepo {
     updateHeartbeat(id: string): Promise<void>;
     revoke(id: string): Promise<boolean>;
     delete(id: string): Promise<boolean>;
+    setWorkDirs(id: string, dirs: string[]): Promise<void>;
 }
 //# sourceMappingURL=apiKeys.d.ts.map

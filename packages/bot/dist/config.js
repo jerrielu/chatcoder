@@ -1,9 +1,11 @@
+import * as path from "node:path";
+import * as os from "node:os";
 import { z } from "zod";
 const configSchema = z.object({
     telegramBotToken: z.string().min(1),
     listenHost: z.string().default("0.0.0.0"),
     listenPort: z.number().int().min(1).max(65535).default(8080),
-    databaseUrl: z.string().min(1).default("sqlite:./chatcoder.db"),
+    databaseUrl: z.string().min(1).default(() => `sqlite:${path.join(os.homedir(), ".chatcoder", "chatcoder.db")}`),
     logLevel: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
     publicUrl: z.string().url().optional(),
     /** Max clock skew between daemons and bot when interpreting heartbeat age. */

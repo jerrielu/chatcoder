@@ -10,11 +10,12 @@ const rootDir = path.resolve(path.dirname(scriptPath), "..");
 
 function usage(exitCode = 0) {
   process.stdout.write(
-    "usage: chatcoder <chat|coder> [options]\n" +
+    "usage: chatcoder <chat|coder|run> [options]\n" +
       "\n" +
       "commands:\n" +
       "  chat                 run the Chat API service\n" +
       "  coder                run the Coder service\n" +
+      "  run                  shorthand for `coder run` (daemon mode)\n" +
       "\n" +
       "options:\n" +
       "  --systemd            install and start a per-user systemd service for the command\n" +
@@ -151,6 +152,12 @@ function main() {
   if (!command) command = "coder";
   if (command === "-h" || command === "--help") {
     usage(0);
+  }
+
+  // "chatcoder run" is shorthand for "chatcoder coder run"
+  if (command === "run") {
+    command = "coder";
+    rest = ["run", ...rest];
   }
 
   const wantsSystemd = rest.includes("--systemd");

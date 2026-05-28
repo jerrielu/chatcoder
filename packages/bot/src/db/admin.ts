@@ -9,6 +9,16 @@ type NumLike = number | string | bigint;
 const toNum = (v: NumLike | null): number | null =>
   v == null ? null : typeof v === "number" ? v : Number(v);
 
+function parseWorkDirs(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 /** Session joined with its profile + api_key — drives the admin UI. */
 export interface SessionJoined {
   session: Session;
@@ -26,6 +36,7 @@ interface JoinedRow {
   s_revoked_at: NumLike | null;
   s_last_code_at: NumLike;
   s_latest_message: string | null;
+  s_work_dir: string | null;
   p_id: string;
   p_api_key_id: string;
   p_name: string;
@@ -39,6 +50,7 @@ interface JoinedRow {
   a_created_at: NumLike;
   a_revoked_at: NumLike | null;
   a_last_heartbeat: NumLike | null;
+  a_work_dirs: string | null;
 }
 
 function rowToJoined(row: JoinedRow): SessionJoined {
@@ -52,7 +64,8 @@ function rowToJoined(row: JoinedRow): SessionJoined {
       createdAt: toNum(row.s_created_at) as number,
       revokedAt: toNum(row.s_revoked_at),
       lastCodeAt: toNum(row.s_last_code_at) as number,
-      latestMessage: row.s_latest_message
+      latestMessage: row.s_latest_message,
+      workDir: row.s_work_dir ?? null
     },
     profile: {
       id: row.p_id,
@@ -69,7 +82,8 @@ function rowToJoined(row: JoinedRow): SessionJoined {
       status: row.a_status,
       createdAt: toNum(row.a_created_at) as number,
       revokedAt: toNum(row.a_revoked_at),
-      lastHeartbeat: toNum(row.a_last_heartbeat)
+      lastHeartbeat: toNum(row.a_last_heartbeat),
+      workDirs: parseWorkDirs(row.a_work_dirs)
     }
   };
 }
@@ -132,6 +146,7 @@ export class AdminRepo {
         "s.revoked_at as s_revoked_at",
         "s.last_code_at as s_last_code_at",
         "s.latest_message as s_latest_message",
+        "s.work_dir as s_work_dir",
         "p.id as p_id",
         "p.api_key_id as p_api_key_id",
         "p.name as p_name",
@@ -144,7 +159,8 @@ export class AdminRepo {
         "a.status as a_status",
         "a.created_at as a_created_at",
         "a.revoked_at as a_revoked_at",
-        "a.last_heartbeat as a_last_heartbeat"
+        "a.last_heartbeat as a_last_heartbeat",
+        "a.work_dirs as a_work_dirs"
       ]);
   }
 

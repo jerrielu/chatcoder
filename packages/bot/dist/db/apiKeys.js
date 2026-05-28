@@ -9,8 +9,20 @@ function rowToRecord(row) {
         status: row.status,
         createdAt: n(row.created_at),
         revokedAt: n(row.revoked_at),
-        lastHeartbeat: n(row.last_heartbeat)
+        lastHeartbeat: n(row.last_heartbeat),
+        workDirs: parseWorkDirs(row.work_dirs)
     };
+}
+function parseWorkDirs(raw) {
+    if (!raw)
+        return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((d) => typeof d === "string") : [];
+    }
+    catch {
+        return [];
+    }
 }
 export class ApiKeysRepo {
     db;
@@ -112,6 +124,13 @@ export class ApiKeysRepo {
             .where("id", "=", id)
             .executeTakeFirst();
         return Number(res.numDeletedRows) > 0;
+    }
+    async setWorkDirs(id, dirs) {
+        await this.db
+            .updateTable("api_keys")
+            .set({ work_dirs: dirs.length > 0 ? JSON.stringify(dirs) : null })
+            .where("id", "=", id)
+            .execute();
     }
 }
 //# sourceMappingURL=apiKeys.js.map
