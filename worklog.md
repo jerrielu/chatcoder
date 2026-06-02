@@ -1,3 +1,10 @@
+# 2026-05-29
+
+- Debugged `npm install -g github:jerrielu/chatcoder` failure: two root causes.
+  1. Repo is private on GitHub → `codeload.github.com` returns 404 for tarball downloads (npm doesn't send auth to codeload).
+  2. npm's git dependency handler (`pacote`) falls back to git clone after the 404, but the reify step leaves the installed package empty (directory skeleton, no files). This appears to be an npm 10.x bug with private git deps.
+- Workaround: `npm install -g .` from the project directory works correctly. Removed stale `npm link` symlinks that were also causing ENOTDIR rename errors.
+
 # 2026-05-28
 
 - Added workDir support: daemon sends `workDirs` during bot registration; they're stored on the `api_keys` table.
