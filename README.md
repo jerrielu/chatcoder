@@ -10,19 +10,22 @@ for the build history.
 
 ## Install
 
-```bash
-# From GitHub (reliable — uses direct tarball)
-npm install -g https://codeload.github.com/jerrielu/chatcoder/tar.gz/HEAD
-chatcoder --help
+Requires Node 20+ and npm.
 
-# Or from local source
-git clone <this repo> && cd chatcoder
+```bash
+# From local source (most reliable)
+git clone https://github.com/jerrielu/chatcoder.git
+cd chatcoder
 npm install -g .
-chatcoder --help
+
+# Or from the packed tarball
+npm pack --pack-destination /tmp
+npm install -g /tmp/chatcoder-0.1.0.tgz
 ```
 
-> **Note:** `npm install -g github:jerrielu/chatcoder` doesn't work due to an npm 10.x
-> bug in git dependency handling. Use the tarball URL above instead.
+> **Note:** `npm install -g github:jerrielu/chatcoder` does not work due to
+> a bug in npm's git dependency handling (npm 10.x/11.x pacote extracts
+> empty directories). Install from local source or tarball instead.
 
 Or from source:
 

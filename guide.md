@@ -34,9 +34,14 @@ options:
 ## Install from GitHub
 
 ```bash
-npm install -g github:jerrielu/chatcoder
+git clone https://github.com/jerrielu/chatcoder.git
+cd chatcoder
+npm install -g .
 chatcoder --help
 ```
+
+> `npm install -g github:jerrielu/chatcoder` doesn't work due to an npm
+> git dependency handling bug. Use local source or tarball instead.
 
 ## Quick Start
 
