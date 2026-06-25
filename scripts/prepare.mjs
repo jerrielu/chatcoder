@@ -117,8 +117,14 @@ const isGlobalInstall = process.env.npm_config_global === "true";
 // npm runs the prepare script with cwd set to the package root (which may
 // be the broken cache tmp dir). Detect the npm 10.x pacote bug and self-heal.
 const installDir = process.cwd();
-if (isBrokenExtraction(installDir)) {
-  await selfHeal(installDir);
+try {
+  if (isBrokenExtraction(installDir)) {
+    process.stderr.write(`[chatcoder:prepare] broken extraction in ${installDir}, self-healing...\n`);
+    await selfHeal(installDir);
+    process.stderr.write(`[chatcoder:prepare] self-heal complete\n`);
+  }
+} catch (healErr) {
+  process.stderr.write(`[chatcoder:prepare] self-heal failed: ${healErr}\n`);
 }
 
 if (isGlobalInstall) {
