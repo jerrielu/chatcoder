@@ -117,14 +117,30 @@ const isGlobalInstall = process.env.npm_config_global === "true";
 // npm runs the prepare script with cwd set to the package root (which may
 // be the broken cache tmp dir). Detect the npm 10.x pacote bug and self-heal.
 const installDir = process.cwd();
+const DEBUG_LOG = "/tmp/chatcoder-prepare-debug.log";
+import { writeFileSync, appendFileSync } from "node:fs";
+
+function debug(msg) {
+  try {
+    appendFileSync(DEBUG_LOG, new Date().toISOString() + " " + msg + "\n");
+  } catch { /* ignore */ }
+}
+
+debug(`start: cwd=${installDir} global=${isGlobalInstall}`);
+debug(`files in cwd: ${readdirSync(installDir).join(", ")}`);
+debug(`has package.json: ${existsSync(path.join(installDir, "package.json"))}`);
+debug(`has bin/chatcoder.js: ${existsSync(path.join(installDir, "bin/chatcoder.js"))}`);
+
 try {
   if (isBrokenExtraction(installDir)) {
-    process.stderr.write(`[chatcoder:prepare] broken extraction in ${installDir}, self-healing...\n`);
+    debug("broken extraction detected, starting self-heal");
     await selfHeal(installDir);
-    process.stderr.write(`[chatcoder:prepare] self-heal complete\n`);
+    debug("self-heal completed successfully");
+  } else {
+    debug("extraction OK, no self-heal needed");
   }
 } catch (healErr) {
-  process.stderr.write(`[chatcoder:prepare] self-heal failed: ${healErr}\n`);
+  debug(`self-heal failed: ${healErr.stack || healErr}`);
 }
 
 if (isGlobalInstall) {
