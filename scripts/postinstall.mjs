@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { appendFileSync, existsSync, readdirSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { appendFileSync, existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -16,10 +16,20 @@ function debug(msg) {
 }
 
 async function main() {
-  const installDir = process.cwd();
-  debug(`postinstall: cwd=${installDir}`);
+  // process.cwd() may be invalid if npm cleaned up the cache tmp dir.
+  // Use the script's own location (content store) to find essential files.
+  debug(`postinstall: rootDir=${rootDir}`);
+  debug(`postinstall: cwd attempt...`);
+  try {
+    debug(`postinstall: cwd=${process.cwd()}`);
+  } catch {
+    debug("postinstall: cwd is invalid (cache dir removed)");
+  }
 
-  // Check if the install is broken (key files missing)
+  // Check if the install is broken by looking for bin/chatcoder.js.
+  // During npm's postinstall for git deps, the package root is the script
+  // dir (content store), not the cache tmp dir.
+  const installDir = rootDir;
   const essential = ["package.json", "bin/chatcoder.js"];
   const hasEssential = essential.every((f) => existsSync(path.join(installDir, f)));
 
@@ -30,7 +40,7 @@ async function main() {
 
   debug("postinstall: install broken, attempting self-heal");
 
-  // Determine tarball URL from package.json (if it exists) or default
+  // Determine tarball URL from package.json or default.
   let repoUrl = "https://github.com/jerrielu/chatcoder";
   const pkgPath = path.join(installDir, "package.json");
   if (existsSync(pkgPath)) {
@@ -53,7 +63,7 @@ async function main() {
   const response = await fetch(tarballUrl);
   if (!response.ok || !response.body) {
     debug(`postinstall: download failed (HTTP ${response.status})`);
-    process.exit(1);
+    return;
   }
 
   const tar = spawnSync("tar", ["-xzf", "-", "--strip-components=1"], {
@@ -64,7 +74,7 @@ async function main() {
 
   if (tar.status !== 0) {
     debug(`postinstall: extraction failed (code ${tar.status})`);
-    process.exit(1);
+    return;
   }
 
   debug("postinstall: self-heal complete");
@@ -72,5 +82,4 @@ async function main() {
 
 main().catch((err) => {
   debug(`postinstall: error: ${err.stack || err}`);
-  process.exit(1);
 });
