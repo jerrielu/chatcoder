@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { createWriteStream, existsSync, mkdirSync, readdirSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { existsSync, readdirSync, appendFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -33,17 +33,15 @@ function runBuildRuntime() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Self-heal: download tarball when npm 10.x pacote extracts empty dirs     */
+/*  Self-heal: npm 10.x/11.x pacote bug — re-extract tarball                 */
 /* -------------------------------------------------------------------------- */
 
 const ESSENTIAL_FILES = ["package.json", "bin/chatcoder.js"];
 
-/** Check if the install is broken (npm 10.x pacote bug: empty directories). */
 function isBrokenExtraction(dir) {
   try {
     const items = readdirSync(dir);
     if (items.length === 0) return true;
-    // If even the root package.json is missing, extraction is incomplete.
     return !ESSENTIAL_FILES.every((f) => existsSync(path.join(dir, f)));
   } catch {
     return true;
@@ -51,47 +49,32 @@ function isBrokenExtraction(dir) {
 }
 
 async function selfHeal(installDir) {
-  // Try to read package.json for repository info; fall back to default URL.
+  // Determine tarball URL.
   let repoUrl = "https://github.com/jerrielu/chatcoder";
-  const pkgJsonPath = path.join(installDir, "package.json");
-  if (existsSync(pkgJsonPath)) {
+  const pkgPath = path.join(installDir, "package.json");
+  if (existsSync(pkgPath)) {
     try {
-      const pkgJson = JSON.parse(await readFile(pkgJsonPath, "utf8"));
-      const rawRepo =
-        typeof pkgJson.repository === "object"
-          ? pkgJson.repository.url
-          : pkgJson.repository;
-      if (rawRepo) repoUrl = rawRepo;
-    } catch {
-      // Ignore parse errors, use default.
-    }
+      const pkg = JSON.parse(await readFile(pkgPath, "utf8"));
+      const raw = typeof pkg.repository === "object" ? pkg.repository.url : pkg.repository;
+      if (raw) repoUrl = raw;
+    } catch { /* ignore */ }
   }
-  // Convert various git URL formats to codeload tarball URL.
+
   const tarballUrl = repoUrl
     .replace(/^git\+/, "")
     .replace(/\.git$/, "")
     .replace(/^github:/, "https://github.com/")
-    .replace(
-      /^https?:\/\/(?:www\.)?github\.com\//,
-      "https://codeload.github.com/"
-    )
+    .replace(/^https?:\/\/(?:www\.)?github\.com\//, "https://codeload.github.com/")
     .replace(/\/?$/, "/tar.gz/HEAD");
 
-  process.stdout.write(
-    `chatcoder: npm 10.x extraction bug detected, re-extracting from ${tarballUrl}\n`
-  );
+  process.stdout.write(`chatcoder: re-extracting from ${tarballUrl}\n`);
 
-  // Download tarball.
-  const url = new URL(tarballUrl);
-  const response = await fetch(url);
+  const response = await fetch(tarballUrl);
   if (!response.ok || !response.body) {
-    process.stderr.write(
-      `chatcoder: failed to download tarball (HTTP ${response.status})\n`
-    );
-    process.exit(1);
+    process.stderr.write(`chatcoder: download failed (HTTP ${response.status})\n`);
+    return;
   }
 
-  // Extract tarball into the install directory.
   const tar = spawnSync("tar", ["-xzf", "-", "--strip-components=1"], {
     cwd: installDir,
     input: Buffer.from(await response.arrayBuffer()),
@@ -99,13 +82,8 @@ async function selfHeal(installDir) {
   });
 
   if (tar.status !== 0) {
-    process.stderr.write(
-      `chatcoder: tarball extraction failed (code ${tar.status})\n`
-    );
-    process.exit(1);
+    process.stderr.write(`chatcoder: extraction failed (code ${tar.status})\n`);
   }
-
-  process.stdout.write("chatcoder: self-heal complete.\n");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -113,34 +91,13 @@ async function selfHeal(installDir) {
 /* -------------------------------------------------------------------------- */
 
 const isGlobalInstall = process.env.npm_config_global === "true";
-
-// npm runs the prepare script with cwd set to the package root (which may
-// be the broken cache tmp dir). Detect the npm 10.x pacote bug and self-heal.
 const installDir = process.cwd();
-const DEBUG_LOG = "/tmp/chatcoder-prepare-debug.log";
-import { writeFileSync, appendFileSync } from "node:fs";
 
-function debug(msg) {
-  try {
-    appendFileSync(DEBUG_LOG, new Date().toISOString() + " " + msg + "\n");
-  } catch { /* ignore */ }
-}
-
-debug(`start: cwd=${installDir} global=${isGlobalInstall}`);
-debug(`files in cwd: ${readdirSync(installDir).join(", ")}`);
-debug(`has package.json: ${existsSync(path.join(installDir, "package.json"))}`);
-debug(`has bin/chatcoder.js: ${existsSync(path.join(installDir, "bin/chatcoder.js"))}`);
-
-try {
-  if (isBrokenExtraction(installDir)) {
-    debug("broken extraction detected, starting self-heal");
-    await selfHeal(installDir);
-    debug("self-heal completed successfully");
-  } else {
-    debug("extraction OK, no self-heal needed");
-  }
-} catch (healErr) {
-  debug(`self-heal failed: ${healErr.stack || healErr}`);
+// npm 10.x/11.x has a bug where git dep extraction is incomplete during
+// reify. The prepare script triggers full extraction — if it's still broken,
+// download the tarball directly.
+if (isBrokenExtraction(installDir)) {
+  await selfHeal(installDir);
 }
 
 if (isGlobalInstall) {
