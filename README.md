@@ -120,5 +120,6 @@ pm2 logs chatcoder-coder          # tail daemon logs
 pm2 restart chatcoder-coder       # restart daemon
 pm2 stop chatcoder-coder          # stop daemon
 pm2 delete chatcoder-coder        # remove from PM2
+pm2 delete chatcoder-chat chatcoder-coder  # remove all chatcoder processes
 ```
 
