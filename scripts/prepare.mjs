@@ -75,14 +75,33 @@ async function selfHeal(installDir) {
     return;
   }
 
-  const tar = spawnSync("tar", ["-xzf", "-", "--strip-components=1"], {
+  const data = Buffer.from(await response.arrayBuffer());
+
+  // Extract to the cache tmp dir (npm reify will clean this up).
+  const tar1 = spawnSync("tar", ["-xzf", "-", "--strip-components=1"], {
     cwd: installDir,
-    input: Buffer.from(await response.arrayBuffer()),
+    input: data,
     stdio: ["pipe", "inherit", "inherit"]
   });
 
-  if (tar.status !== 0) {
-    process.stderr.write(`chatcoder: extraction failed (code ${tar.status})\n`);
+  if (tar1.status !== 0) {
+    process.stderr.write(`chatcoder: cache extraction failed (code ${tar1.status})\n`);
+  }
+
+  // Also extract to the global install dir so the final install is complete.
+  // npm cleans up the cache after prepare, but the global dir survives.
+  const npmPrefix = process.env.npm_config_prefix;
+  if (npmPrefix) {
+    const globalDir = path.join(npmPrefix, "lib", "node_modules", "chatcoder");
+    process.stdout.write(`chatcoder: also extracting to ${globalDir}\n`);
+    const tar2 = spawnSync("tar", ["-xzf", "-", "--strip-components=1"], {
+      cwd: globalDir,
+      input: data,
+      stdio: ["pipe", "inherit", "inherit"]
+    });
+    if (tar2.status !== 0) {
+      process.stderr.write(`chatcoder: global extraction failed (code ${tar2.status})\n`);
+    }
   }
 }
 
