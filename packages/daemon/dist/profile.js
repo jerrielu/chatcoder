@@ -36,6 +36,11 @@ export const CodexConfig = z.object({
     bypassApprovalsAndSandbox: z.boolean().default(false),
     extraArgs: z.array(z.string()).default([])
 });
+export const ReasonixConfig = z.object({
+    apiKey: z.string().min(1).optional(),
+    model: z.string().optional(),
+    extraArgs: z.array(z.string()).default([])
+});
 const EnvKey = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
 export const CustomConfig = z.object({
     launchBin: z.string().min(1).regex(/^\S+$/, "launchBin must not contain whitespace"),
@@ -60,9 +65,15 @@ export const CustomProfile = z.object({
     tool: z.literal("CUSTOM"),
     custom: CustomConfig
 });
+export const ReasonixProfile = z.object({
+    ...BaseProfile,
+    tool: z.literal("REASONIX"),
+    reasonix: ReasonixConfig
+});
 export const Profile = z.discriminatedUnion("tool", [
     ClaudeCodeProfile,
     OpenAIProfile,
+    ReasonixProfile,
     CustomProfile
 ]);
 export { TOOL_KINDS };

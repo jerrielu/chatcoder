@@ -62,7 +62,7 @@ export const API_KEY_RAND_BYTES = 36;
 export const MIN_API_KEY_LENGTH = 16;
 
 /** Tool kinds supported by a profile. */
-export const TOOL_KINDS = ["CLAUDE_CODE", "OPENAI", "CUSTOM"] as const;
+export const TOOL_KINDS = ["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"] as const;
 export type ToolKind = (typeof TOOL_KINDS)[number];
 
 /** Codex reasoning effort levels supported by the Telegram bot menu. */

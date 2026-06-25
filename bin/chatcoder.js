@@ -10,12 +10,16 @@ const rootDir = path.resolve(path.dirname(scriptPath), "..");
 
 function usage(exitCode = 0) {
   process.stdout.write(
-    "usage: chatcoder <chat|coder|run> [options]\n" +
+    "usage: chatcoder <chat|coder> [options]\n" +
       "\n" +
       "commands:\n" +
       "  chat                 run the Chat API service\n" +
-      "  coder                run the Coder service\n" +
-      "  run                  shorthand for `coder run` (daemon mode)\n" +
+      "  coder                run the Coder service (default: TUI menu)\n" +
+      "\n" +
+      "coder sub-commands:\n" +
+      "  (no args)            TUI interactive menu\n" +
+      "  coder --daemon       daemon mode (connect to bot, poll queue)\n" +
+      "  coder --path         print config file path\n" +
       "\n" +
       "options:\n" +
       "  --systemd            install and start a per-user systemd service for the command\n" +
@@ -154,10 +158,16 @@ function main() {
     usage(0);
   }
 
-  // "chatcoder run" is shorthand for "chatcoder coder run"
-  if (command === "run") {
+  // Internal alias: "chatcoder --daemon" → "chatcoder coder --daemon"
+  if (command === "--daemon") {
     command = "coder";
-    rest = ["run", ...rest];
+    rest = ["--daemon", ...rest];
+  }
+
+  // Internal alias: "chatcoder --path" → "chatcoder coder --path"
+  if (command === "--path") {
+    command = "coder";
+    rest = ["--path", ...rest];
   }
 
   const wantsSystemd = rest.includes("--systemd");
@@ -181,8 +191,6 @@ function main() {
     let daemonArgs;
     if (forwardedArgs.length === 0) {
       daemonArgs = [];
-    } else if (forwardedArgs[0] === "--setup") {
-      daemonArgs = ["setup", ...forwardedArgs.slice(1)];
     } else {
       daemonArgs = forwardedArgs;
     }

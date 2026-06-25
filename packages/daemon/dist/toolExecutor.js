@@ -121,6 +121,26 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
             finalOutputPath
         };
     }
+    if (profile.tool === "REASONIX") {
+        const c = profile.reasonix;
+        if (c.apiKey)
+            env["DEEPSEEK_API_KEY"] = c.apiKey;
+        const args = ["run"];
+        if (resumeLastSession)
+            args.push("-c");
+        if (c.model)
+            args.push("--model", c.model);
+        args.push(...c.extraArgs);
+        args.push(message);
+        return {
+            cmd: "reasonix",
+            args,
+            env,
+            cwd: workDir ?? process.cwd(),
+            stdinText: null,
+            finalOutputPath: null
+        };
+    }
     // CUSTOM
     const c = profile.custom;
     for (const [k, v] of Object.entries(c.env)) {

@@ -172,44 +172,44 @@ export declare const PostResponseBody: z.ZodObject<{
 export type PostResponseBody = z.infer<typeof PostResponseBody>;
 export declare const RegisteredProfile: z.ZodObject<{
     name: z.ZodString;
-    tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+    tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"]>;
     metadata: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     name: string;
-    tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+    tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     metadata?: string | undefined;
 }, {
     name: string;
-    tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+    tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     metadata?: string | undefined;
 }>;
 export type RegisteredProfile = z.infer<typeof RegisteredProfile>;
 export declare const DaemonRegisterBody: z.ZodObject<{
     profiles: z.ZodArray<z.ZodObject<{
         name: z.ZodString;
-        tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+        tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"]>;
         metadata: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata?: string | undefined;
     }, {
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata?: string | undefined;
     }>, "many">;
     workDirs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
     profiles: {
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata?: string | undefined;
     }[];
     workDirs?: string[] | undefined;
 }, {
     profiles: {
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata?: string | undefined;
     }[];
     workDirs?: string[] | undefined;
@@ -220,28 +220,28 @@ export declare const DaemonRegisterResponse: z.ZodObject<{
     profiles: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         name: z.ZodString;
-        tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+        tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"]>;
     }, "strip", z.ZodTypeAny, {
         id: string;
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }, {
         id: string;
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
     profiles: {
         id: string;
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }[];
     apiKeyId: string;
 }, {
     profiles: {
         id: string;
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }[];
     apiKeyId: string;
 }>;
@@ -254,15 +254,15 @@ export declare const HeartbeatBody: z.ZodObject<{
     /** Periodic re-registration of profiles (same shape as DaemonRegisterBody). */
     profiles: z.ZodOptional<z.ZodArray<z.ZodObject<{
         name: z.ZodString;
-        tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+        tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"]>;
         metadata: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata?: string | undefined;
     }, {
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata?: string | undefined;
     }>, "many">>;
     /** Periodic re-registration of work dirs. */
@@ -270,7 +270,7 @@ export declare const HeartbeatBody: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     profiles?: {
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata?: string | undefined;
     }[] | undefined;
     workDirs?: string[] | undefined;
@@ -279,7 +279,7 @@ export declare const HeartbeatBody: z.ZodObject<{
 }, {
     profiles?: {
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata?: string | undefined;
     }[] | undefined;
     workDirs?: string[] | undefined;

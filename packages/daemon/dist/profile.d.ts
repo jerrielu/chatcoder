@@ -51,22 +51,36 @@ export declare const CodexConfig: z.ZodObject<{
     extraArgs: string[];
     fullAuto: boolean;
     bypassApprovalsAndSandbox: boolean;
-    apiKey?: string | undefined;
     baseUrl?: string | undefined;
     model?: string | undefined;
+    apiKey?: string | undefined;
     sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
     approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
 }, {
-    apiKey?: string | undefined;
     baseUrl?: string | undefined;
     model?: string | undefined;
     extraArgs?: string[] | undefined;
+    apiKey?: string | undefined;
     sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
     approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     fullAuto?: boolean | undefined;
     bypassApprovalsAndSandbox?: boolean | undefined;
 }>;
 export type CodexConfig = z.infer<typeof CodexConfig>;
+export declare const ReasonixConfig: z.ZodObject<{
+    apiKey: z.ZodOptional<z.ZodString>;
+    model: z.ZodOptional<z.ZodString>;
+    extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
+}, "strip", z.ZodTypeAny, {
+    extraArgs: string[];
+    model?: string | undefined;
+    apiKey?: string | undefined;
+}, {
+    model?: string | undefined;
+    extraArgs?: string[] | undefined;
+    apiKey?: string | undefined;
+}>;
+export type ReasonixConfig = z.infer<typeof ReasonixConfig>;
 export declare const CustomConfig: z.ZodObject<{
     launchBin: z.ZodString;
     args: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
@@ -176,16 +190,16 @@ export declare const OpenAIProfile: z.ZodObject<{
         extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
-        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
+        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     }, {
-        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
         extraArgs?: string[] | undefined;
+        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
@@ -200,9 +214,9 @@ export declare const OpenAIProfile: z.ZodObject<{
         extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
-        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
+        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     };
@@ -211,10 +225,10 @@ export declare const OpenAIProfile: z.ZodObject<{
     tool: "OPENAI";
     name: string;
     codex: {
-        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
         extraArgs?: string[] | undefined;
+        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
@@ -265,6 +279,43 @@ export declare const CustomProfile: z.ZodObject<{
     metadata?: string | undefined;
 }>;
 export type CustomProfile = z.infer<typeof CustomProfile>;
+export declare const ReasonixProfile: z.ZodObject<{
+    tool: z.ZodLiteral<"REASONIX">;
+    reasonix: z.ZodObject<{
+        apiKey: z.ZodOptional<z.ZodString>;
+        model: z.ZodOptional<z.ZodString>;
+        extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
+    }, "strip", z.ZodTypeAny, {
+        extraArgs: string[];
+        model?: string | undefined;
+        apiKey?: string | undefined;
+    }, {
+        model?: string | undefined;
+        extraArgs?: string[] | undefined;
+        apiKey?: string | undefined;
+    }>;
+    name: z.ZodString;
+    metadata: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    tool: "REASONIX";
+    name: string;
+    reasonix: {
+        extraArgs: string[];
+        model?: string | undefined;
+        apiKey?: string | undefined;
+    };
+    metadata?: string | undefined;
+}, {
+    tool: "REASONIX";
+    name: string;
+    reasonix: {
+        model?: string | undefined;
+        extraArgs?: string[] | undefined;
+        apiKey?: string | undefined;
+    };
+    metadata?: string | undefined;
+}>;
+export type ReasonixProfile = z.infer<typeof ReasonixProfile>;
 export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
     tool: z.ZodLiteral<"CLAUDE_CODE">;
     claudeCode: z.ZodObject<{
@@ -355,16 +406,16 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
         extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
-        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
+        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     }, {
-        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
         extraArgs?: string[] | undefined;
+        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
@@ -379,9 +430,9 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
         extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
-        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
+        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     };
@@ -390,14 +441,49 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
     tool: "OPENAI";
     name: string;
     codex: {
-        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
         extraArgs?: string[] | undefined;
+        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
         bypassApprovalsAndSandbox?: boolean | undefined;
+    };
+    metadata?: string | undefined;
+}>, z.ZodObject<{
+    tool: z.ZodLiteral<"REASONIX">;
+    reasonix: z.ZodObject<{
+        apiKey: z.ZodOptional<z.ZodString>;
+        model: z.ZodOptional<z.ZodString>;
+        extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
+    }, "strip", z.ZodTypeAny, {
+        extraArgs: string[];
+        model?: string | undefined;
+        apiKey?: string | undefined;
+    }, {
+        model?: string | undefined;
+        extraArgs?: string[] | undefined;
+        apiKey?: string | undefined;
+    }>;
+    name: z.ZodString;
+    metadata: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    tool: "REASONIX";
+    name: string;
+    reasonix: {
+        extraArgs: string[];
+        model?: string | undefined;
+        apiKey?: string | undefined;
+    };
+    metadata?: string | undefined;
+}, {
+    tool: "REASONIX";
+    name: string;
+    reasonix: {
+        model?: string | undefined;
+        extraArgs?: string[] | undefined;
+        apiKey?: string | undefined;
     };
     metadata?: string | undefined;
 }>, z.ZodObject<{

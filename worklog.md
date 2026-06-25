@@ -1,3 +1,37 @@
+# 2026-06-24
+
+- Added Reasonix profile type as a new `"REASONIX"` tool kind alongside
+  CLAUDE_CODE, OPENAI, and CUSTOM.
+- Updated `TOOL_KINDS` in shared constants to include `"REASONIX"`.
+- Added `ReasonixConfig` Zod schema (apiKey, model, extraArgs) and
+  `ReasonixProfile` discriminated union member in `profile.ts`.
+- Updated `launcher.ts`: `launchProfile()` sets `DEEPSEEK_API_KEY` env var
+  and launches `reasonix` with extraArgs for interactive (menu) use.
+- Updated `toolExecutor.ts`: `buildLaunch()` sets `DEEPSEEK_API_KEY` and
+  runs `reasonix run {message}` for new sessions or `reasonix run -c {message}`
+  for session resume (daemon mode).
+- Updated `setup.ts`: added `"Reasonix"` to `toolLabel()`, `toolChoiceIndex()`,
+  `pickTool()`, `promptProfileEditor()`, and `promptOneProfilePromptWizard()`;
+  added new `promptReasonix()` function for coder-style setup.
+- Updated `bot/src/bot/menus.ts`: `toolIcon()` returns `🔵` for REASONIX.
+- Updated `bot/src/db/schema.ts`: `ProfilesTable.tool` union includes REASONIX.
+- Updated `orchestrator.ts`: heartbeat cast type includes `"REASONIX"`.
+- Verified: `npm run build` passes; all 308 tests pass.
+
+- Changed `dev:coder` script from `node bin/chatcoder.js run` (daemon) to
+  `node bin/chatcoder.js` (TUI menu). Daemon mode now via `--daemon` flag:
+  `node bin/chatcoder.js --daemon` or `npm run dev:coder run`.
+- Added `--daemon` support to `bin/chatcoder.js` (rewrites to `coder run`)
+  and `packages/daemon/src/main.ts` (normalizeCommand).
+- Removed `run` and `--daemon` as top-level CLI commands. Daemon mode is
+  now `chatcoder coder --daemon` (also works via internal alias for npm:
+  `npm run dev:coder -- --daemon`).
+- Removed `coder --setup` sub-command and its associated code
+  (`promptRunFromSetup` function, `setup` branch in main/main.ts).
+- Renamed `coder config-path` to `coder --path`; added top-level internal alias
+  so `npm run dev:coder --path` works.
+- Replaced `README.md` and `guide.md` with concise command-reference docs.
+
 # 2026-05-29
 
 - Debugged `npm install -g github:jerrielu/chatcoder` failure: two root causes.

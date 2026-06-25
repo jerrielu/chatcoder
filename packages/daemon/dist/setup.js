@@ -25,6 +25,8 @@ export function toolLabel(tool) {
             return "Claude Code";
         case "OPENAI":
             return "OpenAI Codex / OpenAI API";
+        case "REASONIX":
+            return "Reasonix";
         case "CUSTOM":
             return "Custom Tool";
     }
@@ -32,8 +34,10 @@ export function toolLabel(tool) {
 export function toolChoiceIndex(tool) {
     if (tool === "OPENAI")
         return 1;
-    if (tool === "CUSTOM")
+    if (tool === "REASONIX")
         return 2;
+    if (tool === "CUSTOM")
+        return 3;
     return 0;
 }
 function messagePlacementChoiceIndex(placement) {
@@ -324,6 +328,7 @@ async function pickTool(ui, initialTool) {
     const options = [
         { label: "Claude Code", value: "CLAUDE_CODE" },
         { label: "OpenAI Codex / OpenAI API", value: "OPENAI" },
+        { label: "Reasonix", value: "REASONIX" },
         { label: "Custom Tool", value: "CUSTOM" },
         { label: "Back", value: "__BACK__" }
     ];
@@ -455,6 +460,26 @@ async function promptOpenAi(ui, prev) {
         extraArgs: prev?.extraArgs ?? []
     };
 }
+async function promptReasonix(ui, prev) {
+    const editAuth = await askYesNo(ui, "Edit authentication for this profile?", prev?.apiKey === undefined);
+    if (editAuth === null)
+        return null;
+    let apiKey = prev?.apiKey;
+    if (editAuth) {
+        const nextApiKey = await askValidated(ui, "DEEPSEEK_API_KEY: ", prev?.apiKey ?? "", validators.nonEmpty);
+        if (nextApiKey === null)
+            return null;
+        apiKey = nextApiKey;
+    }
+    const model = await askWithDefault(ui, "Model (blank = default): ", prev?.model ?? "");
+    if (model === null)
+        return null;
+    return {
+        apiKey,
+        model: model || undefined,
+        extraArgs: prev?.extraArgs ?? []
+    };
+}
 async function promptCustom(ui, prev) {
     const launchBin = await askValidated(ui, "Launch binary (path or name): ", prev?.launchBin ?? "", (value) => {
         const nonEmpty = validators.nonEmpty(value);
@@ -527,6 +552,18 @@ export async function promptProfileEditor(ui, existing, takenNames) {
             tool: "OPENAI",
             metadata: metadata || undefined,
             codex
+        };
+    }
+    if (tool === "REASONIX") {
+        const prev = existing?.tool === "REASONIX" ? existing.reasonix : undefined;
+        const reasonix = await promptReasonix(ui, prev);
+        if (reasonix === null)
+            return null;
+        return {
+            name,
+            tool: "REASONIX",
+            metadata: metadata || undefined,
+            reasonix
         };
     }
     const prev = existing?.tool === "CUSTOM" ? existing.custom : undefined;
@@ -846,6 +883,7 @@ async function promptOneProfilePromptWizard(io, index, takenNames, existing) {
             choices: [
                 { title: "Claude Code (claude)", value: "CLAUDE_CODE" },
                 { title: "OpenAI Codex (codex)", value: "OPENAI" },
+                { title: "Reasonix (reasonix)", value: "REASONIX" },
                 { title: "Custom binary", value: "CUSTOM" }
             ],
             initial: toolChoiceIndex(existingTool)
@@ -1064,6 +1102,48 @@ async function promptOneProfilePromptWizard(io, index, takenNames, existing) {
                 bypassApprovalsAndSandbox: !!c.bypassApprovalsAndSandbox,
                 sandboxMode: prev?.sandboxMode,
                 approvalMode: prev?.approvalMode,
+                extraArgs: prev?.extraArgs ?? []
+            }
+        };
+    }
+    if (base.tool === "REASONIX") {
+        const prev = existing?.tool === "REASONIX" ? existing.reasonix : undefined;
+        const auth = await io.prompt({
+            type: "toggle",
+            name: "editAuthentication",
+            message: "Edit authentication for this profile?",
+            initial: prev?.apiKey === undefined,
+            active: "yes",
+            inactive: "no"
+        });
+        if (auth.editAuthentication === undefined)
+            return null;
+        let apiKey = prev?.apiKey;
+        if (auth.editAuthentication) {
+            const a = await io.prompt({
+                type: "password",
+                name: "apiKey",
+                message: "DEEPSEEK_API_KEY",
+                initial: prev?.apiKey ?? "",
+                validate: validators.nonEmpty
+            });
+            if (!a.apiKey)
+                return null;
+            apiKey = a.apiKey;
+        }
+        const c = await io.prompt({
+            type: "text",
+            name: "model",
+            message: "Model (blank = default)",
+            initial: prev?.model ?? ""
+        });
+        return {
+            name: base.name,
+            tool: "REASONIX",
+            metadata: base.metadata || undefined,
+            reasonix: {
+                apiKey,
+                model: c.model || undefined,
                 extraArgs: prev?.extraArgs ?? []
             }
         };

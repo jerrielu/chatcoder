@@ -26,21 +26,21 @@ export declare const AdminProfile: z.ZodObject<{
     id: z.ZodString;
     apiKeyId: z.ZodString;
     name: z.ZodString;
-    tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+    tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"]>;
     metadata: z.ZodNullable<z.ZodString>;
     createdAt: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
     id: string;
     createdAt: number;
     name: string;
-    tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+    tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     metadata: string | null;
     apiKeyId: string;
 }, {
     id: string;
     createdAt: number;
     name: string;
-    tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+    tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     metadata: string | null;
     apiKeyId: string;
 }>;
@@ -53,7 +53,7 @@ export declare const AdminSession: z.ZodObject<{
     apiKeyLastHeartbeat: z.ZodNullable<z.ZodNumber>;
     profileId: z.ZodString;
     profileName: z.ZodString;
-    profileTool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+    profileTool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"]>;
     status: z.ZodEnum<["active", "revoked"]>;
     createdAt: z.ZodNumber;
     revokedAt: z.ZodNullable<z.ZodNumber>;
@@ -68,7 +68,7 @@ export declare const AdminSession: z.ZodObject<{
     chatId: number;
     apiKeyLastHeartbeat: number | null;
     profileId: string;
-    profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+    profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
 }, {
     id: string;
     createdAt: number;
@@ -80,7 +80,7 @@ export declare const AdminSession: z.ZodObject<{
     chatId: number;
     apiKeyLastHeartbeat: number | null;
     profileId: string;
-    profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+    profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
 }>;
 export type AdminSession = z.infer<typeof AdminSession>;
 export declare const AdminMessage: z.ZodObject<{
@@ -182,21 +182,21 @@ export declare const ApiKeyDetailResponse: z.ZodObject<{
         id: z.ZodString;
         apiKeyId: z.ZodString;
         name: z.ZodString;
-        tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+        tool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"]>;
         metadata: z.ZodNullable<z.ZodString>;
         createdAt: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
         id: string;
         createdAt: number;
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata: string | null;
         apiKeyId: string;
     }, {
         id: string;
         createdAt: number;
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata: string | null;
         apiKeyId: string;
     }>, "many">;
@@ -208,7 +208,7 @@ export declare const ApiKeyDetailResponse: z.ZodObject<{
         apiKeyLastHeartbeat: z.ZodNullable<z.ZodNumber>;
         profileId: z.ZodString;
         profileName: z.ZodString;
-        profileTool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+        profileTool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"]>;
         status: z.ZodEnum<["active", "revoked"]>;
         createdAt: z.ZodNumber;
         revokedAt: z.ZodNullable<z.ZodNumber>;
@@ -223,7 +223,7 @@ export declare const ApiKeyDetailResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }, {
         id: string;
         createdAt: number;
@@ -235,7 +235,7 @@ export declare const ApiKeyDetailResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
     sessions: {
@@ -249,13 +249,13 @@ export declare const ApiKeyDetailResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }[];
     profiles: {
         id: string;
         createdAt: number;
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata: string | null;
         apiKeyId: string;
     }[];
@@ -279,13 +279,13 @@ export declare const ApiKeyDetailResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }[];
     profiles: {
         id: string;
         createdAt: number;
         name: string;
-        tool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
         metadata: string | null;
         apiKeyId: string;
     }[];
@@ -328,7 +328,7 @@ export declare const ListSessionsResponse: z.ZodObject<{
         apiKeyLastHeartbeat: z.ZodNullable<z.ZodNumber>;
         profileId: z.ZodString;
         profileName: z.ZodString;
-        profileTool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+        profileTool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"]>;
         status: z.ZodEnum<["active", "revoked"]>;
         createdAt: z.ZodNumber;
         revokedAt: z.ZodNullable<z.ZodNumber>;
@@ -343,7 +343,7 @@ export declare const ListSessionsResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }, {
         id: string;
         createdAt: number;
@@ -355,7 +355,7 @@ export declare const ListSessionsResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }>, "many">;
     total: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
@@ -370,7 +370,7 @@ export declare const ListSessionsResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }[];
     total: number;
 }, {
@@ -385,7 +385,7 @@ export declare const ListSessionsResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }[];
     total: number;
 }>;
@@ -399,7 +399,7 @@ export declare const SessionDetailResponse: z.ZodObject<{
         apiKeyLastHeartbeat: z.ZodNullable<z.ZodNumber>;
         profileId: z.ZodString;
         profileName: z.ZodString;
-        profileTool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "CUSTOM"]>;
+        profileTool: z.ZodEnum<["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"]>;
         status: z.ZodEnum<["active", "revoked"]>;
         createdAt: z.ZodNumber;
         revokedAt: z.ZodNullable<z.ZodNumber>;
@@ -414,7 +414,7 @@ export declare const SessionDetailResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }, {
         id: string;
         createdAt: number;
@@ -426,7 +426,7 @@ export declare const SessionDetailResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     }>;
     pending: z.ZodNumber;
     messages: z.ZodArray<z.ZodObject<{
@@ -475,7 +475,7 @@ export declare const SessionDetailResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     };
     pending: number;
 }, {
@@ -499,7 +499,7 @@ export declare const SessionDetailResponse: z.ZodObject<{
         chatId: number;
         apiKeyLastHeartbeat: number | null;
         profileId: string;
-        profileTool: "CLAUDE_CODE" | "OPENAI" | "CUSTOM";
+        profileTool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM";
     };
     pending: number;
 }>;

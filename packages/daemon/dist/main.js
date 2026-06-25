@@ -10,48 +10,9 @@ import { ToolExecutor } from "./toolExecutor.js";
 function normalizeCommand(raw) {
     if (!raw)
         return "menu";
-    if (raw === "--setup")
-        return "setup";
-    if (raw === "--run")
+    if (raw === "--daemon")
         return "run";
     return raw;
-}
-async function promptRunFromSetup() {
-    if (!process.stdin.isTTY || !process.stdout.isTTY) {
-        console.log("[daemon] Setup complete. Run the daemon with: chatcoder coder run");
-        return false;
-    }
-    process.stdout.write("\n[daemon] Press R to run now, or any other key to exit.\n");
-    return new Promise((resolve) => {
-        const stdin = process.stdin;
-        const cleanup = () => {
-            stdin.off("data", onData);
-            try {
-                stdin.setRawMode(false);
-            }
-            catch {
-                // noop
-            }
-            stdin.pause();
-        };
-        const onData = (chunk) => {
-            cleanup();
-            const key = chunk.toString("utf8");
-            if (key === "\u0003") {
-                process.stdout.write("\n");
-                process.exit(130);
-            }
-            resolve(key.toLowerCase() === "r");
-        };
-        stdin.resume();
-        try {
-            stdin.setRawMode(true);
-        }
-        catch {
-            // noop
-        }
-        stdin.on("data", onData);
-    });
 }
 async function runDaemon() {
     if (!fs.existsSync(defaultConfigPath())) {
@@ -109,23 +70,11 @@ async function runDaemon() {
 }
 async function main() {
     const cmd = normalizeCommand(process.argv[2]);
-    if (cmd === "setup") {
-        const existing = fs.existsSync(defaultConfigPath()) ? loadConfig() : undefined;
-        const path = await runSetup(existing);
-        if (!path)
-            process.exit(1);
-        const runNow = await promptRunFromSetup();
-        if (runNow) {
-            console.log("");
-            await runDaemon();
-        }
-        return;
-    }
     if (cmd === "run") {
         await runDaemon();
         return;
     }
-    if (cmd === "config-path") {
+    if (cmd === "--path") {
         process.stdout.write(defaultConfigPath() + "\n");
         return;
     }
@@ -133,7 +82,7 @@ async function main() {
         await showMainMenu();
         return;
     }
-    process.stderr.write("usage: chatcoder coder [setup|run|config-path]\n");
+    process.stderr.write("usage: chatcoder coder [--daemon|--path]\n");
     process.stderr.write("       default command: menu\n");
     process.exit(2);
 }

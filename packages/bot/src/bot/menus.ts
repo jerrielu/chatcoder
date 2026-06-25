@@ -91,6 +91,8 @@ export function toolIcon(tool: ProfileRecord["tool"]): string {
       return "🟣";
     case "OPENAI":
       return "🟢";
+    case "REASONIX":
+      return "🔵";
     case "CUSTOM":
       return "🔧";
   }

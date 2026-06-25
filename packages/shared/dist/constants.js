@@ -41,7 +41,7 @@ export const API_KEY_RAND_BYTES = 36;
 /** Minimum length for a user-supplied API key. */
 export const MIN_API_KEY_LENGTH = 16;
 /** Tool kinds supported by a profile. */
-export const TOOL_KINDS = ["CLAUDE_CODE", "OPENAI", "CUSTOM"];
+export const TOOL_KINDS = ["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"];
 /** Codex reasoning effort levels supported by the Telegram bot menu. */
 export const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"];
 /** Codex slash command used to request token totals. */

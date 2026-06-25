@@ -87,7 +87,7 @@ export class Orchestrator {
       const profiles = now - this.lastReRegisterAt >= this.deps.config.reRegisterIntervalMs
         ? this.deps.config.profiles.map((p) => ({
             name: p.name,
-            tool: p.tool as "CLAUDE_CODE" | "OPENAI" | "CUSTOM",
+            tool: p.tool as "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM",
             ...(p.metadata !== undefined ? { metadata: p.metadata } : {})
           }))
         : undefined;

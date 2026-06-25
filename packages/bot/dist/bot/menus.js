@@ -75,6 +75,8 @@ export function toolIcon(tool) {
             return "🟣";
         case "OPENAI":
             return "🟢";
+        case "REASONIX":
+            return "🔵";
         case "CUSTOM":
             return "🔧";
     }
