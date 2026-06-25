@@ -11,9 +11,18 @@ for the build history.
 ## Install
 
 ```bash
-npm install -g github:jerrielu/chatcoder
+# From GitHub (reliable — uses direct tarball)
+npm install -g https://codeload.github.com/jerrielu/chatcoder/tar.gz/HEAD
+chatcoder --help
+
+# Or from local source
+git clone <this repo> && cd chatcoder
+npm install -g .
 chatcoder --help
 ```
+
+> **Note:** `npm install -g github:jerrielu/chatcoder` doesn't work due to an npm 10.x
+> bug in git dependency handling. Use the tarball URL above instead.
 
 Or from source:
 
@@ -80,10 +89,33 @@ Environment variables for the bot:
 | Env var              | Default                 | Purpose                |
 |----------------------|-------------------------|------------------------|
 | `TELEGRAM_BOT_TOKEN` | (required)              | BotFather token        |
-| `DATABASE_URL`       | `sqlite:./chatcoder.db` | Database connection    |
+| `DATABASE_URL`       | `sqlite:~/.chatcoder/chatcoder.db` | Database connection    |
 | `BOT_LISTEN_HOST`    | `0.0.0.0`               | API bind host          |
 | `BOT_LISTEN_PORT`    | `8080`                  | API bind port          |
 
 > If you see a `better_sqlite3` native module error after switching Node
 > versions, run `npm rebuild better-sqlite3`.
+
+---
+
+## PM2 (Production)
+
+Run both services under PM2 for automatic restarts and logging:
+
+```bash
+npm install -g pm2
+pm2 start "$(which chatcoder)" --name chatcoder-chat -- chat
+pm2 start "$(which chatcoder)" --name chatcoder-coder -- coder --daemon
+pm2 save
+pm2 startup   # persist across reboots
+```
+
+Useful commands:
+
+```bash
+pm2 logs chatcoder-coder          # tail daemon logs
+pm2 restart chatcoder-coder       # restart daemon
+pm2 stop chatcoder-coder          # stop daemon
+pm2 delete chatcoder-coder        # remove from PM2
+```
 
