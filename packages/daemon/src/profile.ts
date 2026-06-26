@@ -44,7 +44,6 @@ export const CodexConfig = z.object({
 export type CodexConfig = z.infer<typeof CodexConfig>;
 
 export const ReasonixConfig = z.object({
-  apiKey: z.string().min(1).optional(),
   model: z.string().optional(),
   extraArgs: z.array(z.string()).default([])
 });

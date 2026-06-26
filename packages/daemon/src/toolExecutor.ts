@@ -146,7 +146,6 @@ export function buildLaunch(
 
   if (profile.tool === "REASONIX") {
     const c = profile.reasonix;
-    if (c.apiKey) env["DEEPSEEK_API_KEY"] = c.apiKey;
     const args: string[] = ["run"];
     if (resumeLastSession) args.push("-c");
     if (c.model) args.push("--model", c.model);

@@ -595,30 +595,10 @@ async function promptOpenAi(ui: CoderUi, prev?: OpenAiCfg): Promise<OpenAiCfg | 
 }
 
 async function promptReasonix(ui: CoderUi, prev?: ReasonixCfg): Promise<ReasonixCfg | null> {
-  const editAuth = await askYesNo(
-    ui,
-    "Edit authentication for this profile?",
-    prev?.apiKey === undefined
-  );
-  if (editAuth === null) return null;
-
-  let apiKey = prev?.apiKey;
-  if (editAuth) {
-    const nextApiKey = await askValidated(
-      ui,
-      "DEEPSEEK_API_KEY: ",
-      prev?.apiKey ?? "",
-      validators.nonEmpty
-    );
-    if (nextApiKey === null) return null;
-    apiKey = nextApiKey;
-  }
-
   const model = await askWithDefault(ui, "Model (blank = default): ", prev?.model ?? "");
   if (model === null) return null;
 
   return {
-    apiKey,
     model: model || undefined,
     extraArgs: prev?.extraArgs ?? []
   };
@@ -1310,27 +1290,6 @@ async function promptOneProfilePromptWizard(
 
   if (base.tool === "REASONIX") {
     const prev = existing?.tool === "REASONIX" ? existing.reasonix : undefined;
-    const auth = await io.prompt({
-      type: "toggle",
-      name: "editAuthentication",
-      message: "Edit authentication for this profile?",
-      initial: prev?.apiKey === undefined,
-      active: "yes",
-      inactive: "no"
-    });
-    if (auth.editAuthentication === undefined) return null;
-    let apiKey = prev?.apiKey;
-    if (auth.editAuthentication) {
-      const a = await io.prompt({
-        type: "password",
-        name: "apiKey",
-        message: "DEEPSEEK_API_KEY",
-        initial: prev?.apiKey ?? "",
-        validate: validators.nonEmpty
-      });
-      if (!a.apiKey) return null;
-      apiKey = a.apiKey;
-    }
     const c = await io.prompt({
       type: "text",
       name: "model",
@@ -1342,7 +1301,6 @@ async function promptOneProfilePromptWizard(
       tool: "REASONIX",
       metadata: base.metadata || undefined,
       reasonix: {
-        apiKey,
         model: c.model || undefined,
         extraArgs: prev?.extraArgs ?? []
       }

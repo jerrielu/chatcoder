@@ -1,3 +1,18 @@
+# 2026-06-26
+
+- Removed `apiKey` from `ReasonixConfig` schema — Reasonix profiles no longer
+  store or set `DEEPSEEK_API_KEY` as an environment variable.
+- Updated `launcher.ts` and `dist/launcher.js`: removed `DEEPSEEK_API_KEY` env
+  var; now passes `--model` flag when a model is configured (was missing for
+  interactive launch).
+- Updated `toolExecutor.ts` and `dist/toolExecutor.js`: removed `DEEPSEEK_API_KEY`
+  env var (already passed `--model`).
+- Updated `setup.ts` and `dist/setup.js`: removed apiKey/auth prompts from both
+  the coder-style `promptReasonix()` and the prompt-wizard Reasonix section;
+  now only prompts for model name.
+- Verified: `tsc --noEmit` passes; no `DEEPSEEK_API_KEY` references remain in
+  Reasonix-related code.
+
 # 2026-06-24
 
 - Added Reasonix profile type as a new `"REASONIX"` tool kind alongside

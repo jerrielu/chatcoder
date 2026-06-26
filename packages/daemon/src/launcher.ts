@@ -57,8 +57,9 @@ export async function launchProfile(profile: Profile, cwd?: string): Promise<num
     cmd = "codex";
   } else if (profile.tool === "REASONIX") {
     const c = profile.reasonix;
-    if (c.apiKey) env["DEEPSEEK_API_KEY"] = c.apiKey;
-    args = [...c.extraArgs];
+    args = [];
+    if (c.model) args.push("--model", c.model);
+    args.push(...c.extraArgs);
     cmd = "reasonix";
   } else {
     const c = profile.custom;

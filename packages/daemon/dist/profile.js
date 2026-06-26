@@ -37,7 +37,6 @@ export const CodexConfig = z.object({
     extraArgs: z.array(z.string()).default([])
 });
 export const ReasonixConfig = z.object({
-    apiKey: z.string().min(1).optional(),
     model: z.string().optional(),
     extraArgs: z.array(z.string()).default([])
 });

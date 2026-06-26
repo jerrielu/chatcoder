@@ -123,8 +123,6 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
     }
     if (profile.tool === "REASONIX") {
         const c = profile.reasonix;
-        if (c.apiKey)
-            env["DEEPSEEK_API_KEY"] = c.apiKey;
         const args = ["run"];
         if (resumeLastSession)
             args.push("-c");
