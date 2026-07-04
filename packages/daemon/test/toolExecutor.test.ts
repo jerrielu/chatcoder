@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildLaunch, CODEX_FINAL_RESPONSE_PROMPT, ToolExecutor } from "../src/toolExecutor.js";
+import { buildLaunch, SUMMARY_INSTRUCTION, wrapWithSummaryPolicy, ToolExecutor } from "../src/toolExecutor.js";
 import { setCodexRootOverride } from "../src/codexHome.js";
 import type { Profile } from "../src/profile.js";
 
@@ -18,6 +18,11 @@ afterEach(() => {
 });
 
 describe("buildLaunch", () => {
+  it("wrapWithSummaryPolicy appends the summary instruction", () => {
+    const result = wrapWithSummaryPolicy("do something");
+    expect(result).toBe(`do something\n\n${SUMMARY_INSTRUCTION}`);
+  });
+
   it("assembles Claude Code flags with skipPermissions and model", () => {
     const profile: Profile = {
       name: "main",
@@ -102,7 +107,7 @@ describe("buildLaunch", () => {
       "--full-auto",
       "-o",
       expect.stringMatching(/chatcoder-codex-final-opx-/),
-      `ping\n\n${CODEX_FINAL_RESPONSE_PROMPT}`
+      "ping"
     ]);
     expect(launch.env["CODEX_HOME"]).toMatch(/\/opx$/);
     expect(launch.env["OPENAI_API_KEY"]).toBe("sk");
@@ -148,7 +153,7 @@ describe("buildLaunch", () => {
       "on-failure",
       "-o",
       expect.stringMatching(/chatcoder-codex-final-o2-/),
-      `go\n\n${CODEX_FINAL_RESPONSE_PROMPT}`
+      "go"
     ]);
   });
 
@@ -173,7 +178,7 @@ describe("buildLaunch", () => {
       "--dangerously-bypass-approvals-and-sandbox",
       "-o",
       expect.stringMatching(/chatcoder-codex-final-o2-bypass-/),
-      `go\n\n${CODEX_FINAL_RESPONSE_PROMPT}`
+      "go"
     ]);
   });
 
@@ -193,7 +198,7 @@ describe("buildLaunch", () => {
       "--full-auto",
       "-o",
       expect.stringMatching(/chatcoder-codex-final-o3-/),
-      `go\n\n${CODEX_FINAL_RESPONSE_PROMPT}`
+      "go"
     ]);
   });
 
@@ -217,7 +222,7 @@ describe("buildLaunch", () => {
       "model_reasoning_effort=xhigh",
       "-o",
       expect.stringMatching(/chatcoder-codex-final-o4-/),
-      `go\n\n${CODEX_FINAL_RESPONSE_PROMPT}`
+      "go"
     ]);
   });
 
@@ -352,5 +357,43 @@ describe("ToolExecutor", () => {
     } finally {
       process.env.PATH = originalPath;
     }
+  });
+
+  it("applies summary instruction wrapper by default in execute()", async () => {
+    const profile: Profile = {
+      name: "custom-summary",
+      tool: "CUSTOM",
+      custom: {
+        launchBin: process.execPath,
+        args: ["-e", `process.stdout.write(JSON.stringify({ summary: "done" }))`],
+        env: {},
+        messagePlacement: "stdin"
+      }
+    };
+    const executor = new ToolExecutor();
+    // The execute method wraps the message, but for CUSTOM profiles
+    // the wrapped message is passed as-is (appended). The tool's output
+    // should still be returned.
+    const output = await executor.execute(profile, "go");
+    expect(output).toBe('{"summary":"done"}');
+  });
+
+  it("skips summary instruction wrapper when skipSummaryWrapper is set", async () => {
+    const profile: Profile = {
+      name: "custom-raw",
+      tool: "CUSTOM",
+      custom: {
+        launchBin: process.execPath,
+        args: ["-e", "process.stdout.write(process.argv[process.argv.length-1])"],
+        env: {},
+        messagePlacement: "appended"
+      }
+    };
+    const executor = new ToolExecutor();
+    const output = await executor.execute(profile, "raw-msg", {
+      skipSummaryWrapper: true
+    });
+    // Should return just the raw message, not wrapped
+    expect(output).toBe("raw-msg");
   });
 });

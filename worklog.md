@@ -1,3 +1,13 @@
+# 2026-06-27
+
+- Added generic response-summary wrapper: replaced tool-specific `CODEX_FINAL_RESPONSE_PROMPT` with a unified JSON-summary instruction (`SUMMARY_INSTRUCTION` + `wrapWithSummaryPolicy()`) applied in `ToolExecutor.execute()` for all tool types (CLAUDE_CODE, OPENAI, REASONIX, CUSTOM).
+- Added `skipSummaryWrapper` option to `ExecuteOptions` for retry calls.
+- Created `packages/daemon/src/summary.ts` with `extractSummaryFromJSON()` (handles markdown fences, trailing text) and `extractLastBlock()` fallback.
+- Updated `ProfileRunner.executeWithOutputUpdates()` to extract JSON summary from tool output, retry up to 3 times on failure, and fall back to last block.
+- Installed `telegram-markdown-v2` in daemon package; wired `convert()` to format summaries as Telegram MarkdownV2.
+- Updated bot `sendResponse` in `main.ts` to use `parse_mode: "MarkdownV2"`.
+- Updated tests: toolExecutor, profileRunner, orchestrator, system, and new summary.test.ts. 323 tests pass, typecheck clean.
+
 # 2026-06-26
 
 - Removed `apiKey` from `ReasonixConfig` schema — Reasonix profiles no longer

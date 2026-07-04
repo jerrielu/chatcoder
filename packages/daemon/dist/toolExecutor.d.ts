@@ -10,6 +10,8 @@ export interface ExecuteOptions {
     codexReasoningEffort?: CodexReasoningEffort;
     /** Working directory for the spawned process. */
     workDir?: string;
+    /** Skip the summary instruction wrapper (used for retry summarization calls). */
+    skipSummaryWrapper?: boolean;
 }
 export interface ToolExecutorOptions {
     log?: (msg: string, extra?: unknown) => void;
@@ -22,7 +24,8 @@ interface Launch {
     stdinText: string | null;
     finalOutputPath: string | null;
 }
-export declare const CODEX_FINAL_RESPONSE_PROMPT = "Final response: reply only in English; be concise; summarize only what was done and any important verification result; do not include raw logs, command output, stack traces, or verbose build/test output.";
+export declare const SUMMARY_INSTRUCTION = "When you finish, output your final response as a JSON object with exactly one key: \"summary\". The value must be a concise summary of what was done and key results. Do not include any other text outside the JSON object.";
+export declare function wrapWithSummaryPolicy(message: string): string;
 export declare function buildLaunch(profile: Profile, message: string, resumeLastSession?: boolean, codexReasoningEffort?: CodexReasoningEffort, workDir?: string): Launch;
 /**
  * Executes a profile with an instruction. Streams stdout+stderr (ANSI-stripped

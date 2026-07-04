@@ -32,7 +32,7 @@ describe("ProfileRunner", () => {
         order.push(`start:${message}`);
         await new Promise((r) => setTimeout(r, 10));
         order.push(`end:${message}`);
-        return `done-${message}`;
+        return JSON.stringify({ summary: `result for ${message}` });
       }
     };
     const posted: Array<{ sessionId: string; content: string }> = [];
@@ -50,7 +50,7 @@ describe("ProfileRunner", () => {
 
     expect(order.indexOf("end:a")).toBeLessThan(order.indexOf("start:b"));
     expect(order.indexOf("end:b")).toBeLessThan(order.indexOf("start:c"));
-    expect(posted.map((p) => p.content)).toEqual(["done-a", "done-b", "done-c"]);
+    expect(posted.map((p) => p.content)).toEqual(["result for a", "result for b", "result for c"]);
   });
 
   it("runs only the latest interrupt task when pending tasks are superseded before execution starts", async () => {
@@ -60,7 +60,7 @@ describe("ProfileRunner", () => {
     const tool = {
       execute: async (_profile: Profile, message: string) => {
         calls.push(message);
-        return `done-${message}`;
+        return JSON.stringify({ summary: `done ${message}` });
       }
     };
     const posted: string[] = [];
@@ -88,7 +88,7 @@ describe("ProfileRunner", () => {
     await runner.whenIdle();
 
     expect(calls).toEqual(["c"]);
-    expect(posted).toEqual(["done-c"]);
+    expect(posted).toEqual(["done c"]);
   });
 
   it("aborts active execution when an interrupt task arrives", async () => {
@@ -104,9 +104,9 @@ describe("ProfileRunner", () => {
           await new Promise<void>((resolve) => {
             opts.signal?.addEventListener("abort", resolve, { once: true });
           });
-          return "should-not-post";
+          return JSON.stringify({ summary: "aborted result" });
         }
-        return `done-${message}`;
+        return JSON.stringify({ summary: `done ${message}` });
       }
     };
     const posted: string[] = [];
@@ -124,7 +124,7 @@ describe("ProfileRunner", () => {
     await runner.whenIdle();
 
     expect(calls).toEqual(["first", "second"]);
-    expect(posted).toEqual(["done-second"]);
+    expect(posted).toEqual(["done second"]);
   });
 
   it("posts an Error-prefixed response when the tool rejects", async () => {
@@ -150,7 +150,7 @@ describe("ProfileRunner", () => {
   it("chunks large outputs at responseChunkMaxChars", async () => {
     const big = "x".repeat(50);
     const tool = {
-      execute: async () => big
+      execute: async () => JSON.stringify({ summary: big })
     };
     const posted: Array<{ sessionId: string; content: string }> = [];
     const runner = new ProfileRunner({
@@ -174,7 +174,7 @@ describe("ProfileRunner", () => {
       execute: async (_profile: Profile, _message: string, opts: { onOutput?: (chunk: string) => void }) => {
         opts.onOutput?.("working");
         await new Promise((r) => setTimeout(r, 10));
-        return "done";
+        return JSON.stringify({ summary: "done" });
       }
     };
     const posted: Array<{ sessionId: string; content: string; final?: boolean }> = [];
@@ -204,7 +204,7 @@ describe("ProfileRunner", () => {
       execute: async (_profile: Profile, _message: string, opts: { onOutput?: (chunk: string) => void }) => {
         opts.onOutput?.(words.join(" "));
         await new Promise((r) => setTimeout(r, 10));
-        return "done";
+        return JSON.stringify({ summary: "done" });
       }
     };
     const posted: Array<{ content: string; final?: boolean }> = [];
@@ -232,7 +232,7 @@ describe("ProfileRunner", () => {
 
   it("does not crash or block the queue when posting a response fails", async () => {
     const tool = {
-      execute: async (_profile: Profile, message: string) => `done-${message}`
+      execute: async (_profile: Profile, message: string) => JSON.stringify({ summary: `done ${message}` })
     };
     const posted: string[] = [];
     const logs: Array<{ msg: string; extra?: unknown }> = [];
@@ -253,7 +253,7 @@ describe("ProfileRunner", () => {
     runner.enqueue({ sessionId: "s1", messageId: "m2", content: "second" });
     await runner.whenIdle();
 
-    expect(posted).toEqual(["done-second"]);
+    expect(posted).toEqual(["done second"]);
     expect(logs.some((entry) => entry.msg === "response post failed")).toBe(true);
   });
 
@@ -263,7 +263,7 @@ describe("ProfileRunner", () => {
       execute: async (_profile: Profile, _message: string, opts: { onOutput?: (chunk: string) => void }) => {
         opts.onOutput?.("working");
         await new Promise((r) => setTimeout(r, 10));
-        return "done";
+        return JSON.stringify({ summary: "done" });
       }
     };
     const posted: string[] = [];

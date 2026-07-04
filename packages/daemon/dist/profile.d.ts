@@ -13,10 +13,10 @@ export declare const ClaudeCodeConfig: z.ZodObject<{
     outputFormat: z.ZodDefault<z.ZodEnum<["text", "stream-json"]>>;
     extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
+    extraArgs: string[];
     disableNonessentialTraffic: boolean;
     skipPermissions: boolean;
     outputFormat: "text" | "stream-json";
-    extraArgs: string[];
     baseUrl?: string | undefined;
     model?: string | undefined;
     authToken?: string | undefined;
@@ -27,6 +27,7 @@ export declare const ClaudeCodeConfig: z.ZodObject<{
 }, {
     baseUrl?: string | undefined;
     model?: string | undefined;
+    extraArgs?: string[] | undefined;
     authToken?: string | undefined;
     defaultOpusModel?: string | undefined;
     defaultSonnetModel?: string | undefined;
@@ -35,7 +36,6 @@ export declare const ClaudeCodeConfig: z.ZodObject<{
     effortLevel?: string | undefined;
     skipPermissions?: boolean | undefined;
     outputFormat?: "text" | "stream-json" | undefined;
-    extraArgs?: string[] | undefined;
 }>;
 export type ClaudeCodeConfig = z.infer<typeof ClaudeCodeConfig>;
 export declare const CodexConfig: z.ZodObject<{
@@ -48,37 +48,34 @@ export declare const CodexConfig: z.ZodObject<{
     bypassApprovalsAndSandbox: z.ZodDefault<z.ZodBoolean>;
     extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
-    extraArgs: string[];
     fullAuto: boolean;
     bypassApprovalsAndSandbox: boolean;
+    extraArgs: string[];
+    apiKey?: string | undefined;
     baseUrl?: string | undefined;
     model?: string | undefined;
-    apiKey?: string | undefined;
     sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
     approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
 }, {
+    apiKey?: string | undefined;
     baseUrl?: string | undefined;
     model?: string | undefined;
-    extraArgs?: string[] | undefined;
-    apiKey?: string | undefined;
     sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
     approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     fullAuto?: boolean | undefined;
     bypassApprovalsAndSandbox?: boolean | undefined;
+    extraArgs?: string[] | undefined;
 }>;
 export type CodexConfig = z.infer<typeof CodexConfig>;
 export declare const ReasonixConfig: z.ZodObject<{
-    apiKey: z.ZodOptional<z.ZodString>;
     model: z.ZodOptional<z.ZodString>;
     extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
     extraArgs: string[];
     model?: string | undefined;
-    apiKey?: string | undefined;
 }, {
     model?: string | undefined;
     extraArgs?: string[] | undefined;
-    apiKey?: string | undefined;
 }>;
 export type ReasonixConfig = z.infer<typeof ReasonixConfig>;
 export declare const CustomConfig: z.ZodObject<{
@@ -113,10 +110,10 @@ export declare const ClaudeCodeProfile: z.ZodObject<{
         outputFormat: z.ZodDefault<z.ZodEnum<["text", "stream-json"]>>;
         extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
+        extraArgs: string[];
         disableNonessentialTraffic: boolean;
         skipPermissions: boolean;
         outputFormat: "text" | "stream-json";
-        extraArgs: string[];
         baseUrl?: string | undefined;
         model?: string | undefined;
         authToken?: string | undefined;
@@ -127,6 +124,7 @@ export declare const ClaudeCodeProfile: z.ZodObject<{
     }, {
         baseUrl?: string | undefined;
         model?: string | undefined;
+        extraArgs?: string[] | undefined;
         authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
@@ -135,17 +133,16 @@ export declare const ClaudeCodeProfile: z.ZodObject<{
         effortLevel?: string | undefined;
         skipPermissions?: boolean | undefined;
         outputFormat?: "text" | "stream-json" | undefined;
-        extraArgs?: string[] | undefined;
     }>;
     name: z.ZodString;
     metadata: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     tool: "CLAUDE_CODE";
     claudeCode: {
+        extraArgs: string[];
         disableNonessentialTraffic: boolean;
         skipPermissions: boolean;
         outputFormat: "text" | "stream-json";
-        extraArgs: string[];
         baseUrl?: string | undefined;
         model?: string | undefined;
         authToken?: string | undefined;
@@ -161,6 +158,7 @@ export declare const ClaudeCodeProfile: z.ZodObject<{
     claudeCode: {
         baseUrl?: string | undefined;
         model?: string | undefined;
+        extraArgs?: string[] | undefined;
         authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
@@ -169,7 +167,6 @@ export declare const ClaudeCodeProfile: z.ZodObject<{
         effortLevel?: string | undefined;
         skipPermissions?: boolean | undefined;
         outputFormat?: "text" | "stream-json" | undefined;
-        extraArgs?: string[] | undefined;
     };
     name: string;
     metadata?: string | undefined;
@@ -187,23 +184,23 @@ export declare const OpenAIProfile: z.ZodObject<{
         bypassApprovalsAndSandbox: z.ZodDefault<z.ZodBoolean>;
         extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
-        extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
+        extraArgs: string[];
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     }, {
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
         bypassApprovalsAndSandbox?: boolean | undefined;
+        extraArgs?: string[] | undefined;
     }>;
     name: z.ZodString;
     metadata: z.ZodOptional<z.ZodString>;
@@ -211,12 +208,12 @@ export declare const OpenAIProfile: z.ZodObject<{
     tool: "OPENAI";
     name: string;
     codex: {
-        extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
+        extraArgs: string[];
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     };
@@ -225,14 +222,14 @@ export declare const OpenAIProfile: z.ZodObject<{
     tool: "OPENAI";
     name: string;
     codex: {
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
         bypassApprovalsAndSandbox?: boolean | undefined;
+        extraArgs?: string[] | undefined;
     };
     metadata?: string | undefined;
 }>;
@@ -282,17 +279,14 @@ export type CustomProfile = z.infer<typeof CustomProfile>;
 export declare const ReasonixProfile: z.ZodObject<{
     tool: z.ZodLiteral<"REASONIX">;
     reasonix: z.ZodObject<{
-        apiKey: z.ZodOptional<z.ZodString>;
         model: z.ZodOptional<z.ZodString>;
         extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
         extraArgs: string[];
         model?: string | undefined;
-        apiKey?: string | undefined;
     }, {
         model?: string | undefined;
         extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
     }>;
     name: z.ZodString;
     metadata: z.ZodOptional<z.ZodString>;
@@ -302,7 +296,6 @@ export declare const ReasonixProfile: z.ZodObject<{
     reasonix: {
         extraArgs: string[];
         model?: string | undefined;
-        apiKey?: string | undefined;
     };
     metadata?: string | undefined;
 }, {
@@ -311,7 +304,6 @@ export declare const ReasonixProfile: z.ZodObject<{
     reasonix: {
         model?: string | undefined;
         extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
     };
     metadata?: string | undefined;
 }>;
@@ -331,10 +323,10 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
         outputFormat: z.ZodDefault<z.ZodEnum<["text", "stream-json"]>>;
         extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
+        extraArgs: string[];
         disableNonessentialTraffic: boolean;
         skipPermissions: boolean;
         outputFormat: "text" | "stream-json";
-        extraArgs: string[];
         baseUrl?: string | undefined;
         model?: string | undefined;
         authToken?: string | undefined;
@@ -345,6 +337,7 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
     }, {
         baseUrl?: string | undefined;
         model?: string | undefined;
+        extraArgs?: string[] | undefined;
         authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
@@ -353,17 +346,16 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
         effortLevel?: string | undefined;
         skipPermissions?: boolean | undefined;
         outputFormat?: "text" | "stream-json" | undefined;
-        extraArgs?: string[] | undefined;
     }>;
     name: z.ZodString;
     metadata: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     tool: "CLAUDE_CODE";
     claudeCode: {
+        extraArgs: string[];
         disableNonessentialTraffic: boolean;
         skipPermissions: boolean;
         outputFormat: "text" | "stream-json";
-        extraArgs: string[];
         baseUrl?: string | undefined;
         model?: string | undefined;
         authToken?: string | undefined;
@@ -379,6 +371,7 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
     claudeCode: {
         baseUrl?: string | undefined;
         model?: string | undefined;
+        extraArgs?: string[] | undefined;
         authToken?: string | undefined;
         defaultOpusModel?: string | undefined;
         defaultSonnetModel?: string | undefined;
@@ -387,7 +380,6 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
         effortLevel?: string | undefined;
         skipPermissions?: boolean | undefined;
         outputFormat?: "text" | "stream-json" | undefined;
-        extraArgs?: string[] | undefined;
     };
     name: string;
     metadata?: string | undefined;
@@ -403,23 +395,23 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
         bypassApprovalsAndSandbox: z.ZodDefault<z.ZodBoolean>;
         extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
-        extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
+        extraArgs: string[];
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     }, {
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
         bypassApprovalsAndSandbox?: boolean | undefined;
+        extraArgs?: string[] | undefined;
     }>;
     name: z.ZodString;
     metadata: z.ZodOptional<z.ZodString>;
@@ -427,12 +419,12 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
     tool: "OPENAI";
     name: string;
     codex: {
-        extraArgs: string[];
         fullAuto: boolean;
         bypassApprovalsAndSandbox: boolean;
+        extraArgs: string[];
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
     };
@@ -441,30 +433,27 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
     tool: "OPENAI";
     name: string;
     codex: {
+        apiKey?: string | undefined;
         baseUrl?: string | undefined;
         model?: string | undefined;
-        extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
         sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
         approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         fullAuto?: boolean | undefined;
         bypassApprovalsAndSandbox?: boolean | undefined;
+        extraArgs?: string[] | undefined;
     };
     metadata?: string | undefined;
 }>, z.ZodObject<{
     tool: z.ZodLiteral<"REASONIX">;
     reasonix: z.ZodObject<{
-        apiKey: z.ZodOptional<z.ZodString>;
         model: z.ZodOptional<z.ZodString>;
         extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
         extraArgs: string[];
         model?: string | undefined;
-        apiKey?: string | undefined;
     }, {
         model?: string | undefined;
         extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
     }>;
     name: z.ZodString;
     metadata: z.ZodOptional<z.ZodString>;
@@ -474,7 +463,6 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
     reasonix: {
         extraArgs: string[];
         model?: string | undefined;
-        apiKey?: string | undefined;
     };
     metadata?: string | undefined;
 }, {
@@ -483,7 +471,6 @@ export declare const Profile: z.ZodDiscriminatedUnion<"tool", [z.ZodObject<{
     reasonix: {
         model?: string | undefined;
         extraArgs?: string[] | undefined;
-        apiKey?: string | undefined;
     };
     metadata?: string | undefined;
 }>, z.ZodObject<{

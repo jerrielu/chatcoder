@@ -18,6 +18,8 @@ export interface ExecuteOptions {
   codexReasoningEffort?: CodexReasoningEffort;
   /** Working directory for the spawned process. */
   workDir?: string;
+  /** Skip the summary instruction wrapper (used for retry summarization calls). */
+  skipSummaryWrapper?: boolean;
 }
 
 export interface ToolExecutorOptions {
@@ -33,11 +35,11 @@ interface Launch {
   finalOutputPath: string | null;
 }
 
-export const CODEX_FINAL_RESPONSE_PROMPT =
-  "Final response: reply only in English; be concise; summarize only what was done and any important verification result; do not include raw logs, command output, stack traces, or verbose build/test output.";
+export const SUMMARY_INSTRUCTION =
+  'When you finish, output your final response as a JSON object with exactly one key: "summary". The value must be a concise summary of what was done and key results. Do not include any other text outside the JSON object.';
 
-function messageWithCodexFinalResponsePolicy(message: string): string {
-  return `${message}\n\n${CODEX_FINAL_RESPONSE_PROMPT}`;
+export function wrapWithSummaryPolicy(message: string): string {
+  return `${message}\n\n${SUMMARY_INSTRUCTION}`;
 }
 
 function codexFinalOutputPath(profileName: string): string {
@@ -113,7 +115,6 @@ export function buildLaunch(
   if (profile.tool === "OPENAI") {
     const c = profile.codex;
     const finalOutputPath = codexFinalOutputPath(profile.name);
-    const promptedMessage = messageWithCodexFinalResponsePolicy(message);
     const { codexHome } = ensureCodexHome(profile.name, c);
     env["CODEX_HOME"] = codexHome;
     if (c.apiKey) env["OPENAI_API_KEY"] = c.apiKey;
@@ -133,7 +134,7 @@ export function buildLaunch(
     }
     args.push(...c.extraArgs);
     args.push("-o", finalOutputPath);
-    args.push(promptedMessage);
+    args.push(message);
     return {
       cmd: "codex",
       args,
@@ -209,9 +210,10 @@ export class ToolExecutor {
     message: string,
     execOpts: ExecuteOptions = {}
   ): Promise<string> {
+    const finalMessage = execOpts.skipSummaryWrapper ? message : wrapWithSummaryPolicy(message);
     const launch = buildLaunch(
       profile,
-      message,
+      finalMessage,
       execOpts.resumeLastSession ?? true,
       execOpts.codexReasoningEffort,
       execOpts.workDir

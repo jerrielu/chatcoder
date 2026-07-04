@@ -25,10 +25,10 @@ export declare const DaemonConfig: z.ZodObject<{
             outputFormat: z.ZodDefault<z.ZodEnum<["text", "stream-json"]>>;
             extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
         }, "strip", z.ZodTypeAny, {
+            extraArgs: string[];
             disableNonessentialTraffic: boolean;
             skipPermissions: boolean;
             outputFormat: "text" | "stream-json";
-            extraArgs: string[];
             baseUrl?: string | undefined;
             model?: string | undefined;
             authToken?: string | undefined;
@@ -39,6 +39,7 @@ export declare const DaemonConfig: z.ZodObject<{
         }, {
             baseUrl?: string | undefined;
             model?: string | undefined;
+            extraArgs?: string[] | undefined;
             authToken?: string | undefined;
             defaultOpusModel?: string | undefined;
             defaultSonnetModel?: string | undefined;
@@ -47,17 +48,16 @@ export declare const DaemonConfig: z.ZodObject<{
             effortLevel?: string | undefined;
             skipPermissions?: boolean | undefined;
             outputFormat?: "text" | "stream-json" | undefined;
-            extraArgs?: string[] | undefined;
         }>;
         name: z.ZodString;
         metadata: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         tool: "CLAUDE_CODE";
         claudeCode: {
+            extraArgs: string[];
             disableNonessentialTraffic: boolean;
             skipPermissions: boolean;
             outputFormat: "text" | "stream-json";
-            extraArgs: string[];
             baseUrl?: string | undefined;
             model?: string | undefined;
             authToken?: string | undefined;
@@ -73,6 +73,7 @@ export declare const DaemonConfig: z.ZodObject<{
         claudeCode: {
             baseUrl?: string | undefined;
             model?: string | undefined;
+            extraArgs?: string[] | undefined;
             authToken?: string | undefined;
             defaultOpusModel?: string | undefined;
             defaultSonnetModel?: string | undefined;
@@ -81,7 +82,6 @@ export declare const DaemonConfig: z.ZodObject<{
             effortLevel?: string | undefined;
             skipPermissions?: boolean | undefined;
             outputFormat?: "text" | "stream-json" | undefined;
-            extraArgs?: string[] | undefined;
         };
         name: string;
         metadata?: string | undefined;
@@ -97,23 +97,23 @@ export declare const DaemonConfig: z.ZodObject<{
             bypassApprovalsAndSandbox: z.ZodDefault<z.ZodBoolean>;
             extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
         }, "strip", z.ZodTypeAny, {
-            extraArgs: string[];
             fullAuto: boolean;
             bypassApprovalsAndSandbox: boolean;
+            extraArgs: string[];
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         }, {
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            extraArgs?: string[] | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
             fullAuto?: boolean | undefined;
             bypassApprovalsAndSandbox?: boolean | undefined;
+            extraArgs?: string[] | undefined;
         }>;
         name: z.ZodString;
         metadata: z.ZodOptional<z.ZodString>;
@@ -121,12 +121,12 @@ export declare const DaemonConfig: z.ZodObject<{
         tool: "OPENAI";
         name: string;
         codex: {
-            extraArgs: string[];
             fullAuto: boolean;
             bypassApprovalsAndSandbox: boolean;
+            extraArgs: string[];
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
         };
@@ -135,30 +135,27 @@ export declare const DaemonConfig: z.ZodObject<{
         tool: "OPENAI";
         name: string;
         codex: {
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            extraArgs?: string[] | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
             fullAuto?: boolean | undefined;
             bypassApprovalsAndSandbox?: boolean | undefined;
+            extraArgs?: string[] | undefined;
         };
         metadata?: string | undefined;
     }>, z.ZodObject<{
         tool: z.ZodLiteral<"REASONIX">;
         reasonix: z.ZodObject<{
-            apiKey: z.ZodOptional<z.ZodString>;
             model: z.ZodOptional<z.ZodString>;
             extraArgs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
         }, "strip", z.ZodTypeAny, {
             extraArgs: string[];
             model?: string | undefined;
-            apiKey?: string | undefined;
         }, {
             model?: string | undefined;
             extraArgs?: string[] | undefined;
-            apiKey?: string | undefined;
         }>;
         name: z.ZodString;
         metadata: z.ZodOptional<z.ZodString>;
@@ -168,7 +165,6 @@ export declare const DaemonConfig: z.ZodObject<{
         reasonix: {
             extraArgs: string[];
             model?: string | undefined;
-            apiKey?: string | undefined;
         };
         metadata?: string | undefined;
     }, {
@@ -177,7 +173,6 @@ export declare const DaemonConfig: z.ZodObject<{
         reasonix: {
             model?: string | undefined;
             extraArgs?: string[] | undefined;
-            apiKey?: string | undefined;
         };
         metadata?: string | undefined;
     }>, z.ZodObject<{
@@ -234,10 +229,10 @@ export declare const DaemonConfig: z.ZodObject<{
     profiles: ({
         tool: "CLAUDE_CODE";
         claudeCode: {
+            extraArgs: string[];
             disableNonessentialTraffic: boolean;
             skipPermissions: boolean;
             outputFormat: "text" | "stream-json";
-            extraArgs: string[];
             baseUrl?: string | undefined;
             model?: string | undefined;
             authToken?: string | undefined;
@@ -252,14 +247,22 @@ export declare const DaemonConfig: z.ZodObject<{
         tool: "OPENAI";
         name: string;
         codex: {
-            extraArgs: string[];
             fullAuto: boolean;
             bypassApprovalsAndSandbox: boolean;
+            extraArgs: string[];
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
+        };
+        metadata?: string | undefined;
+    } | {
+        tool: "REASONIX";
+        name: string;
+        reasonix: {
+            extraArgs: string[];
+            model?: string | undefined;
         };
         metadata?: string | undefined;
     } | {
@@ -272,15 +275,6 @@ export declare const DaemonConfig: z.ZodObject<{
         };
         name: string;
         metadata?: string | undefined;
-    } | {
-        tool: "REASONIX";
-        name: string;
-        reasonix: {
-            extraArgs: string[];
-            model?: string | undefined;
-            apiKey?: string | undefined;
-        };
-        metadata?: string | undefined;
     })[];
     workDirs: string[];
 }, {
@@ -291,6 +285,7 @@ export declare const DaemonConfig: z.ZodObject<{
         claudeCode: {
             baseUrl?: string | undefined;
             model?: string | undefined;
+            extraArgs?: string[] | undefined;
             authToken?: string | undefined;
             defaultOpusModel?: string | undefined;
             defaultSonnetModel?: string | undefined;
@@ -299,7 +294,6 @@ export declare const DaemonConfig: z.ZodObject<{
             effortLevel?: string | undefined;
             skipPermissions?: boolean | undefined;
             outputFormat?: "text" | "stream-json" | undefined;
-            extraArgs?: string[] | undefined;
         };
         name: string;
         metadata?: string | undefined;
@@ -307,14 +301,22 @@ export declare const DaemonConfig: z.ZodObject<{
         tool: "OPENAI";
         name: string;
         codex: {
+            apiKey?: string | undefined;
             baseUrl?: string | undefined;
             model?: string | undefined;
-            extraArgs?: string[] | undefined;
-            apiKey?: string | undefined;
             sandboxMode?: "read-only" | "workspace-write" | "danger-full-access" | undefined;
             approvalMode?: "never" | "on-request" | "on-failure" | "untrusted" | undefined;
             fullAuto?: boolean | undefined;
             bypassApprovalsAndSandbox?: boolean | undefined;
+            extraArgs?: string[] | undefined;
+        };
+        metadata?: string | undefined;
+    } | {
+        tool: "REASONIX";
+        name: string;
+        reasonix: {
+            model?: string | undefined;
+            extraArgs?: string[] | undefined;
         };
         metadata?: string | undefined;
     } | {
@@ -326,15 +328,6 @@ export declare const DaemonConfig: z.ZodObject<{
             messagePlacement?: "appended" | "stdin" | "placeholder" | undefined;
         };
         name: string;
-        metadata?: string | undefined;
-    } | {
-        tool: "REASONIX";
-        name: string;
-        reasonix: {
-            model?: string | undefined;
-            extraArgs?: string[] | undefined;
-            apiKey?: string | undefined;
-        };
         metadata?: string | undefined;
     })[];
     pollIntervalMs?: number | undefined;

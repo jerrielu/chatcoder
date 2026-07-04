@@ -45,7 +45,7 @@ async function main(): Promise<void> {
     async sendResponse(chatId, content) {
       for (const chunk of splitForTelegram(content)) {
         await sendTelegramWithRetry(() =>
-          bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu() })
+          bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu(), parse_mode: "MarkdownV2" })
         );
       }
     },

@@ -13,6 +13,7 @@
     "@chatcoder/shared": "0.1.0",
     "better-sqlite3": "^11.10.0",
     "prompts": "^2.4.2",
+    "telegram-markdown-v2": "^0.0.5",
     "yaml": "^2.4.2",
     "zod": "^3.23.4"
   },

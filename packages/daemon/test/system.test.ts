@@ -31,7 +31,7 @@ class EchoTool {
   public calls: Array<{ profile: string; message: string }> = [];
   async execute(profile: Profile, message: string): Promise<string> {
     this.calls.push({ profile: profile.name, message });
-    return `[${profile.name}] ${message}`;
+    return JSON.stringify({ summary: `done with ${profile.name} instruction` });
   }
 }
 
@@ -116,8 +116,8 @@ describe("system: bot ↔ daemon with profiles", () => {
     for (const [chatId, content] of sendResponse.mock.calls as Array<[number, string]>) {
       byChat.set(chatId, content);
     }
-    expect(byChat.get(101)).toContain("[alpha] hi-from-alpha");
-    expect(byChat.get(202)).toContain("[beta] hi-from-beta");
+    expect(byChat.get(101)).toContain("done with alpha instruction");
+    expect(byChat.get(202)).toContain("done with beta instruction");
 
     const fresh = await apiKeys.getById(register.apiKeyId);
     expect(fresh?.lastHeartbeat).not.toBeNull();

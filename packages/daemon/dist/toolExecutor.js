@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureCodexHome } from "./codexHome.js";
 import { stripAnsi } from "./ansi.js";
-export const CODEX_FINAL_RESPONSE_PROMPT = "Final response: reply only in English; be concise; summarize only what was done and any important verification result; do not include raw logs, command output, stack traces, or verbose build/test output.";
-function messageWithCodexFinalResponsePolicy(message) {
-    return `${message}\n\n${CODEX_FINAL_RESPONSE_PROMPT}`;
+export const SUMMARY_INSTRUCTION = 'When you finish, output your final response as a JSON object with exactly one key: "summary". The value must be a concise summary of what was done and key results. Do not include any other text outside the JSON object.';
+export function wrapWithSummaryPolicy(message) {
+    return `${message}\n\n${SUMMARY_INSTRUCTION}`;
 }
 function codexFinalOutputPath(profileName) {
     const safeName = profileName.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -84,7 +84,6 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
     if (profile.tool === "OPENAI") {
         const c = profile.codex;
         const finalOutputPath = codexFinalOutputPath(profile.name);
-        const promptedMessage = messageWithCodexFinalResponsePolicy(message);
         const { codexHome } = ensureCodexHome(profile.name, c);
         env["CODEX_HOME"] = codexHome;
         if (c.apiKey)
@@ -111,7 +110,7 @@ export function buildLaunch(profile, message, resumeLastSession = true, codexRea
         }
         args.push(...c.extraArgs);
         args.push("-o", finalOutputPath);
-        args.push(promptedMessage);
+        args.push(message);
         return {
             cmd: "codex",
             args,
@@ -182,7 +181,8 @@ export class ToolExecutor {
         this.log = opts.log ?? (() => void 0);
     }
     async execute(profile, message, execOpts = {}) {
-        const launch = buildLaunch(profile, message, execOpts.resumeLastSession ?? true, execOpts.codexReasoningEffort, execOpts.workDir);
+        const finalMessage = execOpts.skipSummaryWrapper ? message : wrapWithSummaryPolicy(message);
+        const launch = buildLaunch(profile, finalMessage, execOpts.resumeLastSession ?? true, execOpts.codexReasoningEffort, execOpts.workDir);
         this.log("executing", {
             profile: profile.name,
             cmd: launch.cmd,

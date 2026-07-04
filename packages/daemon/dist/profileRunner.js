@@ -1,4 +1,6 @@
 import { stripAnsi } from "./ansi.js";
+import { extractSummaryFromJSON, extractLastBlock } from "./summary.js";
+import { convert } from "telegram-markdown-v2";
 const DEFAULT_RESPONSE_UPDATE_INTERVAL_MS = 5_000;
 const DEFAULT_RESPONSE_CHUNK_MAX_CHARS = 4_095;
 const PROGRESS_WORD_LIMIT = 50;
@@ -200,9 +202,46 @@ export class ProfileRunner {
             collectPending();
             if (signal.aborted)
                 return;
-            const finalText = finalOutput.length > 0 ? finalOutput : stripAnsi(rawOutput).trim();
-            if (finalText.length > 0) {
-                await this.tryPostChunked(task.sessionId, finalText, { final: true });
+            const rawText = finalOutput.length > 0 ? finalOutput : stripAnsi(rawOutput).trim();
+            if (rawText.length === 0)
+                return;
+            // Try to extract a JSON summary from the tool's output
+            let summary = extractSummaryFromJSON(rawText);
+            if (summary) {
+                const formatted = convert(summary).trim();
+                await this.tryPostChunked(task.sessionId, formatted, { final: true });
+            }
+            else {
+                // Retry up to 3 times asking the AI to produce a summary
+                let context = rawText.slice(0, 3_000);
+                let success = false;
+                for (let attempt = 0; attempt < 3 && !success && !signal.aborted; attempt++) {
+                    const retryMsg = `Output ONLY valid JSON with key "summary". Summarize concisely: ${context}`;
+                    try {
+                        const retryResult = await this.deps.tool.execute(this.deps.profile, retryMsg, {
+                            resumeLastSession: false,
+                            skipSummaryWrapper: true
+                        });
+                        const retrySummary = extractSummaryFromJSON(retryResult);
+                        if (retrySummary) {
+                            const formatted = convert(retrySummary).trim();
+                            await this.tryPostChunked(task.sessionId, formatted, { final: true });
+                            success = true;
+                        }
+                        else {
+                            context = retryResult.slice(0, 3_000);
+                        }
+                    }
+                    catch (err) {
+                        this.log("summary retry failed", { profile: this.profileName, session: task.sessionId, attempt, err });
+                        context = String(err).slice(0, 3_000);
+                    }
+                }
+                if (!success) {
+                    const fallback = extractLastBlock(rawText);
+                    const formatted = convert(fallback || rawText).trim();
+                    await this.tryPostChunked(task.sessionId, formatted, { final: true });
+                }
             }
         }
         finally {
