@@ -1,7 +1,6 @@
 import { Bot } from "grammy";
 import type { HandlerDeps } from "./handlers.js";
 export interface CreateBotOptions extends HandlerDeps {
-    telegramBotToken: string;
 }
 export declare function createBot(opts: CreateBotOptions): Bot;
 /** Exported so tests can wire a mock Bot. */

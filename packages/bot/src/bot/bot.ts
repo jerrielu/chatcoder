@@ -29,9 +29,10 @@ import {
   parseWorkDirCallback
 } from "./menus.js";
 import { sendTelegramWithRetry } from "./telegramSend.js";
+import { transcribeAudio } from "./transcription.js";
 
 export interface CreateBotOptions extends HandlerDeps {
-  telegramBotToken: string;
+  // telegramBotToken is inherited from HandlerDeps
 }
 
 export function createBot(opts: CreateBotOptions): Bot {
@@ -142,6 +143,68 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
       ctx,
       await handleProfilePicked(deps, ctx.chat.id, ctx.from.id, profileId)
     );
+  });
+
+  // ── Voice / audio messages ───────────────────────────────────────
+  bot.on("message:voice", async (ctx) => {
+    if (!ctx.chat || !ctx.from) return;
+
+    // 1. Acknowledge receipt
+    await sendTelegramWithRetry(() =>
+      ctx.api.sendMessage(ctx.chat!.id, "🎤 Transcribing voice message…", {
+        reply_markup: mainMenu()
+      })
+    );
+
+    try {
+      // 2. Download the OGG Opus file from Telegram
+      const file = await ctx.getFile();
+      if (!file.file_path) {
+        await ctx.api.sendMessage(ctx.chat.id, "❌ Could not retrieve voice file.");
+        return;
+      }
+      const url = `https://api.telegram.org/file/bot${deps.telegramBotToken}/${file.file_path}`;
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        await ctx.api.sendMessage(ctx.chat.id, "❌ Failed to download voice message.");
+        return;
+      }
+      const audioBuffer = Buffer.from(await resp.arrayBuffer());
+
+      // 3. Transcribe
+      const text = await transcribeAudio(audioBuffer);
+      if (!text) {
+        await ctx.api.sendMessage(
+          ctx.chat.id,
+          "❌ Could not transcribe voice message. The audio may be too long or unclear."
+        );
+        return;
+      }
+
+      // 4. Show the user what was transcribed
+      await ctx.api.sendMessage(ctx.chat.id, `📝 *Transcribed:* ${text}`, {
+        parse_mode: "Markdown",
+        reply_markup: mainMenu()
+      });
+
+      // 5. Feed into the instruction flow (same as a typed message)
+      const flow = deps.flows.get(ctx.chat.id, ctx.from.id);
+      if (flow.kind === "idle") {
+        deps.flows.set(ctx.chat.id, ctx.from.id, {
+          kind: "awaiting_instruction",
+          resumeLastSession: true
+        });
+      }
+      const codeReply = await handleInstructionSubmission(
+        deps, ctx.chat.id, ctx.from.id, text
+      );
+      if (codeReply) {
+        await send(ctx, codeReply);
+      }
+    } catch (err) {
+      console.error("[bot] voice handler error:", err);
+      await ctx.api.sendMessage(ctx.chat.id, "❌ Voice processing failed.").catch(() => {});
+    }
   });
 
   bot.on("message:text", async (ctx) => {

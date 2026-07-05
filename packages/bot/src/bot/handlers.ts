@@ -43,6 +43,8 @@ export interface HandlerDeps {
   sessions: SessionsRepo;
   messages: MessagesRepo;
   flows: FlowStore;
+  /** Bot token used to construct the Telegram file-download URL. */
+  telegramBotToken: string;
   /** Heartbeat age (ms) above which the daemon is shown as offline. */
   heartbeatStaleMs?: number;
   now?: () => number;

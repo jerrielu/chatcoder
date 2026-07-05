@@ -2,6 +2,15 @@
 
 ## 0.3.2 (2025-07-06)
 
+- Voice message transcription using local whisper.cpp (multilingual `base`
+  model). Telegram voice messages are downloaded, converted to WAV via ffmpeg,
+  and transcribed locally with auto-detected language (English / Chinese).
+  The transcribed text feeds into the same instruction pipeline as typed messages.
+- Added `telegramBotToken` to `HandlerDeps` for constructing file-download URLs.
+- Fixed workspace version mismatches in package.json files.
+- Added `bin/chatcoder.js` placeholder to prevent `prepare.mjs` self-heal from
+  overwriting the development checkout during `npm install`.
+
 - Added "Coding Principles" section to `AGENTS.md` — aligns with existing
   patterns, SOLID, YAGNI, and self-review after writing.
 

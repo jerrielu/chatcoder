@@ -36,6 +36,14 @@ npm install
 npm run build
 ```
 
+> **Voice transcription** (optional): to use voice messages, install `ffmpeg`:
+> ```bash
+> sudo apt-get install ffmpeg
+> ```
+> The first time a voice message is received, whisper.cpp will be compiled and
+> the multilingual `base` model (~142 MB) will be downloaded automatically
+> via the `whisper-node` npm dependency.
+
 ---
 
 ## npm run dev Commands

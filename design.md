@@ -536,3 +536,47 @@ taps the version button in the main menu.
 - The version is also available at compile time via `APP_VERSION` from
   `@chatcoder/shared`.
 
+---
+
+## 16. Voice message transcription
+
+Telegram voice messages (`message:voice`) are downloaded and transcribed
+locally on the server using whisper.cpp (the C++ port of OpenAI's Whisper).
+
+### Flow
+
+1. `bot.on("message:voice", ...)` in `wireBot()` receives the update.
+2. The handler replies "🎤 Transcribing voice message…" immediately.
+3. `ctx.getFile()` retrieves the file metadata from Telegram.
+4. The OGG Opus audio is downloaded via `https://api.telegram.org/file/bot<token>/<file_path>`.
+5. **ffmpeg** converts the OGG to 16 kHz mono 16-bit PCM WAV.
+6. **whisper.cpp** (`build/bin/main`) transcribes the WAV with the multilingual
+   `base` model, auto-detecting the language (`-l auto`).
+7. The transcribed text is shown to the user, then injected into the same
+   `handleInstructionSubmission()` flow as a typed instruction.
+
+### Language support
+
+The multilingual `base` model supports 99 languages. English and Chinese are
+auto-detected with no configuration needed.
+
+### Resource usage
+
+- **Model**: `ggml-base.bin` (~142 MB disk, ~388 MB RAM at inference).
+- **CPU**: ~3–4× real-time on ARM Cortex-A76 (e.g., 10 s for a 3 s message).
+- **Dependencies**: ffmpeg (via apt), whisper.cpp (built via cmake from the
+  `whisper-node` npm package installation).
+
+### Options considered
+
+| # | Option | Pros | Cons |
+|---|--------|------|------|
+| A | **Local whisper.cpp (chosen)** | Free, private (no data leaves server), offline, auto-detects EN/ZH | Uses 388 MB RAM during inference; ~4 s for a short message |
+| B | OpenAI Whisper API | Accurate, simple REST call, no model download | Costs $0.006/min; requires internet; data leaves server |
+| C | Google Cloud Speech-to-Text | Free tier (60 min/month) | Requires GCP account; data leaves server; more complex auth |
+| D | Vosk (local) | Lighter than whisper.cpp (~50 MB) | Lower accuracy, especially for Chinese; needs separate models per language |
+
+**Chosen: A — local whisper.cpp** for zero ongoing cost, offline operation,
+privacy (audio never leaves the server), and transparent EN/ZH support.
+
+

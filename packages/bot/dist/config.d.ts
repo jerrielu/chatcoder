@@ -9,19 +9,19 @@ declare const configSchema: z.ZodObject<{
     /** Max clock skew between daemons and bot when interpreting heartbeat age. */
     heartbeatStaleMs: z.ZodDefault<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
-    logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace";
     telegramBotToken: string;
     listenHost: string;
     listenPort: number;
     databaseUrl: string;
+    logLevel: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
     heartbeatStaleMs: number;
     publicUrl?: string | undefined;
 }, {
     telegramBotToken: string;
-    logLevel?: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | undefined;
     listenHost?: string | undefined;
     listenPort?: number | undefined;
     databaseUrl?: string | undefined;
+    logLevel?: "trace" | "debug" | "info" | "warn" | "error" | "fatal" | undefined;
     publicUrl?: string | undefined;
     heartbeatStaleMs?: number | undefined;
 }>;
