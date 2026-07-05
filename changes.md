@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1 (2025-07-06)
+
+- `APP_VERSION` is now auto-generated from root `package.json` at build time
+  via `scripts/generate-version.mjs` — single source of truth instead of a
+  manually-synced hardcoded constant. The prebuild hook in `@chatcoder/shared`
+  runs the generator before `tsc -b`, and the generated file is gitignored.
+  (Design decision updated in `design.md §15`.)
+
 ## 0.3.0 (2025-07-06)
 
 - `SessionsRepo.create()` now deletes **all** existing sessions for a chatId

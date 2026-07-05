@@ -9,7 +9,8 @@ After every change to the repository (code edits, config, documentation, etc.),
    in **all** files that carry it:
 
    - `package.json` (root and every workspace: shared, bot, daemon, dashboard)
-   - `packages/shared/src/constants.ts` — the `APP_VERSION` constant
+     (`APP_VERSION` in `@chatcoder/shared` is auto-generated at build time,
+      so it no longer needs a manual entry here)
 
    Version bump convention (semver):
    - **Patch** (0.1.x) — bug fixes, small refactors, dependency bumps, docs

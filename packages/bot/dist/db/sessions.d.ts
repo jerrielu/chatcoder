@@ -17,10 +17,9 @@ export declare class SessionsRepo {
     constructor(db: Db, now?: () => number);
     /**
      * Create a session for (chat_id, api_key_id, profile_id).
-     * If an active session already exists for the same chat_id, it is revoked
-     * first — a chat may hold at most one active session.
-     * If an active session already exists for the same triple, return it
-     * unchanged (no-op).
+     * All existing sessions for the chat_id are deleted first — a chat
+     * holds at most one session at a time, and starting a new session
+     * clears the slate (previous messages are cascade-deleted).
      */
     create(args: {
         chatId: number;

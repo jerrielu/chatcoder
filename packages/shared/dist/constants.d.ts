@@ -1,3 +1,6 @@
+/** Current application version (semver). Generated from root package.json at build time. */
+import { APP_VERSION } from "./generated-version.js";
+export { APP_VERSION };
 /** Maximum undelivered messages kept per (session). */
 export declare const MAX_QUEUE_DEPTH = 10;
 /** 1-second rate limit on chat instruction enqueues. */
@@ -12,8 +15,6 @@ export declare const MAX_PROFILES_PER_DAEMON = 32;
 export declare const MAX_WORK_DIRS = 32;
 /** Max length of a profile name. */
 export declare const MAX_PROFILE_NAME_LENGTH = 64;
-/** Current application version (semver). Keep in sync with root package.json. */
-export declare const APP_VERSION = "0.2.0";
 /** API path constants. Both bot and daemon import these. */
 export declare const API_PATHS: {
     readonly heartbeat: "/v1/heartbeat";

@@ -496,9 +496,12 @@ routes have no browser origin, so CORS headers are irrelevant to them.
 
 ### Decision: Semver-manual bump + `changes.md` + Telegram menu display
 
-The monorepo carries its version in every `package.json` (root + 4 workspaces)
-and in `packages/shared/src/constants.ts` (`APP_VERSION`). All must be updated
-together when the version changes.
+The monorepo carries its version in every `package.json` (root + 4 workspaces).
+These are all manually bumped together when the version changes. The
+`APP_VERSION` constant used by the Telegram bot and other runtime code is
+**auto-generated** from the root `package.json` at build time by
+`scripts/generate-version.mjs` — eliminating the need to manually keep
+`packages/shared/src/constants.ts` in sync.
 
 **Options considered**
 
@@ -507,10 +510,15 @@ together when the version changes.
 | A | `npm version` + git tag                         | Single command for all package.json files     | Doesn't update shared `APP_VERSION` constant; tags   |
 | B | Manual bump with AGENTS.md checklist            | Full control; AGENTS.md already covers it     | Easy to forget a file                                |
 | C | Automated script that bumps everything at once  | Zero human error                              | Yet another script to maintain                       |
+| D | **Build-time generation** (chosen)              | Single source of truth (root package.json); generated file is gitignored, never drifts | One small prebuild script to maintain |
 
-**Chosen: B — manual bump with AGENTS.md checklist.** Step 1 of the
-Post-Change Automation in AGENTS.md lists every file that carries the version.
-The bump is small enough that manual consistency is not a burden.
+**Chosen: D — build-time generation from root `package.json`.** The root
+package.json is the single source of truth. Before `tsc -b` for the shared
+package, `scripts/generate-version.mjs` reads the root `package.json` version
+and writes `packages/shared/src/generated-version.ts`. This file is gitignored
+so it never pollutes the working tree. Step 1 of the Post-Change Automation in
+AGENTS.md lists every file that carries the version (now only package.json
+files; the constants.ts entry was removed since it is auto-generated).
 
 ### 15.1 Changelog (`changes.md`)
 

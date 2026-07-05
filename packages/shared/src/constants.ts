@@ -1,3 +1,8 @@
+/** Current application version (semver). Generated from root package.json at build time. */
+import { APP_VERSION } from "./generated-version.js";
+
+export { APP_VERSION };
+
 /** Maximum undelivered messages kept per (session). */
 export const MAX_QUEUE_DEPTH = 10;
 
@@ -18,9 +23,6 @@ export const MAX_WORK_DIRS = 32;
 
 /** Max length of a profile name. */
 export const MAX_PROFILE_NAME_LENGTH = 64;
-
-/** Current application version (semver). Keep in sync with root package.json. */
-export const APP_VERSION = "0.3.0";
 
 /** API path constants. Both bot and daemon import these. */
 export const API_PATHS = {

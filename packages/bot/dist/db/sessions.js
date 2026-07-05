@@ -24,32 +24,16 @@ export class SessionsRepo {
     }
     /**
      * Create a session for (chat_id, api_key_id, profile_id).
-     * If an active session already exists for the same chat_id, it is revoked
-     * first — a chat may hold at most one active session.
-     * If an active session already exists for the same triple, return it
-     * unchanged (no-op).
+     * All existing sessions for the chat_id are deleted first — a chat
+     * holds at most one session at a time, and starting a new session
+     * clears the slate (previous messages are cascade-deleted).
      */
     async create(args) {
         return this.db.transaction().execute(async (tx) => {
-            // If the exact triple already exists, return it unchanged.
-            const existing = await tx
-                .selectFrom("sessions")
-                .selectAll()
-                .where("chat_id", "=", args.chatId)
-                .where("api_key_id", "=", args.apiKeyId)
-                .where("profile_id", "=", args.profileId)
-                .where("status", "=", "active")
-                .executeTakeFirst();
-            if (existing)
-                return rowToSession(existing);
-            // Revoke any other active session for this (chat, apiKey) so profile
-            // switching replaces the session rather than adding a new one.
+            // Clear all existing sessions for this chat — a fresh start.
             await tx
-                .updateTable("sessions")
-                .set({ status: "revoked", revoked_at: this.now() })
+                .deleteFrom("sessions")
                 .where("chat_id", "=", args.chatId)
-                .where("api_key_id", "=", args.apiKeyId)
-                .where("status", "=", "active")
                 .execute();
             const id = randomUUID();
             const ts = this.now();

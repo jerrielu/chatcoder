@@ -1,3 +1,6 @@
+# Generated (build-time)
+packages/shared/src/generated-version.ts
+
 # Dependencies
 node_modules/
 
