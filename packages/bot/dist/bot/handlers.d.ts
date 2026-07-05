@@ -1,7 +1,3 @@
-/**
- * Pure handlers for the Telegram bot. Each receives `deps` + the relevant
- * pieces of the incoming update and returns the reply(s) the bot should send.
- */
 import type { InlineKeyboard } from "grammy";
 import { type CodexReasoningEffort } from "@chatcoder/shared";
 import type { ApiKeysRepo } from "../db/apiKeys.js";
@@ -28,10 +24,9 @@ export interface HandlerDeps {
 }
 export declare function handleStart(): Reply;
 export declare function handleMenu(): Reply;
-export declare function handleCodexEffortMenu(deps: HandlerDeps, chatId: number, telegramUser: number): Promise<Reply>;
-export declare function handleSetCodexEffort(deps: HandlerDeps, chatId: number, telegramUser: number, effort: CodexReasoningEffort): Promise<Reply>;
+/** Show the app version and latest changelog entries. */
+export declare function handleVersion(): Reply;
 export declare function handleLatestProgress(deps: HandlerDeps, chatId: number): Promise<Reply>;
-export declare function handleTokenUsage(deps: HandlerDeps, chatId: number): Promise<Reply>;
 export declare function handleStatus(deps: HandlerDeps, chatId: number): Promise<Reply>;
 export declare function handleNewSessionRequest(deps: HandlerDeps, chatId: number, telegramUser: number): Reply;
 export declare function handleNewSessionCancel(deps: HandlerDeps, chatId: number, telegramUser: number): Reply;
@@ -57,6 +52,7 @@ export declare function handleFolderPicked(deps: HandlerDeps, chatId: number, _t
 } | {
     useDefault: true;
 }): Promise<Reply>;
+export declare function handleStop(deps: HandlerDeps, chatId: number): Promise<Reply>;
 export declare function handleCodeRequest(deps: HandlerDeps, chatId: number, telegramUser: number): Reply;
 export declare function handleNewCodeRequest(deps: HandlerDeps, chatId: number, telegramUser: number): Reply;
 export declare function handleInstructionSubmission(deps: HandlerDeps, chatId: number, telegramUser: number, text: string): Promise<Reply | null>;

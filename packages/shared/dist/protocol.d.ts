@@ -6,11 +6,14 @@ export declare const DaemonMessage: z.ZodObject<{
     resumeLastSession: z.ZodDefault<z.ZodBoolean>;
     /** Optional Codex reasoning effort override for OPENAI profiles. */
     codexReasoningEffort: z.ZodOptional<z.ZodEnum<["low", "medium", "high", "xhigh"]>>;
+    /** Message kind: "instruction" (normal) or "stop" (abort current execution). */
+    kind: z.ZodDefault<z.ZodEnum<["instruction", "stop"]>>;
     createdAt: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
     id: string;
     content: string;
     resumeLastSession: boolean;
+    kind: "instruction" | "stop";
     createdAt: number;
     codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
 }, {
@@ -19,6 +22,7 @@ export declare const DaemonMessage: z.ZodObject<{
     createdAt: number;
     resumeLastSession?: boolean | undefined;
     codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
+    kind?: "instruction" | "stop" | undefined;
 }>;
 export type DaemonMessage = z.infer<typeof DaemonMessage>;
 /** Shape of one session returned by GET /v1/poll. */
@@ -33,11 +37,14 @@ export declare const PollSession: z.ZodObject<{
         resumeLastSession: z.ZodDefault<z.ZodBoolean>;
         /** Optional Codex reasoning effort override for OPENAI profiles. */
         codexReasoningEffort: z.ZodOptional<z.ZodEnum<["low", "medium", "high", "xhigh"]>>;
+        /** Message kind: "instruction" (normal) or "stop" (abort current execution). */
+        kind: z.ZodDefault<z.ZodEnum<["instruction", "stop"]>>;
         createdAt: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
         id: string;
         content: string;
         resumeLastSession: boolean;
+        kind: "instruction" | "stop";
         createdAt: number;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }, {
@@ -46,6 +53,7 @@ export declare const PollSession: z.ZodObject<{
         createdAt: number;
         resumeLastSession?: boolean | undefined;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
+        kind?: "instruction" | "stop" | undefined;
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
     sessionId: string;
@@ -54,6 +62,7 @@ export declare const PollSession: z.ZodObject<{
         id: string;
         content: string;
         resumeLastSession: boolean;
+        kind: "instruction" | "stop";
         createdAt: number;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
     }[];
@@ -67,6 +76,7 @@ export declare const PollSession: z.ZodObject<{
         createdAt: number;
         resumeLastSession?: boolean | undefined;
         codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
+        kind?: "instruction" | "stop" | undefined;
     }[];
     workDir?: string | undefined;
 }>;
@@ -84,11 +94,14 @@ export declare const PollResponse: z.ZodObject<{
             resumeLastSession: z.ZodDefault<z.ZodBoolean>;
             /** Optional Codex reasoning effort override for OPENAI profiles. */
             codexReasoningEffort: z.ZodOptional<z.ZodEnum<["low", "medium", "high", "xhigh"]>>;
+            /** Message kind: "instruction" (normal) or "stop" (abort current execution). */
+            kind: z.ZodDefault<z.ZodEnum<["instruction", "stop"]>>;
             createdAt: z.ZodNumber;
         }, "strip", z.ZodTypeAny, {
             id: string;
             content: string;
             resumeLastSession: boolean;
+            kind: "instruction" | "stop";
             createdAt: number;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }, {
@@ -97,6 +110,7 @@ export declare const PollResponse: z.ZodObject<{
             createdAt: number;
             resumeLastSession?: boolean | undefined;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
+            kind?: "instruction" | "stop" | undefined;
         }>, "many">;
     }, "strip", z.ZodTypeAny, {
         sessionId: string;
@@ -105,6 +119,7 @@ export declare const PollResponse: z.ZodObject<{
             id: string;
             content: string;
             resumeLastSession: boolean;
+            kind: "instruction" | "stop";
             createdAt: number;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }[];
@@ -118,6 +133,7 @@ export declare const PollResponse: z.ZodObject<{
             createdAt: number;
             resumeLastSession?: boolean | undefined;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
+            kind?: "instruction" | "stop" | undefined;
         }[];
         workDir?: string | undefined;
     }>, "many">;
@@ -130,6 +146,7 @@ export declare const PollResponse: z.ZodObject<{
             id: string;
             content: string;
             resumeLastSession: boolean;
+            kind: "instruction" | "stop";
             createdAt: number;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
         }[];
@@ -146,6 +163,7 @@ export declare const PollResponse: z.ZodObject<{
             createdAt: number;
             resumeLastSession?: boolean | undefined;
             codexReasoningEffort?: "low" | "medium" | "high" | "xhigh" | undefined;
+            kind?: "instruction" | "stop" | undefined;
         }[];
         workDir?: string | undefined;
     }[];

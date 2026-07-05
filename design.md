@@ -481,3 +481,42 @@ routes have no browser origin, so CORS headers are irrelevant to them.
   for session detail) so the UI stays fresh without manual refresh.
 - Build: `vite build` → `packages/dashboard/dist/` (static HTML + JS + CSS).
   Dev: `vite` dev server with HMR.
+
+---
+
+## 15. Versioning and changelog
+
+### Decision: Semver-manual bump + `changes.md` + Telegram menu display
+
+The monorepo carries its version in every `package.json` (root + 4 workspaces)
+and in `packages/shared/src/constants.ts` (`APP_VERSION`). All must be updated
+together when the version changes.
+
+**Options considered**
+
+| # | Option                                          | Pros                                          | Cons                                                 |
+|---|-------------------------------------------------|-----------------------------------------------|------------------------------------------------------|
+| A | `npm version` + git tag                         | Single command for all package.json files     | Doesn't update shared `APP_VERSION` constant; tags   |
+| B | Manual bump with AGENTS.md checklist            | Full control; AGENTS.md already covers it     | Easy to forget a file                                |
+| C | Automated script that bumps everything at once  | Zero human error                              | Yet another script to maintain                       |
+
+**Chosen: B — manual bump with AGENTS.md checklist.** Step 1 of the
+Post-Change Automation in AGENTS.md lists every file that carries the version.
+The bump is small enough that manual consistency is not a burden.
+
+### 15.1 Changelog (`changes.md`)
+
+The file lives at the repo root. Each version entry has the version number,
+the date in ISO‑8601 (YYYY-MM-DD), and bullet points describing what changed
+and why. The Telegram bot displays the two most recent entries when the user
+taps the version button in the main menu.
+
+### 15.2 Telegram UX
+
+- The main menu shows a `📦 vX.Y.Z` button at the bottom row.
+- Tapping it calls `handleVersion()` in `packages/bot/src/bot/handlers.ts`,
+  which reads `changes.md` from disk and returns the current version +
+  latest changelog entries formatted as Markdown.
+- The version is also available at compile time via `APP_VERSION` from
+  `@chatcoder/shared`.
+

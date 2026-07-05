@@ -1,4 +1,4 @@
-import type { CodexReasoningEffort } from "@chatcoder/shared";
+import type { CodexReasoningEffort, MessageKind } from "@chatcoder/shared";
 import type { Db } from "./index.js";
 export interface QueuedMessage {
     id: string;
@@ -6,6 +6,7 @@ export interface QueuedMessage {
     content: string;
     resumeLastSession: boolean;
     codexReasoningEffort?: CodexReasoningEffort;
+    kind: MessageKind;
     processingStartedAt: number | null;
     createdAt: number;
 }
@@ -32,6 +33,7 @@ export declare class MessagesRepo {
     enqueue(args: {
         sessionId: string;
         content: string;
+        kind?: MessageKind;
         resumeLastSession?: boolean;
         codexReasoningEffort?: CodexReasoningEffort;
     }): Promise<EnqueueResult>;
@@ -42,6 +44,12 @@ export declare class MessagesRepo {
      * already in progress, no new work is claimed for that session.
      */
     claimNext(sessionId: string): Promise<QueuedMessage | null>;
+    /**
+     * Claim the next queued stop message for a session, even if another
+     * instruction is currently in progress. Returns null if no stop message
+     * is waiting.
+     */
+    claimStop(sessionId: string): Promise<QueuedMessage | null>;
     /**
      * Claim the newest queued "New Code" instruction for a session. Everything
      * older than it is cleared, including any currently in-progress instruction.

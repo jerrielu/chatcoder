@@ -56,6 +56,7 @@ function rowToMessage(row) {
         id: row.id,
         sessionId: row.session_id,
         content: row.content,
+        kind: row.kind ?? "instruction",
         resumeLastSession: resume,
         ...(row.codex_reasoning_effort
             ? { codexReasoningEffort: row.codex_reasoning_effort }

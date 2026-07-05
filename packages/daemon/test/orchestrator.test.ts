@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { Orchestrator } from "../src/orchestrator.js";
 import { ApiClient } from "../src/client.js";
 import { DaemonConfig } from "../src/config.js";
-import { ProfilePool } from "../src/profilePool.js";
+import { SessionManager } from "../src/sessionManager.js";
 import type { ToolExecutor } from "../src/toolExecutor.js";
 import type { Profile } from "../src/profile.js";
 import type { CodexReasoningEffort } from "@chatcoder/shared";
@@ -150,16 +150,16 @@ describe("Orchestrator", () => {
       retries: 0
     });
     const c = cfg();
-    const pool = new ProfilePool({
-      profiles: c.profiles,
+    const sessionManager = new SessionManager({
+      config: c,
       tool: tool as unknown as ToolExecutor,
       postResponse: (sessionId, content) => client.postResponse({ sessionId, content }).then(() => undefined)
     });
-    const orch = new Orchestrator({ config: c, client, pool });
+    const orch = new Orchestrator({ config: c, client, sessionManager });
     orch.start();
     await vi.advanceTimersByTimeAsync(0);
     await flushMicrotasks();
-    await pool.drainAll();
+    await sessionManager.drainAll();
 
     expect(tool.calls).toEqual([{ profile: "main", message: "ping", resumeLastSession: true }]);
     expect(postBodies).toEqual([{ sessionId: "s1", content: "pong" }]);
@@ -188,16 +188,16 @@ describe("Orchestrator", () => {
       retries: 0
     });
     const c = cfg();
-    const pool = new ProfilePool({
-      profiles: c.profiles,
+    const sessionManager = new SessionManager({
+      config: c,
       tool: tool as unknown as ToolExecutor,
       postResponse: async () => undefined
     });
-    const orch = new Orchestrator({ config: c, client, pool });
+    const orch = new Orchestrator({ config: c, client, sessionManager });
     orch.start();
     await vi.advanceTimersByTimeAsync(0);
     await flushMicrotasks();
-    await pool.drainAll();
+    await sessionManager.drainAll();
     expect(tool.calls).toEqual([{ profile: "main", message: "ping", resumeLastSession: false }]);
     await orch.stop();
   });
@@ -231,16 +231,16 @@ describe("Orchestrator", () => {
       retries: 0
     });
     const c = cfg();
-    const pool = new ProfilePool({
-      profiles: c.profiles,
+    const sessionManager = new SessionManager({
+      config: c,
       tool: tool as unknown as ToolExecutor,
       postResponse: async () => undefined
     });
-    const orch = new Orchestrator({ config: c, client, pool });
+    const orch = new Orchestrator({ config: c, client, sessionManager });
     orch.start();
     await vi.advanceTimersByTimeAsync(0);
     await flushMicrotasks();
-    await pool.drainAll();
+    await sessionManager.drainAll();
     expect(tool.calls).toEqual([
       {
         profile: "main",
@@ -267,12 +267,12 @@ describe("Orchestrator", () => {
       retries: 0
     });
     const c = cfg();
-    const pool = new ProfilePool({
-      profiles: c.profiles,
+    const sessionManager = new SessionManager({
+      config: c,
       tool: tool as unknown as ToolExecutor,
       postResponse: async () => undefined
     });
-    const orch = new Orchestrator({ config: c, client, pool });
+    const orch = new Orchestrator({ config: c, client, sessionManager });
     orch.start();
     await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(c.pollIntervalMs);
@@ -306,12 +306,12 @@ describe("Orchestrator", () => {
       retries: 0
     });
     const c = cfg();
-    const pool = new ProfilePool({
-      profiles: c.profiles,
+    const sessionManager = new SessionManager({
+      config: c,
       tool: tool as unknown as ToolExecutor,
       postResponse: (sessionId, content) => client.postResponse({ sessionId, content }).then(() => undefined)
     });
-    const orch = new Orchestrator({ config: c, client, pool });
+    const orch = new Orchestrator({ config: c, client, sessionManager });
     orch.start();
     await vi.advanceTimersByTimeAsync(0);
     await flushMicrotasks();
@@ -330,12 +330,12 @@ describe("Orchestrator", () => {
       retries: 0
     });
     const c = cfg();
-    const pool = new ProfilePool({
-      profiles: c.profiles,
+    const sessionManager = new SessionManager({
+      config: c,
       tool: tool as unknown as ToolExecutor,
       postResponse: async () => undefined
     });
-    const orch = new Orchestrator({ config: c, client, pool });
+    const orch = new Orchestrator({ config: c, client, sessionManager });
     orch.start();
     await vi.advanceTimersByTimeAsync(0);
     await flushMicrotasks();
@@ -353,12 +353,12 @@ describe("Orchestrator", () => {
       retries: 0
     });
     const c = cfg();
-    const pool = new ProfilePool({
-      profiles: c.profiles,
+    const sessionManager = new SessionManager({
+      config: c,
       tool: tool as unknown as ToolExecutor,
       postResponse: async () => undefined
     });
-    const orch = new Orchestrator({ config: c, client, pool });
+    const orch = new Orchestrator({ config: c, client, sessionManager });
     orch.start();
     await vi.advanceTimersByTimeAsync(0);
     await flushMicrotasks();
@@ -376,20 +376,20 @@ describe("Orchestrator", () => {
       retries: 0
     });
     const c = cfg();
-    const pool = new ProfilePool({
-      profiles: c.profiles,
+    const sessionManager = new SessionManager({
+      config: c,
       tool: tool as unknown as ToolExecutor,
       postResponse: async () => undefined
     });
-    const orch = new Orchestrator({ config: c, client, pool });
+    const orch = new Orchestrator({ config: c, client, sessionManager });
     orch.start();
     orch.start();
     expect(orch.status).toBe("running");
   });
 });
 
-describe("ProfilePool concurrency", () => {
-  it("runs different profiles in parallel but within a profile FIFO", async () => {
+describe("SessionManager concurrency", () => {
+  it("runs different sessions in parallel but each session FIFO", async () => {
     const profiles: Profile[] = [
       sampleProfile(),
       { ...sampleProfile(), name: "other" }
@@ -405,22 +405,22 @@ describe("ProfilePool concurrency", () => {
     };
     vi.useRealTimers();
     const posted: Array<{ sessionId: string; content: string }> = [];
-    const pool = new ProfilePool({
-      profiles,
+    const sessionManager = new SessionManager({
+      config: { profiles },
       tool: tool as unknown as ToolExecutor,
       postResponse: async (sessionId, content) => {
         posted.push({ sessionId, content });
       }
     });
 
-    pool.enqueue("main", { sessionId: "s1", messageId: "m1", content: "a" });
-    pool.enqueue("main", { sessionId: "s1", messageId: "m2", content: "b" });
-    pool.enqueue("other", { sessionId: "s2", messageId: "m3", content: "c" });
-    await pool.drainAll();
+    sessionManager.enqueue("s1", profiles[0]!, { sessionId: "s1", messageId: "m1", kind: "instruction", content: "a" });
+    sessionManager.enqueue("s1", profiles[0]!, { sessionId: "s1", messageId: "m2", kind: "instruction", content: "b" });
+    sessionManager.enqueue("s2", profiles[1]!, { sessionId: "s2", messageId: "m3", kind: "instruction", content: "c" });
+    await sessionManager.drainAll();
 
-    // Within "main" FIFO is preserved:
+    // Within "s1" FIFO is preserved:
     expect(order.indexOf("end main:a")).toBeLessThan(order.indexOf("start main:b"));
-    // "other" starts before "main:b" ends — parallelism.
+    // "s2" (different session) starts before "s1:b" ends — parallelism.
     expect(order.indexOf("start other:c")).toBeLessThan(order.indexOf("end main:b"));
 
     expect(posted).toHaveLength(3);

@@ -5,7 +5,7 @@ import { runSetup } from "./setup.js";
 import { showMainMenu } from "./menu.js";
 import { ApiClient } from "./client.js";
 import { Orchestrator } from "./orchestrator.js";
-import { ProfilePool } from "./profilePool.js";
+import { SessionManager } from "./sessionManager.js";
 import { ToolExecutor } from "./toolExecutor.js";
 
 function normalizeCommand(raw: string | undefined): string {
@@ -53,18 +53,18 @@ async function runDaemon(): Promise<void> {
   }
 
   const tool = new ToolExecutor({ log });
-  const pool = new ProfilePool({
-    profiles: cfg.profiles,
+  const sessionManager = new SessionManager({
+    config: cfg,
     tool,
     postResponse: (sessionId, content, opts) =>
       client.postResponse({ sessionId, content, final: opts?.final ?? true }).then(() => undefined),
     log,
     maxConcurrency: cfg.maxConcurrency
   });
-  const orch = new Orchestrator({ config: cfg, client, pool, log });
+  const orch = new Orchestrator({ config: cfg, client, sessionManager, log });
   orch.start();
   log(
-    `running — heartbeat ${cfg.heartbeatIntervalMs}ms poll ${cfg.pollIntervalMs}ms — profiles: ${pool.runnerNames().join(", ")}`
+    `running — heartbeat ${cfg.heartbeatIntervalMs}ms poll ${cfg.pollIntervalMs}ms`
   );
 
   const stop = async (sig: string): Promise<void> => {

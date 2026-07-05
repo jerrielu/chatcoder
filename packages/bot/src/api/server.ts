@@ -126,22 +126,29 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       const profile = await opts.profilesRepo.getById(s.profileId);
       if (!profile) continue;
       let notifyProcessing = false;
-      let msg = await opts.messagesRepo.claimLatestNewCodeAndClearBefore(s.id);
+      // Stop messages take priority — claim even if something is in progress
+      let msg = await opts.messagesRepo.claimStop(s.id);
       if (msg) {
-        notifyProcessing = true;
-      } else if (resumeInProgress) {
-        msg = await opts.messagesRepo.getProcessing(s.id).then((inProgress) =>
-          inProgress
-            ? {
-                ...inProgress,
-                content: RESUME_IN_PROGRESS_CONTENT,
-                resumeLastSession: true
-              }
-            : null
-        );
+        // Stop messages are control signals, skip the "processing" notification
+        notifyProcessing = false;
       } else {
-        msg = await opts.messagesRepo.claimNext(s.id);
-        notifyProcessing = msg !== null;
+        msg = await opts.messagesRepo.claimLatestNewCodeAndClearBefore(s.id);
+        if (msg) {
+          notifyProcessing = true;
+        } else if (resumeInProgress) {
+          msg = await opts.messagesRepo.getProcessing(s.id).then((inProgress) =>
+            inProgress
+              ? {
+                  ...inProgress,
+                  content: RESUME_IN_PROGRESS_CONTENT,
+                  resumeLastSession: true
+                }
+              : null
+          );
+        } else {
+          msg = await opts.messagesRepo.claimNext(s.id);
+          notifyProcessing = msg !== null;
+        }
       }
       if (!msg) continue;
       if (notifyProcessing && opts.telegram.sendProcessing) {
@@ -160,6 +167,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
           DaemonMessage.parse({
             id: msg.id,
             content: msg.content,
+            kind: msg.kind,
             resumeLastSession: msg.resumeLastSession,
             codexReasoningEffort: msg.codexReasoningEffort,
             createdAt: msg.createdAt

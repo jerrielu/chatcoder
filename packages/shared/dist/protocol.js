@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CODEX_REASONING_EFFORTS, MAX_INSTRUCTION_BYTES, MAX_PROFILES_PER_DAEMON, MAX_PROFILE_NAME_LENGTH, MAX_RESPONSE_BYTES, MAX_WORK_DIRS, TOOL_KINDS } from "./constants.js";
+import { CODEX_REASONING_EFFORTS, MAX_INSTRUCTION_BYTES, MAX_PROFILES_PER_DAEMON, MAX_PROFILE_NAME_LENGTH, MAX_RESPONSE_BYTES, MAX_WORK_DIRS, MESSAGE_KINDS, TOOL_KINDS } from "./constants.js";
 /* ===================== Wire types ===================== */
 export const DaemonMessage = z.object({
     id: z.string().min(1),
@@ -8,6 +8,8 @@ export const DaemonMessage = z.object({
     resumeLastSession: z.boolean().default(true),
     /** Optional Codex reasoning effort override for OPENAI profiles. */
     codexReasoningEffort: z.enum(CODEX_REASONING_EFFORTS).optional(),
+    /** Message kind: "instruction" (normal) or "stop" (abort current execution). */
+    kind: z.enum(MESSAGE_KINDS).default("instruction"),
     createdAt: z.number().int().nonnegative()
 });
 /** Shape of one session returned by GET /v1/poll. */

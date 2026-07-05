@@ -23,15 +23,15 @@ export class SessionsRepo {
         this.now = now;
     }
     /**
-     * Create a session for (chat_id, api_key_id, profile_id). If an active
-     * session already exists for the same triple, return it unchanged — the
-     * user tapping the same profile twice is a no-op. If an active session
-     * exists for (chat_id, api_key_id) with a DIFFERENT profile, that older
-     * session stays active: a chat may hold multiple concurrent sessions
-     * across profiles.
+     * Create a session for (chat_id, api_key_id, profile_id).
+     * If an active session already exists for the same chat_id, it is revoked
+     * first — a chat may hold at most one active session.
+     * If an active session already exists for the same triple, return it
+     * unchanged (no-op).
      */
     async create(args) {
         return this.db.transaction().execute(async (tx) => {
+            // If the exact triple already exists, return it unchanged.
             const existing = await tx
                 .selectFrom("sessions")
                 .selectAll()
@@ -42,6 +42,15 @@ export class SessionsRepo {
                 .executeTakeFirst();
             if (existing)
                 return rowToSession(existing);
+            // Revoke any other active session for this (chat, apiKey) so profile
+            // switching replaces the session rather than adding a new one.
+            await tx
+                .updateTable("sessions")
+                .set({ status: "revoked", revoked_at: this.now() })
+                .where("chat_id", "=", args.chatId)
+                .where("api_key_id", "=", args.apiKeyId)
+                .where("status", "=", "active")
+                .execute();
             const id = randomUUID();
             const ts = this.now();
             await tx
@@ -75,8 +84,8 @@ export class SessionsRepo {
             .executeTakeFirst();
         return row ? rowToSession(row) : null;
     }
-    /** Most-recently created active session for a chat, across all profiles. */
-    async getLatestActiveByChatId(chatId) {
+    /** Active session for a chat, or null. */
+    async getActiveByChatId(chatId) {
         const row = await this.db
             .selectFrom("sessions")
             .selectAll()
@@ -85,6 +94,10 @@ export class SessionsRepo {
             .orderBy("created_at", "desc")
             .executeTakeFirst();
         return row ? rowToSession(row) : null;
+    }
+    /** @deprecated Use getActiveByChatId — only one active session per chat. */
+    async getLatestActiveByChatId(chatId) {
+        return this.getActiveByChatId(chatId);
     }
     async listActiveByApiKey(apiKeyId) {
         const rows = await this.db
@@ -144,6 +157,15 @@ export class SessionsRepo {
             .where("id", "=", sessionId)
             .executeTakeFirst();
         return Number(res.numUpdatedRows ?? 0) === 1;
+    }
+    async setProfile(sessionId, profileId) {
+        const res = await this.db
+            .updateTable("sessions")
+            .set({ profile_id: profileId })
+            .where("id", "=", sessionId)
+            .where("status", "=", "active")
+            .executeTakeFirst();
+        return Number(res.numUpdatedRows) > 0;
     }
     async setWorkDir(sessionId, workDir) {
         await this.db

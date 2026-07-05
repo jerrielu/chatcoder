@@ -76,10 +76,18 @@ describe("SessionsRepo", () => {
     expect(again.id).toBe(seed.session.id);
   });
 
-  it("create allows multiple active sessions per chat across profiles", async () => {
-    const first = await h.seedSession({ chatId: 1, profileName: "a" });
+  it("create revokes existing session for the same chatId+apiKeyId", async () => {
     const { rawApiKey } = generateApiKey();
     const apiKey = await h.apiKeys.registerByRawKey(rawApiKey);
+    const [profA] = await h.profiles.upsertForApiKey(apiKey.id, [
+      { name: "a", tool: "OPENAI" }
+    ]);
+    const first = await h.sessions.create({
+      chatId: 1,
+      apiKeyId: apiKey.id,
+      profileId: profA!.id
+    });
+
     const [profB] = await h.profiles.upsertForApiKey(apiKey.id, [
       { name: "b", tool: "OPENAI" }
     ]);
@@ -89,25 +97,36 @@ describe("SessionsRepo", () => {
       profileId: profB!.id
     });
     const active = await h.sessions.listActiveByChatId(1);
-    expect(active.map((s) => s.id).sort()).toEqual([first.session.id, second.id].sort());
+    // Only the second session is active — the first was revoked.
+    expect(active).toHaveLength(1);
+    expect(active[0]!.id).toBe(second.id);
   });
 
-  it("getLatestActiveByChatId returns most recent", async () => {
-    const first = await h.seedSession({ chatId: 7, profileName: "a" });
-    h.advanceTime(100);
+  it("getActiveByChatId returns the single active session (one per chat+apiKey)", async () => {
+    // Use the new session flow — same API key, different profile. The second
+    // create should revoke the first.
     const { rawApiKey } = generateApiKey();
     const apiKey = await h.apiKeys.registerByRawKey(rawApiKey);
-    const [prof] = await h.profiles.upsertForApiKey(apiKey.id, [
+    const [profA] = await h.profiles.upsertForApiKey(apiKey.id, [
+      { name: "a", tool: "OPENAI" }
+    ]);
+    const first = await h.sessions.create({
+      chatId: 7,
+      apiKeyId: apiKey.id,
+      profileId: profA!.id
+    });
+    h.advanceTime(100);
+    const [profB] = await h.profiles.upsertForApiKey(apiKey.id, [
       { name: "b", tool: "OPENAI" }
     ]);
     const second = await h.sessions.create({
       chatId: 7,
       apiKeyId: apiKey.id,
-      profileId: prof!.id
+      profileId: profB!.id
     });
-    const latest = await h.sessions.getLatestActiveByChatId(7);
-    expect(latest?.id).toBe(second.id);
-    void first;
+    const active = await h.sessions.getActiveByChatId(7);
+    // Second session (same chat+apiKey) replaces the first
+    expect(active?.id).toBe(second.id);
   });
 
   it("revoke marks session revoked, delete removes it", async () => {

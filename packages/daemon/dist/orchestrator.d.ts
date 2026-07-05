@@ -1,10 +1,10 @@
 import type { ApiClient } from "./client.js";
-import type { ProfilePool } from "./profilePool.js";
+import type { SessionManager } from "./sessionManager.js";
 import type { DaemonConfig } from "./config.js";
 export interface OrchestratorDeps {
     config: DaemonConfig;
     client: ApiClient;
-    pool: ProfilePool;
+    sessionManager: SessionManager;
     log?: (msg: string, extra?: unknown) => void;
     setTimer?: typeof setTimeout;
     clearTimer?: typeof clearTimeout;
@@ -13,7 +13,7 @@ export type OrchestratorStatus = "idle" | "running" | "session_revoked" | "unaut
 /**
  * Long-running loop that drives the daemon.
  *   heartbeat tick → POST /v1/heartbeat (api-key wide)
- *   poll tick      → GET /v1/poll → dispatch each session's messages into its ProfileRunner
+ *   poll tick      → GET /v1/poll → dispatch each session's messages into its SessionRunner
  */
 export declare class Orchestrator {
     private readonly deps;

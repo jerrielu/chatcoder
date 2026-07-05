@@ -20,6 +20,7 @@ function rowToMessage(row) {
         id: row.id,
         sessionId: row.session_id,
         content: row.content,
+        kind: row.kind ?? "instruction",
         resumeLastSession: toBool(row.resume_last_session),
         ...(row.codex_reasoning_effort
             ? { codexReasoningEffort: row.codex_reasoning_effort }
@@ -66,6 +67,7 @@ export class MessagesRepo {
                 content: args.content,
                 resume_last_session: resumeLastSession ? 1 : 0,
                 codex_reasoning_effort: args.codexReasoningEffort ?? null,
+                kind: args.kind ?? "instruction",
                 processing_started_at: null,
                 created_at: ts
             })
@@ -130,6 +132,33 @@ export class MessagesRepo {
                 .selectAll()
                 .where("session_id", "=", sessionId)
                 .where("processing_started_at", "is", null)
+                .orderBy("created_at", "asc")
+                .orderBy("id", "asc")
+                .executeTakeFirst();
+            if (!row)
+                return null;
+            const processingStartedAt = this.now();
+            await tx
+                .updateTable("messages")
+                .set({ processing_started_at: processingStartedAt })
+                .where("id", "=", row.id)
+                .execute();
+            return rowToMessage({ ...row, processing_started_at: processingStartedAt });
+        });
+    }
+    /**
+     * Claim the next queued stop message for a session, even if another
+     * instruction is currently in progress. Returns null if no stop message
+     * is waiting.
+     */
+    async claimStop(sessionId) {
+        return this.db.transaction().execute(async (tx) => {
+            const row = await tx
+                .selectFrom("messages")
+                .selectAll()
+                .where("session_id", "=", sessionId)
+                .where("processing_started_at", "is", null)
+                .where("kind", "=", "stop")
                 .orderBy("created_at", "asc")
                 .orderBy("id", "asc")
                 .executeTakeFirst();

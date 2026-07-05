@@ -128,16 +128,7 @@ describe("wireBot /start", () => {
   });
 });
 
-describe("wireBot /token", () => {
-  it("queues a Codex token-usage request", async () => {
-    const seed = await h.seedSession({ chatId: 1, tool: "OPENAI" });
-    await bot.handleUpdate(msgUpdate(1, 1, "/token"));
-    const last = sends().at(-1)!;
-    expect((last.payload as { text: string }).text).toMatch(/Token usage request queued/);
-    const [msg] = await h.messages.drain(seed.session.id);
-    expect(msg?.content).toBe(CODEX_TOKEN_USAGE_COMMAND);
-  });
-});
+
 
 describe("wireBot instruction menu flow", () => {
   it("Code callback opens input and queues a resume instruction", async () => {
@@ -245,21 +236,13 @@ describe("wireBot callback flow", () => {
     expect((last.payload as { text: string }).text).toMatch(/menu/i);
   });
 
-  it("Codex effort menu blocks non-OPENAI profiles", async () => {
-    await h.seedSession({ chatId: 1, tool: "CLAUDE_CODE" });
-    await bot.handleUpdate(cbUpdate(1, 1, CB.codexEffortMenu, 1));
-    const last = sends().at(-1)!;
-    expect((last.payload as { text: string }).text).toMatch(/only available for Codex profiles/i);
-  });
-
-  it("Codex effort selection persists and applies to queued OPENAI instructions", async () => {
+  it("Codex effort defaults to medium for queued OPENAI instructions", async () => {
     const seed = await h.seedSession({ chatId: 1, tool: "OPENAI", profileName: "codex" });
-    await bot.handleUpdate(cbUpdate(1, 1, CB.codexEffortMenu, 1));
-    await bot.handleUpdate(cbUpdate(1, 1, CB.codexEffortPrefix + "xhigh", 2));
-    await bot.handleUpdate(cbUpdate(1, 1, CB.code, 3));
-    await bot.handleUpdate(msgUpdate(1, 1, "run tests", 4));
+    // Effort UI was removed; default is "medium" via flow store.
+    await bot.handleUpdate(cbUpdate(1, 1, CB.code, 1));
+    await bot.handleUpdate(msgUpdate(1, 1, "run tests", 2));
     const [msg] = await h.messages.drain(seed.session.id);
-    expect(msg?.codexReasoningEffort).toBe("xhigh");
+    expect(msg?.codexReasoningEffort).toBe("medium");
   });
 
   it("code callback prompt opens a force-reply input", async () => {

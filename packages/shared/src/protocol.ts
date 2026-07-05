@@ -6,6 +6,7 @@ import {
   MAX_PROFILE_NAME_LENGTH,
   MAX_RESPONSE_BYTES,
   MAX_WORK_DIRS,
+  MESSAGE_KINDS,
   TOOL_KINDS
 } from "./constants.js";
 
@@ -18,6 +19,8 @@ export const DaemonMessage = z.object({
   resumeLastSession: z.boolean().default(true),
   /** Optional Codex reasoning effort override for OPENAI profiles. */
   codexReasoningEffort: z.enum(CODEX_REASONING_EFFORTS).optional(),
+  /** Message kind: "instruction" (normal) or "stop" (abort current execution). */
+  kind: z.enum(MESSAGE_KINDS).default("instruction"),
   createdAt: z.number().int().nonnegative()
 });
 export type DaemonMessage = z.infer<typeof DaemonMessage>;

@@ -1,6 +1,13 @@
-import { API_KEY_PREFIX, ApiError, CODEX_TOKEN_USAGE_COMMAND, MAX_INSTRUCTION_BYTES, MAX_QUEUE_DEPTH } from "@chatcoder/shared";
+/**
+ * Pure handlers for the Telegram bot. Each receives `deps` + the relevant
+ * pieces of the incoming update and returns the reply(s) the bot should send.
+ */
+import { readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import * as path from "node:path";
+import { API_KEY_PREFIX, APP_VERSION, ApiError, MAX_INSTRUCTION_BYTES, MAX_QUEUE_DEPTH } from "@chatcoder/shared";
 import { hashApiKey, validateUserSuppliedKey } from "../db/crypto.js";
-import { backToMenu, codexEffortPickerMenu, folderPickerMenu, mainMenu, profilePickerMenu, toolIcon, workDirPickerMenu } from "./menus.js";
+import { backToMenu, folderPickerMenu, mainMenu, profilePickerMenu, toolIcon, workDirPickerMenu } from "./menus.js";
 const WELCOME = "👋 *Chatcoder*\n\n" +
     "I relay instructions to a `chatcoder coder` service running on your own machine.\n\n" +
     "• Tap *New Session* to link this chat to a coder profile.\n" +
@@ -20,8 +27,50 @@ export function handleStart() {
 export function handleMenu() {
     return { text: "Main menu", keyboard: mainMenu() };
 }
+/* =============== Version / Changelog =============== */
+/** Resolve the monorepo root from this module's location on disk. */
+function repoRoot() {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    // From packages/bot/dist/bot/ → repo root
+    return path.resolve(__dirname, "..", "..", "..", "..");
+}
+/** Show the app version and latest changelog entries. */
+export function handleVersion() {
+    const changesPath = path.join(repoRoot(), "changes.md");
+    const pkgPath = path.join(repoRoot(), "package.json");
+    let version = APP_VERSION;
+    try {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+        version = pkg.version ?? version;
+    }
+    catch {
+        // fall back to the compile-time constant
+    }
+    let changesText = "";
+    try {
+        if (existsSync(changesPath)) {
+            const raw = readFileSync(changesPath, "utf-8");
+            // Show only the most recent version section(s)
+            const sections = raw.split(/(?=^## )/m);
+            // Take up to 2 most recent version entries
+            const recent = sections.slice(0, 2).join("").trim();
+            changesText = recent || "*No changelog entries yet.*";
+        }
+        else {
+            changesText = "*No changelog file found.*";
+        }
+    }
+    catch {
+        changesText = "*Could not read changelog.*";
+    }
+    return {
+        text: `📦 *Chatcoder v${version}*\n\n${changesText}`,
+        keyboard: mainMenu(),
+        parseMode: "Markdown"
+    };
+}
 async function getLatestSessionProfile(deps, chatId) {
-    const session = await deps.sessions.getLatestActiveByChatId(chatId);
+    const session = await deps.sessions.getActiveByChatId(chatId);
     if (!session) {
         return {
             error: {
@@ -43,49 +92,9 @@ async function getLatestSessionProfile(deps, chatId) {
     }
     return { sessionId: session.id, profile };
 }
-export async function handleCodexEffortMenu(deps, chatId, telegramUser) {
-    const current = await getLatestSessionProfile(deps, chatId);
-    if ("error" in current)
-        return current.error;
-    if (current.profile.tool !== "OPENAI") {
-        return {
-            text: "🧠 Effort selection is only available for Codex profiles.\n\n" +
-                `${toolIcon(current.profile.tool)} Current profile: \`${current.profile.name}\``,
-            keyboard: mainMenu(),
-            parseMode: "Markdown"
-        };
-    }
-    const selected = deps.flows.getCodexReasoningEffort(chatId, telegramUser);
-    return {
-        text: "🧠 *Codex effort*\n\n" +
-            `Current effort: \`${selected}\`\n` +
-            "Choose a level below.",
-        keyboard: codexEffortPickerMenu(selected),
-        parseMode: "Markdown"
-    };
-}
-export async function handleSetCodexEffort(deps, chatId, telegramUser, effort) {
-    const current = await getLatestSessionProfile(deps, chatId);
-    if ("error" in current)
-        return current.error;
-    if (current.profile.tool !== "OPENAI") {
-        return {
-            text: "🧠 Effort selection is only available for Codex profiles.\n\n" +
-                `${toolIcon(current.profile.tool)} Current profile: \`${current.profile.name}\``,
-            keyboard: mainMenu(),
-            parseMode: "Markdown"
-        };
-    }
-    deps.flows.setCodexReasoningEffort(chatId, telegramUser, effort);
-    return {
-        text: "✅ *Codex effort updated*\n\n" +
-            `Current effort: \`${effort}\``,
-        keyboard: codexEffortPickerMenu(effort),
-        parseMode: "Markdown"
-    };
-}
+/* =============== Status =============== */
 export async function handleLatestProgress(deps, chatId) {
-    const session = await deps.sessions.getLatestActiveByChatId(chatId);
+    const session = await deps.sessions.getActiveByChatId(chatId);
     if (!session) {
         return {
             text: "No active session. Tap *New Session* first.",
@@ -104,50 +113,6 @@ export async function handleLatestProgress(deps, chatId) {
         keyboard: mainMenu()
     };
 }
-export async function handleTokenUsage(deps, chatId) {
-    const session = await deps.sessions.getLatestActiveByChatId(chatId);
-    if (!session) {
-        return {
-            text: "No active session. Tap *New Session* first.",
-            keyboard: mainMenu(),
-            parseMode: "Markdown"
-        };
-    }
-    const profile = await deps.profiles.getById(session.profileId);
-    if (!profile) {
-        return {
-            text: "❌ Session profile not found. Tap *New Session* to relink.",
-            keyboard: mainMenu(),
-            parseMode: "Markdown"
-        };
-    }
-    if (profile.tool !== "OPENAI") {
-        return {
-            text: "🧮 Token usage is only available for Codex profiles.\n\n" +
-                `${toolIcon(profile.tool)} Current profile: \`${profile.name}\``,
-            keyboard: mainMenu(),
-            parseMode: "Markdown"
-        };
-    }
-    const pending = await deps.messages.count(session.id);
-    if (pending >= MAX_QUEUE_DEPTH) {
-        return {
-            text: `❌ Queue full (${MAX_QUEUE_DEPTH} pending). Wait for your daemon to drain it.`,
-            keyboard: mainMenu()
-        };
-    }
-    await deps.messages.enqueue({
-        sessionId: session.id,
-        content: CODEX_TOKEN_USAGE_COMMAND,
-        resumeLastSession: true
-    });
-    return {
-        text: `🧮 Token usage request queued for \`${profile.name}\`.`,
-        keyboard: mainMenu(),
-        parseMode: "Markdown"
-    };
-}
-/* =============== Status =============== */
 export async function handleStatus(deps, chatId) {
     const sessions = await deps.sessions.listActiveByChatId(chatId);
     if (sessions.length === 0) {
@@ -300,8 +265,22 @@ export async function handleProfilePicked(deps, chatId, telegramUser, profileId)
             keyboard: mainMenu()
         };
     }
-    // Coming from the standalone Profile menu — skip workDir picker, just set active profile
+    // Coming from the standalone Profile menu — preserve workDir, just update profile
     if (state.kind === "awaiting_profile_menu") {
+        const existing = await deps.sessions.getActiveByChatId(chatId);
+        if (existing) {
+            await deps.sessions.setProfile(existing.id, profileId);
+            deps.flows.clear(chatId, telegramUser);
+            return {
+                text: `👤 *Profile switched.*\n` +
+                    `${toolIcon(profile.tool)} \`${profile.name}\`\n` +
+                    `session id: \`${existing.id.slice(0, 8)}\`\n\n` +
+                    `Use *Code* or *New Code* to dispatch.`,
+                keyboard: backToMenu(),
+                parseMode: "Markdown"
+            };
+        }
+        // No existing session — create one fresh
         const session = await deps.sessions.create({
             chatId,
             apiKeyId: state.apiKeyId,
@@ -401,7 +380,7 @@ export async function handleWorkDirPicked(deps, chatId, telegramUser, result) {
 }
 /* =============== Standalone Profile & Folder menus =============== */
 export async function handleProfileMenu(deps, chatId, telegramUser) {
-    const session = await deps.sessions.getLatestActiveByChatId(chatId);
+    const session = await deps.sessions.getActiveByChatId(chatId);
     if (!session) {
         return {
             text: "No active session. Tap *New Session* first to link a daemon.",
@@ -429,7 +408,7 @@ export async function handleProfileMenu(deps, chatId, telegramUser) {
     };
 }
 export async function handleFolderMenu(deps, chatId, telegramUser) {
-    const session = await deps.sessions.getLatestActiveByChatId(chatId);
+    const session = await deps.sessions.getActiveByChatId(chatId);
     if (!session) {
         return {
             text: "No active session. Tap *New Session* first.",
@@ -457,7 +436,7 @@ export async function handleFolderMenu(deps, chatId, telegramUser) {
     };
 }
 export async function handleFolderPicked(deps, chatId, _telegramUser, result) {
-    const session = await deps.sessions.getLatestActiveByChatId(chatId);
+    const session = await deps.sessions.getActiveByChatId(chatId);
     if (!session) {
         return {
             text: "No active session. Tap *New Session* first.",
@@ -482,6 +461,28 @@ export async function handleFolderPicked(deps, chatId, _telegramUser, result) {
     return {
         text: `✅ Work directory set to ${dirLine}.`,
         keyboard: mainMenu(),
+        parseMode: "Markdown"
+    };
+}
+/* =============== Stop =============== */
+export async function handleStop(deps, chatId) {
+    const session = await deps.sessions.getActiveByChatId(chatId);
+    if (!session) {
+        return {
+            text: "No active session. Tap *New Session* first.",
+            keyboard: mainMenu(),
+            parseMode: "Markdown"
+        };
+    }
+    const profile = await deps.profiles.getById(session.profileId);
+    await deps.messages.enqueue({
+        sessionId: session.id,
+        content: "stop",
+        kind: "stop"
+    });
+    const suffix = profile ? ` → \`${profile.name}\`` : "";
+    return {
+        text: `⏹ Stop requested for daemon${suffix}.`,
         parseMode: "Markdown"
     };
 }
@@ -546,7 +547,7 @@ export async function handleCode(deps, chatId, instruction, resumeLastSession = 
             text: `❌ Instruction exceeds ${MAX_INSTRUCTION_BYTES} bytes. Shorten and retry.`
         };
     }
-    const session = await deps.sessions.getLatestActiveByChatId(chatId);
+    const session = await deps.sessions.getActiveByChatId(chatId);
     if (!session) {
         return {
             text: "No active session. Tap *New Session* first.",

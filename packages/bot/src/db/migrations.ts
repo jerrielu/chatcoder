@@ -18,7 +18,8 @@ export async function runMigrations(db: Kysely<Database>, dialect: Dialect): Pro
     { v: 3, up: () => addLatestMessageToSessions(db) },
     { v: 4, up: () => addProcessingStartedAtToMessages(db) },
     { v: 5, up: () => addCodexReasoningEffortToMessages(db) },
-    { v: 6, up: () => addWorkDirs(db) }
+    { v: 6, up: () => addWorkDirs(db) },
+    { v: 7, up: () => addMessageKind(db) }
   ];
 
   for (const step of steps) {
@@ -208,6 +209,19 @@ async function addWorkDirs(db: Kysely<Database>): Promise<void> {
     await db.schema
       .alterTable("sessions")
       .addColumn("work_dir", "text")
+      .execute();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();
+    if (msg.includes("duplicate column") || msg.includes("already exists")) return;
+    throw e;
+  }
+}
+
+async function addMessageKind(db: Kysely<Database>): Promise<void> {
+  try {
+    await db.schema
+      .alterTable("messages")
+      .addColumn("kind", "text", (c) => c.notNull().defaultTo("instruction"))
       .execute();
   } catch (e) {
     const msg = e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();

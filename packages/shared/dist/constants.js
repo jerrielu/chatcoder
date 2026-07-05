@@ -12,6 +12,8 @@ export const MAX_PROFILES_PER_DAEMON = 32;
 export const MAX_WORK_DIRS = 32;
 /** Max length of a profile name. */
 export const MAX_PROFILE_NAME_LENGTH = 64;
+/** Current application version (semver). Keep in sync with root package.json. */
+export const APP_VERSION = "0.1.0";
 /** API path constants. Both bot and daemon import these. */
 export const API_PATHS = {
     heartbeat: "/v1/heartbeat",
@@ -46,4 +48,6 @@ export const TOOL_KINDS = ["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"];
 export const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"];
 /** Codex slash command used to request token totals. */
 export const CODEX_TOKEN_USAGE_COMMAND = "/token";
+/** Message kinds supported in the queue. */
+export const MESSAGE_KINDS = ["instruction", "stop"];
 //# sourceMappingURL=constants.js.map

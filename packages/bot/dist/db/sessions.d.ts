@@ -16,12 +16,11 @@ export declare class SessionsRepo {
     private readonly now;
     constructor(db: Db, now?: () => number);
     /**
-     * Create a session for (chat_id, api_key_id, profile_id). If an active
-     * session already exists for the same triple, return it unchanged — the
-     * user tapping the same profile twice is a no-op. If an active session
-     * exists for (chat_id, api_key_id) with a DIFFERENT profile, that older
-     * session stays active: a chat may hold multiple concurrent sessions
-     * across profiles.
+     * Create a session for (chat_id, api_key_id, profile_id).
+     * If an active session already exists for the same chat_id, it is revoked
+     * first — a chat may hold at most one active session.
+     * If an active session already exists for the same triple, return it
+     * unchanged (no-op).
      */
     create(args: {
         chatId: number;
@@ -30,7 +29,9 @@ export declare class SessionsRepo {
         workDir?: string;
     }): Promise<Session>;
     getById(id: string): Promise<Session | null>;
-    /** Most-recently created active session for a chat, across all profiles. */
+    /** Active session for a chat, or null. */
+    getActiveByChatId(chatId: number): Promise<Session | null>;
+    /** @deprecated Use getActiveByChatId — only one active session per chat. */
     getLatestActiveByChatId(chatId: number): Promise<Session | null>;
     listActiveByApiKey(apiKeyId: string): Promise<Session[]>;
     listActiveByChatId(chatId: number): Promise<Session[]>;
@@ -43,6 +44,7 @@ export declare class SessionsRepo {
      */
     tryConsumeRate(sessionId: string): Promise<boolean>;
     setLatestMessage(sessionId: string, content: string | null): Promise<boolean>;
+    setProfile(sessionId: string, profileId: string): Promise<boolean>;
     setWorkDir(sessionId: string, workDir: string | null): Promise<void>;
 }
 //# sourceMappingURL=sessions.d.ts.map

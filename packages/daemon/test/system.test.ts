@@ -9,7 +9,7 @@ import { MessagesRepo } from "@chatcoder/bot/db/messages";
 import { AdminRepo } from "@chatcoder/bot/db/admin";
 import { ApiClient } from "../src/client.js";
 import { Orchestrator } from "../src/orchestrator.js";
-import { ProfilePool } from "../src/profilePool.js";
+import { SessionManager } from "../src/sessionManager.js";
 import { DaemonConfig } from "../src/config.js";
 import { generateApiKey } from "../src/crypto.js";
 import type { Profile } from "../src/profile.js";
@@ -100,17 +100,17 @@ describe("system: bot ↔ daemon with profiles", () => {
     await messages.enqueue({ sessionId: sessionB.id, content: "hi-from-beta" });
 
     const tool = new EchoTool();
-    const pool = new ProfilePool({
-      profiles: cfg.profiles,
+    const sessionManager = new SessionManager({
+      config: cfg,
       tool: tool as unknown as ToolExecutor,
       postResponse: (sessionId, content) =>
         client.postResponse({ sessionId, content }).then(() => undefined)
     });
-    const orch = new Orchestrator({ config: cfg, client, pool });
+    const orch = new Orchestrator({ config: cfg, client, sessionManager });
     orch.start();
 
     await waitFor(() => sendResponse.mock.calls.length >= 2, 5000);
-    await pool.drainAll();
+    await sessionManager.drainAll();
 
     const byChat = new Map<number, string>();
     for (const [chatId, content] of sendResponse.mock.calls as Array<[number, string]>) {
@@ -167,12 +167,12 @@ describe("system: bot ↔ daemon with profiles", () => {
     });
 
     const tool = new EchoTool();
-    const pool = new ProfilePool({
-      profiles: cfg.profiles,
+    const sessionManager = new SessionManager({
+      config: cfg,
       tool: tool as unknown as ToolExecutor,
       postResponse: async () => undefined
     });
-    const orch = new Orchestrator({ config: cfg, client, pool });
+    const orch = new Orchestrator({ config: cfg, client, sessionManager });
     orch.start();
 
     await waitFor(() => orch.status === "running", 2000);

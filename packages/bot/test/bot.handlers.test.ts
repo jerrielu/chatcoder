@@ -4,7 +4,6 @@ import { FlowStore } from "../src/bot/flows.js";
 import {
   handleApiKeySubmission,
   handleCodeRequest,
-  handleCodexEffortMenu,
   handleInstructionSubmission,
   handleLatestProgress,
   handleCode,
@@ -14,7 +13,6 @@ import {
   handleNewSessionRequest,
   handlePlainText,
   handleProfilePicked,
-  handleSetCodexEffort,
   handleStart,
   handleStatus
 } from "../src/bot/handlers.js";
@@ -54,27 +52,6 @@ describe("simple replies", () => {
   it("handlePlainText nudges toward menu actions", () => {
     expect(handlePlainText().text).toMatch(/Code/);
     expect(handlePlainText().text).toMatch(/New Code/);
-  });
-});
-
-describe("codex effort menu", () => {
-  it("rejects effort menu for non-Codex profiles", async () => {
-    await h.seedSession({ chatId: 1, tool: "CLAUDE_CODE" });
-    const r = await handleCodexEffortMenu(deps(), 1, 2);
-    expect(r.text).toMatch(/only available for Codex profiles/i);
-  });
-
-  it("shows default medium effort for Codex profiles", async () => {
-    await h.seedSession({ chatId: 1, tool: "OPENAI" });
-    const r = await handleCodexEffortMenu(deps(), 1, 2);
-    expect(r.text).toMatch(/Current effort: `medium`/);
-  });
-
-  it("updates selected effort for Codex profiles", async () => {
-    await h.seedSession({ chatId: 1, tool: "OPENAI" });
-    const r = await handleSetCodexEffort(deps(), 1, 2, "xhigh");
-    expect(r.text).toMatch(/Current effort: `xhigh`/);
-    expect(flows.getCodexReasoningEffort(1, 2)).toBe("xhigh");
   });
 });
 
@@ -296,14 +273,11 @@ describe("handleCode", () => {
     expect(r.text).toMatch(/Queue full/);
   });
 
-  it("targets the most recently created session when the chat has multiple", async () => {
+  it("targets the active session for the chat", async () => {
     const seedA = await h.seedSession({ chatId: 1, profileName: "a" });
-    h.advanceTime(10_000);
-    const seedB = await h.seedSession({ chatId: 1, profileName: "b" });
     h.advanceTime(2_000);
     await handleCode(deps(), 1, "hello");
-    expect(await h.messages.count(seedB.session.id)).toBe(1);
-    expect(await h.messages.count(seedA.session.id)).toBe(0);
+    expect(await h.messages.count(seedA.session.id)).toBe(1);
   });
 
   it("instruction submission consumes awaiting_instruction flow", async () => {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { MAX_QUEUE_DEPTH } from "@chatcoder/shared";
-import type { CodexReasoningEffort } from "@chatcoder/shared";
+import type { CodexReasoningEffort, MessageKind } from "@chatcoder/shared";
 import type { Db } from "./index.js";
 
 export interface QueuedMessage {
@@ -9,6 +9,7 @@ export interface QueuedMessage {
   content: string;
   resumeLastSession: boolean;
   codexReasoningEffort?: CodexReasoningEffort;
+  kind: MessageKind;
   processingStartedAt: number | null;
   createdAt: number;
 }
@@ -26,6 +27,7 @@ function rowToMessage(row: {
   content: string;
   resume_last_session: number | string | bigint | boolean;
   codex_reasoning_effort: CodexReasoningEffort | null;
+  kind: string;
   processing_started_at: number | string | bigint | null;
   created_at: number | string | bigint;
 }): QueuedMessage {
@@ -40,6 +42,7 @@ function rowToMessage(row: {
     id: row.id,
     sessionId: row.session_id,
     content: row.content,
+    kind: (row.kind as MessageKind) ?? "instruction",
     resumeLastSession: toBool(row.resume_last_session),
     ...(row.codex_reasoning_effort
       ? { codexReasoningEffort: row.codex_reasoning_effort }
@@ -80,6 +83,7 @@ export class MessagesRepo {
   async enqueue(args: {
     sessionId: string;
     content: string;
+    kind?: MessageKind;
     resumeLastSession?: boolean;
     codexReasoningEffort?: CodexReasoningEffort;
   }): Promise<EnqueueResult> {
@@ -95,6 +99,7 @@ export class MessagesRepo {
           content: args.content,
           resume_last_session: resumeLastSession ? 1 : 0,
           codex_reasoning_effort: args.codexReasoningEffort ?? null,
+          kind: args.kind ?? "instruction",
           processing_started_at: null,
           created_at: ts
         })
@@ -167,6 +172,35 @@ export class MessagesRepo {
         .selectAll()
         .where("session_id", "=", sessionId)
         .where("processing_started_at", "is", null)
+        .orderBy("created_at", "asc")
+        .orderBy("id", "asc")
+        .executeTakeFirst();
+      if (!row) return null;
+
+      const processingStartedAt = this.now();
+      await tx
+        .updateTable("messages")
+        .set({ processing_started_at: processingStartedAt })
+        .where("id", "=", row.id)
+        .execute();
+
+      return rowToMessage({ ...row, processing_started_at: processingStartedAt });
+    });
+  }
+
+  /**
+   * Claim the next queued stop message for a session, even if another
+   * instruction is currently in progress. Returns null if no stop message
+   * is waiting.
+   */
+  async claimStop(sessionId: string): Promise<QueuedMessage | null> {
+    return this.db.transaction().execute(async (tx) => {
+      const row = await tx
+        .selectFrom("messages")
+        .selectAll()
+        .where("session_id", "=", sessionId)
+        .where("processing_started_at", "is", null)
+        .where("kind", "=", "stop")
         .orderBy("created_at", "asc")
         .orderBy("id", "asc")
         .executeTakeFirst();

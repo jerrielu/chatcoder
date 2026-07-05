@@ -2,7 +2,7 @@ import { SessionRevokedError, UnauthorizedError } from "./client.js";
 /**
  * Long-running loop that drives the daemon.
  *   heartbeat tick → POST /v1/heartbeat (api-key wide)
- *   poll tick      → GET /v1/poll → dispatch each session's messages into its ProfileRunner
+ *   poll tick      → GET /v1/poll → dispatch each session's messages into its SessionRunner
  */
 export class Orchestrator {
     deps;
@@ -46,7 +46,7 @@ export class Orchestrator {
         catch {
             // ignore
         }
-        await this.deps.pool.stop();
+        await this.deps.sessionManager.stop();
     }
     /* ============ timers ============ */
     scheduleHeartbeat(delayMs) {
@@ -95,7 +95,8 @@ export class Orchestrator {
             });
             this.shouldResumeInProgress = false;
             for (const s of res.sessions) {
-                if (!this.deps.pool.hasProfile(s.profileName)) {
+                const profile = this.deps.config.profiles.find((p) => p.name === s.profileName);
+                if (!profile) {
                     this.log("poll returned unknown profile — skipping", {
                         profile: s.profileName,
                         sessionId: s.sessionId
@@ -103,14 +104,14 @@ export class Orchestrator {
                     continue;
                 }
                 for (const msg of s.messages) {
-                    this.deps.pool.enqueue(s.profileName, {
+                    this.deps.sessionManager.enqueue(s.sessionId, profile, {
                         sessionId: s.sessionId,
                         messageId: msg.id,
+                        kind: msg.kind,
                         content: msg.content,
                         resumeLastSession: msg.resumeLastSession ?? true,
                         codexReasoningEffort: msg.codexReasoningEffort,
-                        workDir: s.workDir,
-                        interrupt: msg.resumeLastSession === false
+                        workDir: s.workDir
                     });
                 }
             }

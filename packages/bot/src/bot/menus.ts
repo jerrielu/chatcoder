@@ -1,30 +1,26 @@
 import { InlineKeyboard } from "grammy";
-import {
-  CODEX_REASONING_EFFORTS,
-  type CodexReasoningEffort
-} from "@chatcoder/shared";
 import type { ProfileRecord } from "../db/profiles.js";
+import { APP_VERSION } from "@chatcoder/shared";
 
 export const CB = {
   code: "cc:code",
   newCode: "cc:newcode",
   latestProgress: "cc:latest",
-  tokenUsage: "cc:tokens",
-  codexEffortMenu: "cc:effort",
+  stop: "cc:stop",
   newSession: "cc:new",
   newSessionCancel: "cc:new:cancel",
   status: "cc:status",
   menu: "cc:menu",
   profileMenu: "cc:profmenu",
   folderMenu: "cc:foldermenu",
-  /** Prefix for Codex effort callbacks: `cc:effort:<effort>` */
-  codexEffortPrefix: "cc:effort:",
   /** Prefix for profile-pick callbacks: `cc:profile:<profileId>` */
   profilePrefix: "cc:profile:",
   /** Prefix for work-dir pick callbacks: `cc:wd:<index>` */
   workDirPrefix: "cc:wd:",
   /** Prefix for folder-menu pick callbacks: `cc:folder:<index>` */
-  folderPrefix: "cc:folder:"
+  folderPrefix: "cc:folder:",
+  /** Show version and changelog. */
+  version: "cc:version"
 } as const;
 
 export function mainMenu(): InlineKeyboard {
@@ -36,12 +32,12 @@ export function mainMenu(): InlineKeyboard {
     .text("📁 Folder", CB.folderMenu)
     .row()
     .text("📋 Latest Progress", CB.latestProgress)
-    .text("🧮 Token Usage", CB.tokenUsage)
+    .text("⏹ Stop", CB.stop)
     .row()
     .text("🆕 New Session", CB.newSession)
     .text("📡 Status", CB.status)
     .row()
-    .text("🧠 Effort", CB.codexEffortMenu);
+    .text(`📦 v${APP_VERSION}`, CB.version);
 }
 
 export function cancelMenu(): InlineKeyboard {
@@ -61,29 +57,6 @@ export function backToMenu(): InlineKeyboard {
   return new InlineKeyboard().text("« Menu", CB.menu);
 }
 
-function effortLabel(
-  effort: CodexReasoningEffort,
-  selected: CodexReasoningEffort
-): string {
-  const base = effort === "xhigh" ? "XHigh" : effort[0]!.toUpperCase() + effort.slice(1);
-  return effort === selected ? `✅ ${base}` : base;
-}
-
-export function codexEffortPickerMenu(
-  selected: CodexReasoningEffort
-): InlineKeyboard {
-  const kb = new InlineKeyboard();
-  const values = [...CODEX_REASONING_EFFORTS];
-  for (let i = 0; i < values.length; i += 2) {
-    const left = values[i]!;
-    const right = values[i + 1];
-    kb.text(effortLabel(left, selected), CB.codexEffortPrefix + left);
-    if (right) kb.text(effortLabel(right, selected), CB.codexEffortPrefix + right);
-    kb.row();
-  }
-  kb.text("« Menu", CB.menu);
-  return kb;
-}
 
 export function toolIcon(tool: ProfileRecord["tool"]): string {
   switch (tool) {
@@ -102,17 +75,6 @@ export function parseProfileCallback(data: string): string | null {
   if (!data.startsWith(CB.profilePrefix)) return null;
   const id = data.slice(CB.profilePrefix.length);
   return id || null;
-}
-
-export function parseCodexEffortCallback(
-  data: string
-): CodexReasoningEffort | null {
-  if (!data.startsWith(CB.codexEffortPrefix)) return null;
-  const effort = data.slice(CB.codexEffortPrefix.length);
-  if (!CODEX_REASONING_EFFORTS.includes(effort as CodexReasoningEffort)) {
-    return null;
-  }
-  return effort as CodexReasoningEffort;
 }
 
 export function workDirPickerMenu(dirs: string[]): InlineKeyboard {
