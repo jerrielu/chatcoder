@@ -27,18 +27,15 @@ After every change to the repository (code edits, config, documentation, etc.),
    Remove stale information that no longer reflects reality. Use the same
    options–trade-offs–choice format for any new decisions added.
 
-3. **Update `worklog.md`** — Log every change under today's heading. Include
-   the new version number and a concise description of what changed and why.
-
-4. **Update `README.md`** — Keep the README accurate: update the install
+3. **Update `README.md`** — Keep the README accurate: update the install
    instructions, CLI help, env-var tables, PM2 commands, or quick-start guide
    if the change affects user-facing behaviour.
 
-5. **Commit and push all changes** — Stage everything (code + changes.md +
-   design.md + README.md + worklog.md), write a clear commit message summarising what
+4. **Commit and push all changes** — Stage everything (code + changes.md +
+   design.md + README.md), write a clear commit message summarising what
    changed and why, commit, and push to the remote.
 
-6. **Restart the service** — Run these two commands:
+5. **Restart the service** — Run these two commands:
    ```bash
    npm install -g .
    pm2 restart chatcoder-coder chatcoder-chat
