@@ -8,6 +8,7 @@ node_modules/
 dist/
 build/
 bin/
+!bin/chatcoder.js
 *.tsbuildinfo
 !packages/shared/dist/
 !packages/shared/dist/**

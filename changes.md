@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.3 (2025-07-06)
+
+- **Fixed: `bin/chatcoder.js` was an empty placeholder file** — commit
+  `783d2d4` deleted the 205-line CLI entry point (argument parsing, package
+  routing, systemd support) and added `bin/` to `.gitignore`. The subsequent
+  voice-transcription commit created a 0-byte placeholder. PM2 ran the empty
+  file which exited immediately, causing the coder to restart in a loop (17
+  restarts) and never register/send heartbeats. Restored the full entry point
+  from the previous committed version.
+
 ## 0.3.2 (2025-07-06)
 
 - Voice message transcription using local whisper.cpp (multilingual `base`
