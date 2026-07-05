@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.6 (2025-07-11)
+
+- **Exclude `.d.ts` files from git tracking** — added `*.d.ts` to `.gitignore`
+  and removed all 48 tracked `.d.ts` files from the index. These are
+  auto-generated build artifacts and should not be version-controlled.
+
 ## 0.3.5 (2025-07-11)
 
 - **Summary retry message now matches normal summary message** — the retry

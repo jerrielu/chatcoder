@@ -17,6 +17,9 @@ bin/
 !packages/daemon/dist/
 !packages/daemon/dist/**
 
+# TypeScript declaration files (generated)
+*.d.ts
+
 # Test coverage
 coverage/
 .nyc_output/
