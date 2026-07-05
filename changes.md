@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.4 (2025-07-07)
+
+- **Summary instructions now respect user language** — the summary retry prompt
+  in `profileRunner.ts` and `sessionRunner.ts`, and the `SUMMARY_INSTRUCTION`
+  constant in `toolExecutor.ts`, now include a directive to use the same language
+  as the person being interacted with. This ensures multilingual users receive
+  summaries in their own language rather than always English.
+
 ## 0.3.3 (2025-07-06)
 
 - **Fixed: `bin/chatcoder.js` was an empty placeholder file** — commit

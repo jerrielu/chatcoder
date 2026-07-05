@@ -250,7 +250,7 @@ export class ProfileRunner {
         let context = rawText.slice(0, 3_000);
         let success = false;
         for (let attempt = 0; attempt < 3 && !success && !signal.aborted; attempt++) {
-          const retryMsg = `Output ONLY valid JSON with key "summary". Summarize concisely: ${context}`;
+          const retryMsg = `Output ONLY valid JSON with key "summary". Summarize concisely in the same language as the person you are interacting with: ${context}`;
           try {
             const retryResult = await this.deps.tool.execute(this.deps.profile, retryMsg, {
               resumeLastSession: false,
