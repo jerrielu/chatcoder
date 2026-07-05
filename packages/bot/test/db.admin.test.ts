@@ -11,11 +11,12 @@ afterEach(async () => {
 
 describe("AdminRepo.listSessions", () => {
   it("orders sessions newest-first and applies status + chatId filters", async () => {
+    // Use distinct chatIds so each seedSession creates an independent row.
     const a = await h.seedSession({ chatId: 1, profileName: "p-a" });
     h.advanceTime(10);
     const b = await h.seedSession({ chatId: 2, profileName: "p-b" });
     h.advanceTime(10);
-    const c = await h.seedSession({ chatId: 1, profileName: "p-c" });
+    const c = await h.seedSession({ chatId: 3, profileName: "p-c" });
 
     const all = await h.admin.listSessions();
     expect(all.map((s) => s.session.id)).toEqual([
@@ -28,7 +29,7 @@ describe("AdminRepo.listSessions", () => {
     expect(onlyActive).toHaveLength(3);
 
     const onlyChat1 = await h.admin.listSessions({ chatId: 1 });
-    expect(onlyChat1.map((s) => s.session.id)).toEqual([c.session.id, a.session.id]);
+    expect(onlyChat1.map((s) => s.session.id)).toEqual([a.session.id]);
   });
 
   it("respects limit and offset", async () => {
@@ -44,11 +45,12 @@ describe("AdminRepo.listSessions", () => {
   });
 
   it("counts sessions accurately", async () => {
+    // Use distinct chatIds so each seedSession persists.
     await h.seedSession({ chatId: 1, profileName: "a" });
-    await h.seedSession({ chatId: 1, profileName: "b" });
-    await h.seedSession({ chatId: 2, profileName: "c" });
+    await h.seedSession({ chatId: 2, profileName: "b" });
+    await h.seedSession({ chatId: 3, profileName: "c" });
     expect(await h.admin.countSessions()).toBe(3);
-    expect(await h.admin.countSessions({ chatId: 1 })).toBe(2);
+    expect(await h.admin.countSessions({ chatId: 1 })).toBe(1);
   });
 
   it("filters by apiKeyId", async () => {

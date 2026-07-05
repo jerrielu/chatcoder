@@ -139,11 +139,12 @@ describe("admin api-keys endpoints", () => {
 
 describe("admin sessions CRUD", () => {
   it("lists + filters + paginates", async () => {
+    // Use distinct chatIds so each seedSession persists.
     await h.seedSession({ chatId: 1, profileName: "p-a" });
     h.advanceTime(5);
     const b = await h.seedSession({ chatId: 2, profileName: "p-b" });
     h.advanceTime(5);
-    await h.seedSession({ chatId: 1, profileName: "p-c" });
+    await h.seedSession({ chatId: 3, profileName: "p-c" });
 
     const all = await json("GET", "/v1/admin/sessions");
     expect(all.statusCode).toBe(200);

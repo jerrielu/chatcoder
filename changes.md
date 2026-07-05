@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0 (2025-07-06)
+
+- `SessionsRepo.create()` now deletes **all** existing sessions for a chatId
+  instead of only revoking active sessions for the same apiKeyId — starting a
+  new session clears the slate for that chat entirely (previous sessions and
+  their messages are cascade-deleted).
+
+## 0.2.0 (2025-07-06)
+
+- Added version/changelog system:
+  - `APP_VERSION` constant in `@chatcoder/shared` shared across all packages
+  - `changes.md` at repo root tracks changes per version
+  - Telegram main menu now shows a `📦 v0.2.0` button; tapping it displays the
+    latest changelog entries
+  - AGENTS.md Post-Change Automation includes version bump as Step 1 and
+    requires updating `changes.md` after every change
+- Design decision documented in `design.md §15`.
+
 ## 0.1.0 (2025-07-05)
 
 Initial release.

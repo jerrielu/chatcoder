@@ -95,12 +95,20 @@ millisecond timestamp left by 10 bits and OR in a per-repo sequence counter
 (bounded to 10 bits, so 1024 insertions/ms of headroom). The API-facing
 `createdAt` is divided back down, so wire consumers still see plain millis.
 
-### 2.2 Why soft-delete sessions instead of hard-delete?
+### 2.2 Why soft-delete sessions (via admin) but hard-delete on session rotation?
+
 The daemon polls with its API key. If the row is gone, the daemon can't tell
 "wrong key" from "session rotated; please shut down cleanly." A `revoked`
 status lets the API return a specific `SESSION_REVOKED` signal so the daemon
 can close codex gracefully (requirement: "immediately close codex and clean up
 once received new session request").
+
+However, when the user creates a **new session** for the same Telegram chat, all
+existing sessions for that `chatId` are **hard-deleted** (cascading to messages).
+This guarantees a clean slate — the new session is the only one for that chat.
+In-flight daemon processing for an old session will fail with a 400 validation
+error on its next response POST (session not found), which is safe because the
+daemon was working on stale work for a superseded session.
 
 ---
 

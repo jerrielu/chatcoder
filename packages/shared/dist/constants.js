@@ -13,7 +13,7 @@ export const MAX_WORK_DIRS = 32;
 /** Max length of a profile name. */
 export const MAX_PROFILE_NAME_LENGTH = 64;
 /** Current application version (semver). Keep in sync with root package.json. */
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.2.0";
 /** API path constants. Both bot and daemon import these. */
 export const API_PATHS = {
     heartbeat: "/v1/heartbeat",
