@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.5 (2025-07-11)
+
+- **Summary retry message now matches normal summary message** — the retry
+  summary prompt in `profileRunner.ts` and `sessionRunner.ts` now reuses the
+  `SUMMARY_INSTRUCTION` constant from `toolExecutor.ts` instead of having a
+  slightly different hardcoded string. This ensures consistent summarization
+  behavior on the first attempt vs retries.
+
 ## 0.3.4 (2025-07-07)
 
 - **Summary instructions now respect user language** — the summary retry prompt
