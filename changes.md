@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2 (2025-07-06)
+
+- Added "Coding Principles" section to `AGENTS.md` — aligns with existing
+  patterns, SOLID, YAGNI, and self-review after writing.
+
 ## 0.3.1 (2025-07-06)
 
 - `APP_VERSION` is now auto-generated from root `package.json` at build time

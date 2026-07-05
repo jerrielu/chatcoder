@@ -1,5 +1,34 @@
 # Repository Guidance
 
+## Coding Principles
+
+All new code **MUST** follow these principles, in order of priority:
+
+1. **Align with existing patterns** — Read the surrounding code and mimic its
+   style, structure, naming conventions, and error-handling approach. Don't
+   introduce a new pattern when an existing one works, unless the existing
+   pattern is demonstrably wrong.
+
+2. **Follow SOLID principles** — Every new class, function, or module should
+   respect the five SOLID design principles:
+   - **S**ingle Responsibility — each unit has one reason to change.
+   - **O**pen/Closed — open for extension, closed for modification.
+   - **L**iskov Substitution — subtypes must be substitutable for their base
+     types.
+   - **I**nterface Segregation — keep interfaces small and focused.
+   - **D**ependency Inversion — depend on abstractions, not concretions.
+
+3. **Keep it simple (YAGNI)** — Write the simplest code that solves the
+   current, concrete requirement. Do **not** write code for hypothetical
+   future needs, abstract extensibility points that have no consumer, or
+   generic wrappers that only wrap one thing. Unused code is liability, not
+   foresight.
+
+4. **Self-review after writing** — After every change, re-read your own diff
+   and remove any unnecessary code: dead variables, unused imports, redundant
+   checks, commented-out blocks, or abstractions that aren't pulled by
+   anything. Every line should earn its keep.
+
 ## Post-Change Automation
 
 After every change to the repository (code edits, config, documentation, etc.),
