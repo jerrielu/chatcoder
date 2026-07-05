@@ -65,8 +65,9 @@ After every change to the repository (code edits, config, documentation, etc.),
    design.md + README.md), write a clear commit message summarising what
    changed and why, commit, and push to the remote.
 
-5. **Restart the service** — Run these two commands:
+5. **Restart the service** — Run these three commands:
    ```bash
+   npm run build
    npm install -g .
    pm2 restart chatcoder-coder chatcoder-chat
    ```

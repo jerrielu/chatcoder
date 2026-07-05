@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureCodexHome } from "./codexHome.js";
 import { stripAnsi } from "./ansi.js";
-export const SUMMARY_INSTRUCTION = 'When you finish, output your final response as a JSON object with exactly one key: "summary". The value must be a concise summary of what was done and key results. Do not include any other text outside the JSON object.';
+export const SUMMARY_INSTRUCTION = 'Reply in the language used before this sentence. When you finish, output your final response as a JSON object with exactly one key: "summary". The value should contain details about the changes you just made, or the information and plans you just created, along with key results written in plain language.  Do not include any other text outside the JSON object.';
 export function wrapWithSummaryPolicy(message) {
     return `${message}\n\n${SUMMARY_INSTRUCTION}`;
 }

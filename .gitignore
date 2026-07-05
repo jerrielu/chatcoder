@@ -19,6 +19,7 @@ bin/
 
 # TypeScript declaration files (generated)
 *.d.ts
+*.d.ts.map
 
 # Test coverage
 coverage/

@@ -1,4 +1,5 @@
 import { stripAnsi } from "./ansi.js";
+import { SUMMARY_INSTRUCTION } from "./toolExecutor.js";
 import { extractSummaryFromJSON, extractLastBlock } from "./summary.js";
 import { convert } from "telegram-markdown-v2";
 const DEFAULT_RESPONSE_UPDATE_INTERVAL_MS = 5_000;
@@ -216,7 +217,7 @@ export class SessionRunner {
                 let context = rawText.slice(0, 3_000);
                 let success = false;
                 for (let attempt = 0; attempt < 3 && !success && !signal.aborted; attempt++) {
-                    const retryMsg = `Output ONLY valid JSON with key "summary". Summarize concisely: ${context}`;
+                    const retryMsg = `${SUMMARY_INSTRUCTION}\n\n${context}`;
                     try {
                         const retryResult = await this.deps.tool.execute(this.deps.profile, retryMsg, {
                             resumeLastSession: false,
