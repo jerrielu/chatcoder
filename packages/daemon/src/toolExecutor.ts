@@ -36,7 +36,7 @@ interface Launch {
 }
 
 export const SUMMARY_INSTRUCTION =
-  'Reply in the language used before this sentence. When you finish, output your final response as a JSON object with exactly one key: "summary". The value should contain details about the changes you just made, or the information and plans you just created, along with key results written in plain language.  Do not include any other text outside the JSON object.';
+  'Reply in the language used before this sentence. When you finish, output your response as a JSON object with exactly one key: "summary". Do not include any other text outside the JSON object.';
 
 export function wrapWithSummaryPolicy(message: string): string {
   return `${message}\n\n${SUMMARY_INSTRUCTION}`;
