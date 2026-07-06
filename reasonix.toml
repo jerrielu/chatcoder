@@ -1,2 +1,2 @@
 [permissions]
-allow = ["Edit", "Bash(npm install:*)"]
+allow = ["Edit", "Bash(npm install:*)", "Bash(cd /home/sporule/projects/chatcoder && npm run local 2>&1)"]

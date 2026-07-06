@@ -65,15 +65,13 @@ After every change to the repository (code edits, config, documentation, etc.),
    design.md + README.md), write a clear commit message summarising what
    changed and why, commit, and push to the remote.
 
-5. **Restart the service** — Run these three commands:
+5. **Restart the service** — Run:
    ```bash
-   npm run build
-   npm install -g .
-   pm2 restart chatcoder-coder chatcoder-chat
+   npm run local
    ```
-   This reinstalls the globally linked `chatcoder` CLI (so the `bin` entry
-   picks up the latest build output) and restarts both PM2 processes so the
-   running services reflect the new code.
+   This builds all workspaces, reinstalls the globally linked `chatcoder` CLI (so
+   the `bin` entry picks up the latest build output), and restarts both PM2
+   processes so the running services reflect the new code.
 
 > **Note:** If any step fails (e.g. test failure, git conflict, PM2 not
 > running), diagnose the failure, attempt to fix it, then retry the step.

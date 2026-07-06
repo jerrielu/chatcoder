@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.7 (2025-07-11)
+
+- **`npm run local` convenience script** — combines `npm run build`, `npm install -g .`,
+  and `pm2 restart chatcoder-coder chatcoder-chat` into a single command. AGENTS.md
+  post-change step 5 updated to use it.
+
 ## 0.3.6 (2025-07-11)
 
 - **Exclude `.d.ts` files from git tracking** — added `*.d.ts` to `.gitignore`

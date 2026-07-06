@@ -1,7 +1,7 @@
 {
   "name": "chatcoder",
   "private": true,
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Remote codex control via Telegram — monorepo root",
   "repository": "github:jerrielu/chatcoder",
   "bin": {
@@ -27,6 +27,7 @@
     "test:watch": "vitest",
     "dev:chat": "npm run dev -w @chatcoder/bot",
     "dev:coder": "node bin/chatcoder.js",
+    "local": "npm run build && npm install -g . && pm2 restart chatcoder-coder chatcoder-chat",
     "dev:dashboard": "npm run dev -w @chatcoder/dashboard"
   },
   "devDependencies": {
