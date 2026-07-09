@@ -18,8 +18,8 @@ export interface ExecuteOptions {
   codexReasoningEffort?: CodexReasoningEffort;
   /** Working directory for the spawned process. */
   workDir?: string;
-  /** Skip the summary instruction wrapper (used for retry summarization calls). */
-  skipSummaryWrapper?: boolean;
+  /** Skip the response instruction wrapper (used for retry summarization calls). */
+  skipResponseWrapper?: boolean;
 }
 
 export interface ToolExecutorOptions {
@@ -35,11 +35,11 @@ interface Launch {
   finalOutputPath: string | null;
 }
 
-export const SUMMARY_INSTRUCTION =
-  'Reply in the language used before this sentence. When you finish, output your response as a JSON object with exactly one key: "summary". Do not include any other text outside the JSON object.';
+export const RESPONSE_INSTRUCTION =
+  'After completing the task, reply in the language used before this sentence. Output your response as a JSON object with exactly one key: "summary". Do not include any other text outside the JSON object.';
 
-export function wrapWithSummaryPolicy(message: string): string {
-  return `${message}\n\n${SUMMARY_INSTRUCTION}`;
+export function wrapWithResponsePolicy(message: string): string {
+  return `${message}\n\n${RESPONSE_INSTRUCTION}`;
 }
 
 function codexFinalOutputPath(profileName: string): string {
@@ -210,7 +210,7 @@ export class ToolExecutor {
     message: string,
     execOpts: ExecuteOptions = {}
   ): Promise<string> {
-    const finalMessage = execOpts.skipSummaryWrapper ? message : wrapWithSummaryPolicy(message);
+    const finalMessage = execOpts.skipResponseWrapper ? message : wrapWithResponsePolicy(message);
     const launch = buildLaunch(
       profile,
       finalMessage,

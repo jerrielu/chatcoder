@@ -1,7 +1,7 @@
 import { stripAnsi } from "./ansi.js";
 import type { CodexReasoningEffort, MessageKind } from "@chatcoder/shared";
 import type { Profile } from "./profile.js";
-import { SUMMARY_INSTRUCTION, type ToolExecutor } from "./toolExecutor.js";
+import { RESPONSE_INSTRUCTION, type ToolExecutor } from "./toolExecutor.js";
 import { extractSummaryFromJSON, extractLastBlock } from "./summary.js";
 import { convert } from "telegram-markdown-v2";
 
@@ -256,11 +256,11 @@ export class SessionRunner {
         let context = rawText.slice(0, 3_000);
         let success = false;
         for (let attempt = 0; attempt < 3 && !success && !signal.aborted; attempt++) {
-          const retryMsg = `${SUMMARY_INSTRUCTION}\n\n${context}`;
+          const retryMsg = `${RESPONSE_INSTRUCTION}\n\n${context}`;
           try {
             const retryResult = await this.deps.tool.execute(this.deps.profile, retryMsg, {
               resumeLastSession: false,
-              skipSummaryWrapper: true
+              skipResponseWrapper: true
             });
             const retrySummary = extractSummaryFromJSON(retryResult);
             if (retrySummary) {

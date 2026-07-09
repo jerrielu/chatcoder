@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2 (2025-07-12)
+
+- **Refactor: rename `SUMMARY_INSTRUCTION` → `RESPONSE_INSTRUCTION`** — Made
+  the instruction text explicit that it applies after task completion, not
+  during. Renamed `wrapWithSummaryPolicy` → `wrapWithResponsePolicy` and
+  `skipSummaryWrapper` → `skipResponseWrapper` throughout.
+
 ## 0.5.1 (2025-07-12)
 
 - **Fix: "✅ Message processed." now only sent after all responses** — The
