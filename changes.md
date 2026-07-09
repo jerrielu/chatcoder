@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.5 (2025-07-13)
+
+- **Fix: RESPONSE_INSTRUCTION no longer overrides the user's actual task** —
+  Changed wording from "After completing the task" to "After completing the
+  user request above" to disambiguate which "task" the LLM should execute.
+  Previously, LLM-based tools (especially Reasonix) interpreted the ambiguous
+  "task" as the RESPONSE_INSTRUCTION itself, causing them to produce a repo
+  summary instead of executing the user's actual instruction.
+  (packages/daemon/src/toolExecutor.ts)
+
 ## 0.5.4 (2025-07-12)
 
 - **Fix: concurrent "New Code" tasks no longer break progress/status tracking** —
