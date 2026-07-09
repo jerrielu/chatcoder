@@ -12,6 +12,7 @@ import { createBot } from "./bot/bot.js";
 import { FlowStore } from "./bot/flows.js";
 import { deriveLocalApiUrl } from "./apiUrl.js";
 import { escapeMarkdownV2, sendTelegramWithRetry, splitForTelegram } from "./bot/telegramSend.js";
+import { InputFile } from "grammy";
 import { mainMenu } from "./bot/menus.js";
 async function main() {
     const cfg = loadConfigFromEnv();
@@ -80,6 +81,19 @@ async function main() {
             }
             catch {
                 // Best-effort — final response still available via progress updates
+            }
+            // Attach the full response as a text document with caption "full logs"
+            try {
+                const fullResponse = state.response;
+                const documentBuffer = Buffer.from(fullResponse, "utf-8");
+                const inputFile = new InputFile(documentBuffer, "response.txt");
+                await sendTelegramWithRetry(() => bot.api.sendDocument(chatId, inputFile, {
+                    caption: "full logs",
+                    reply_markup: mainMenu()
+                }));
+            }
+            catch {
+                // Best-effort — document attachment is not critical
             }
         },
         async sendProcessing(chatId, content, sessionId) {

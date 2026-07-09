@@ -115,7 +115,7 @@ async function main(): Promise<void> {
       try {
         const fullResponse = state.response;
         const documentBuffer = Buffer.from(fullResponse, "utf-8");
-        const inputFile = new InputFile(documentBuffer, "response.txt");
+        const inputFile = new InputFile(documentBuffer, "response.md");
         await sendTelegramWithRetry(() =>
           bot.api.sendDocument(chatId, inputFile, {
             caption: "full logs",

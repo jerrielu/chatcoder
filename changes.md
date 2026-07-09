@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 (2025-07-13)
+
+- **Attach full response as markdown file** — Changed the full response
+  attachment from `response.txt` to `response.md` for better markdown rendering
+  when downloaded. The caption remains "full logs".
+  (packages/bot/src/main.ts)
+
 ## 0.6.0 (2025-07-13)
 
 - **Attach full response as text document with "full logs" caption** — When
