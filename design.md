@@ -152,7 +152,7 @@ so running multiple *API* replicas behind a load balancer is safe.
 box behind NAT). Responses *don't* queue: when the daemon POSTs
 `/v1/responses`, the bot edits the processing message in-place with the
 response content and attaches the full response as a markdown file with
-caption "full logs", and returns to the daemon. Failure → HTTP error → daemon's existing
+caption "✅ Message processed", and returns to the daemon. Failure → HTTP error → daemon's existing
 retry/backoff takes over (transient retries; permanent failures like "bot
 blocked" bubble as 4xx and stop retrying).
 
@@ -168,8 +168,7 @@ message for dashboards/status AND edit the original "Daemon is processing"
 Telegram message in-place (best-effort) so the user sees live progress. When it
 posts the final response, the bot edits the processing message in-place with
 the response content, attaches the full response as a markdown file with
-caption "full logs", deletes the in-progress row, and sends a separate
-"✅ Message processed." completion message.
+caption "✅ Message processed", and deletes the in-progress row.
 Responses never queue as daemon-bound rows.
 
 `resume_last_session` controls whether a message continues the current tool
@@ -219,7 +218,7 @@ menus that covers create new session, check status, check response."
 Daemon responses are *pushed* to the chat by the bot as new messages
 (progress updates still edit the "processing" message in-place).
 The final response edits the processing message in-place and also attaches
-the full response as a markdown file with caption "full logs".
+the full response as a markdown file with caption "✅ Message processed".
 
 Flow:
 ```
@@ -233,8 +232,7 @@ Flow:
   Status → last heartbeat, pending instruction count
   (daemon progress)  → processing message edited in-place with live progress
   (daemon output)    → processing message edited with response content
-                    → full response attached as markdown file with "full logs" caption
-                    → new "✅ Message processed." message sent
+                    → full response attached as markdown file with "✅ Message processed" caption
 ```
 
 ### 5.1 Why `/code` prefix rather than routing all messages?

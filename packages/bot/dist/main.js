@@ -82,19 +82,6 @@ async function main() {
             catch {
                 // Best-effort — final response still available via progress updates
             }
-            // Attach the full response as a text document with caption "full logs"
-            try {
-                const fullResponse = state.response;
-                const documentBuffer = Buffer.from(fullResponse, "utf-8");
-                const inputFile = new InputFile(documentBuffer, "response.txt");
-                await sendTelegramWithRetry(() => bot.api.sendDocument(chatId, inputFile, {
-                    caption: "full logs",
-                    reply_markup: mainMenu()
-                }));
-            }
-            catch {
-                // Best-effort — document attachment is not critical
-            }
         },
         async sendProcessing(chatId, content, sessionId) {
             const state = {
@@ -111,7 +98,21 @@ async function main() {
             processingStates.set(sessionId, state);
         },
         async sendProcessed(chatId, sessionId) {
-            await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, "✅ Message processed.", { reply_markup: mainMenu() }));
+            // Send the full response as a .md document with caption.
+            const state = processingStates.get(sessionId);
+            if (state && state.response) {
+                try {
+                    const documentBuffer = Buffer.from(state.response, "utf-8");
+                    const inputFile = new InputFile(documentBuffer, "response.md");
+                    await sendTelegramWithRetry(() => bot.api.sendDocument(chatId, inputFile, {
+                        caption: "✅ Message processed",
+                        reply_markup: mainMenu()
+                    }));
+                }
+                catch {
+                    // Best-effort — document attachment is not critical
+                }
+            }
             processingStates.delete(sessionId);
         },
         async sendLatestProgress(chatId, content, sessionId) {

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.2 (2026-07-09)
+
+- **Fix response .md attachment only containing partial content** — When a
+  final response exceeded the 4095-char chunk limit, the daemon would send
+  multiple HTTP requests to the server, each triggering `completeProcessing`
+  which destroyed the processing state after the first chunk. This caused the
+  response to be split across multiple Telegram messages and the `.md`
+  attachment to contain only the last chunk. Fixed by sending the entire final
+  response in a single HTTP request from the daemon (no chunking for final
+  responses). (packages/daemon/src/sessionRunner.ts)
+- **Replace separate "Message processed" with .md caption** — Removed the
+  standalone "✅ Message processed." Telegram message. The full response `.md`
+  file now carries "✅ Message processed" as its caption, reducing chat
+  clutter. (packages/bot/src/main.ts)
+
 ## 0.6.1 (2025-07-13)
 
 - **Attach full response as markdown file** — Changed the full response

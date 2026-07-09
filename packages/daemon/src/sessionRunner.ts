@@ -266,6 +266,14 @@ export class SessionRunner {
   ): Promise<void> {
     if (!text) return;
     const outboundText = opts.final === false ? formatProgressUpdate(text) : text;
+    // Final responses are sent in one shot — chunking them causes the server
+    // to call completeProcessing after the first chunk, destroying the
+    // processing state and truncating the .md attachment.
+    if (opts.final) {
+      this.log(">>> response", { session: this.sessionId, chunk: outboundText });
+      await this.deps.postResponse(sessionId, outboundText, opts);
+      return;
+    }
     for (let i = 0; i < outboundText.length; i += this.chunkMax) {
       const chunk = outboundText.slice(i, i + this.chunkMax);
       this.log(">>> response", { session: this.sessionId, chunk });
