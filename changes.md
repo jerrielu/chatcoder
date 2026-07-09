@@ -16,6 +16,13 @@
   accordingly. (packages/daemon/src/toolExecutor.ts, summary.ts, sessionRunner.ts,
   profileRunner.ts)
 
+- **REASONIX tool: completely skip RESPONSE_INSTRUCTION** — The format
+  instruction appended at the end of the user message was still overriding the
+  actual task for Reasonix. Now REASONIX profiles skip `wrapWithResponsePolicy`
+  entirely, and the retry loop in both runners is bypassed for REASONIX so raw
+  output is posted directly via `extractLastBlock`.
+  (packages/daemon/src/toolExecutor.ts, sessionRunner.ts, profileRunner.ts)
+
 ## 0.5.4 (2025-07-12)
 
 - **Fix: concurrent "New Code" tasks no longer break progress/status tracking** —

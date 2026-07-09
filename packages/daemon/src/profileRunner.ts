@@ -239,11 +239,16 @@ export class ProfileRunner {
       const rawText = finalOutput.length > 0 ? finalOutput : stripAnsi(rawOutput).trim();
       if (rawText.length === 0) return;
 
-      // Try to extract a JSON summary from the tool's output
+      // Try to extract a JSON response from the tool's output
       let responseText = extractResponseFromJSON(rawText);
 
       if (responseText) {
         const formatted = convert(responseText).trim();
+        await this.tryPostChunked(task.sessionId, formatted, { final: true });
+      } else if (this.deps.profile.tool === "REASONIX") {
+        // REASONIX doesn't use RESPONSE_INSTRUCTION — post the raw output directly
+        const fallback = extractLastBlock(rawText);
+        const formatted = convert(fallback || rawText).trim();
         await this.tryPostChunked(task.sessionId, formatted, { final: true });
       } else {
         // Retry up to 3 times asking the AI to produce a summary

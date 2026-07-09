@@ -251,6 +251,11 @@ export class SessionRunner {
       if (responseText) {
         const formatted = convert(responseText).trim();
         await this.tryPostChunked(task.sessionId, formatted, { final: true });
+      } else if (this.deps.profile.tool === "REASONIX") {
+        // REASONIX doesn't use RESPONSE_INSTRUCTION — post the raw output directly
+        const fallback = extractLastBlock(rawText);
+        const formatted = convert(fallback || rawText).trim();
+        await this.tryPostChunked(task.sessionId, formatted, { final: true });
       } else {
         // Retry up to 3 times asking the AI to produce a summary
         let context = rawText.slice(0, 3_000);

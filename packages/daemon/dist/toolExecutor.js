@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureCodexHome } from "./codexHome.js";
 import { stripAnsi } from "./ansi.js";
-export const RESPONSE_INSTRUCTION = 'After completing the user request above, reply in the language used before this sentence. Output your response as a JSON object with exactly one key: "summary". Do not include any other text outside the JSON object.';
+export const RESPONSE_INSTRUCTION = 'After completing the user request above, reply in the language used before this sentence. Output your response as a JSON object with exactly one key: "response". Do not include any other text outside the JSON object.';
 export function wrapWithResponsePolicy(message) {
     return `${message}\n\n${RESPONSE_INSTRUCTION}`;
 }
@@ -181,7 +181,11 @@ export class ToolExecutor {
         this.log = opts.log ?? (() => void 0);
     }
     async execute(profile, message, execOpts = {}) {
-        const finalMessage = execOpts.skipResponseWrapper ? message : wrapWithResponsePolicy(message);
+        // REASONIX has its own AGENTS.md guidance — appending RESPONSE_INSTRUCTION
+        // would interfere with task execution. Other tools need it for JSON output.
+        const finalMessage = execOpts.skipResponseWrapper || profile.tool === "REASONIX"
+            ? message
+            : wrapWithResponsePolicy(message);
         const launch = buildLaunch(profile, finalMessage, execOpts.resumeLastSession ?? true, execOpts.codexReasoningEffort, execOpts.workDir);
         this.log("executing", {
             profile: profile.name,

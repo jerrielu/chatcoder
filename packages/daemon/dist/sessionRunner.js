@@ -1,6 +1,6 @@
 import { stripAnsi } from "./ansi.js";
 import { RESPONSE_INSTRUCTION } from "./toolExecutor.js";
-import { extractSummaryFromJSON, extractLastBlock } from "./summary.js";
+import { extractResponseFromJSON, extractLastBlock } from "./summary.js";
 import { convert } from "telegram-markdown-v2";
 const DEFAULT_RESPONSE_UPDATE_INTERVAL_MS = 5_000;
 const DEFAULT_RESPONSE_CHUNK_MAX_CHARS = 4_095;
@@ -207,9 +207,15 @@ export class SessionRunner {
             if (rawText.length === 0)
                 return;
             // Try to extract a JSON summary from the tool's output
-            let summary = extractSummaryFromJSON(rawText);
-            if (summary) {
-                const formatted = convert(summary).trim();
+            let responseText = extractResponseFromJSON(rawText);
+            if (responseText) {
+                const formatted = convert(responseText).trim();
+                await this.tryPostChunked(task.sessionId, formatted, { final: true });
+            }
+            else if (this.deps.profile.tool === "REASONIX") {
+                // REASONIX doesn't use RESPONSE_INSTRUCTION — post the raw output directly
+                const fallback = extractLastBlock(rawText);
+                const formatted = convert(fallback || rawText).trim();
                 await this.tryPostChunked(task.sessionId, formatted, { final: true });
             }
             else {
@@ -223,9 +229,9 @@ export class SessionRunner {
                             resumeLastSession: false,
                             skipResponseWrapper: true
                         });
-                        const retrySummary = extractSummaryFromJSON(retryResult);
-                        if (retrySummary) {
-                            const formatted = convert(retrySummary).trim();
+                        const retryResponse = extractResponseFromJSON(retryResult);
+                        if (retryResponse) {
+                            const formatted = convert(retryResponse).trim();
                             await this.tryPostChunked(task.sessionId, formatted, { final: true });
                             success = true;
                         }

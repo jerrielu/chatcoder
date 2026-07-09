@@ -210,7 +210,11 @@ export class ToolExecutor {
     message: string,
     execOpts: ExecuteOptions = {}
   ): Promise<string> {
-    const finalMessage = execOpts.skipResponseWrapper ? message : wrapWithResponsePolicy(message);
+    // REASONIX has its own AGENTS.md guidance — appending RESPONSE_INSTRUCTION
+    // would interfere with task execution. Other tools need it for JSON output.
+    const finalMessage = execOpts.skipResponseWrapper || profile.tool === "REASONIX"
+      ? message
+      : wrapWithResponsePolicy(message);
     const launch = buildLaunch(
       profile,
       finalMessage,
