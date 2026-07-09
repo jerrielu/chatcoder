@@ -105,7 +105,7 @@ describe("MessagesRepo processing lifecycle", () => {
     expect(second?.content).toBe("B");
   });
 
-  it("claims the latest new-code message and clears older plus in-progress work", async () => {
+  it("claims the latest new-code message and clears older pending work but preserves in-progress", async () => {
     await h.messages.enqueue({ sessionId, content: "A" });
     const first = await h.messages.claimNext(sessionId);
     expect(first?.content).toBe("A");
@@ -119,9 +119,19 @@ describe("MessagesRepo processing lifecycle", () => {
 
     const latest = await h.messages.claimLatestNewCodeAndClearBefore(sessionId);
     expect(latest?.content).toBe("C");
+    // B (pending, older) was deleted; A (in-progress) was preserved; C is now processing; D is pending
     expect(await h.messages.count(sessionId)).toBe(1);
-    expect((await h.messages.getProcessing(sessionId))?.content).toBe("C");
+    // getProcessing returns the oldest processing row (A), not the new code (C)
+    expect((await h.messages.getProcessing(sessionId))?.content).toBe("A");
+    // Complete A
     expect(await h.messages.completeProcessing(sessionId)).toBe(true);
+    // Now getProcessing shows C
+    expect((await h.messages.getProcessing(sessionId))?.content).toBe("C");
+    // D is still pending but claimNext won't grab it while C is processing
+    expect(await h.messages.claimNext(sessionId)).toBeNull();
+    // Complete C
+    expect(await h.messages.completeProcessing(sessionId)).toBe(true);
+    // Now D can be claimed
     expect((await h.messages.claimNext(sessionId))?.content).toBe("D");
   });
 

@@ -201,7 +201,8 @@ describe("GET /v1/poll", () => {
     expect(group.messages).toHaveLength(1);
     expect(group.messages[0].content).toBe("fresh work");
     expect(group.messages[0].resumeLastSession).toBe(false);
-    expect((await h.messages.getProcessing(sessionId))?.content).toBe("fresh work");
+    // The in-progress row ("old work") is preserved — getProcessing still returns it
+    expect((await h.messages.getProcessing(sessionId))?.content).toBe("old work");
     expect(await h.messages.count(sessionId)).toBe(1);
     expect(sendProcessing).toHaveBeenCalledTimes(2);
   });

@@ -175,8 +175,9 @@ export class MessagesRepo {
     }
     /**
      * Claim the newest queued "New Code" instruction for a session. Everything
-     * older than it is cleared, including any currently in-progress instruction.
-     * Newer queued instructions remain pending and will run after it.
+     * older than it is cleared (but NOT any currently in-progress instruction,
+     * so its tracking persists in the DB and 📡 Status can show it). Newer
+     * queued instructions remain pending and will run after it.
      */
     async claimLatestNewCodeAndClearBefore(sessionId) {
         return this.db.transaction().execute(async (tx) => {
@@ -196,7 +197,6 @@ export class MessagesRepo {
                 .where("session_id", "=", sessionId)
                 .where("id", "!=", row.id)
                 .where((eb) => eb.or([
-                eb("processing_started_at", "is not", null),
                 eb("created_at", "<", row.created_at),
                 eb.and([
                     eb("created_at", "=", row.created_at),

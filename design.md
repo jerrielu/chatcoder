@@ -171,8 +171,9 @@ Responses never queue as daemon-bound rows.
 `resume_last_session` controls whether a message continues the current tool
 context. Normal `/code` messages default to `true` and run FIFO. New Code
 messages set it to `false`: the poll API claims the newest pending New Code
-row first, clears older pending or in-progress work for that session, marks
-the New Code row in progress, and leaves newer queued work pending behind it.
+row first, clears older *pending* work for that session (leaving the
+currently-processing row intact), marks the New Code row in progress, and
+leaves newer queued work pending behind it.
 The daemon treats `resume_last_session=false` as an interrupt: it aborts the
 active profile task, drops older queued local tasks for that profile, and
 starts the New Code instruction without resume flags.
@@ -224,10 +225,11 @@ of conversational text to codex, and leaves room for future bot-local commands.
 
 Normal Code continues the current tool session and is processed FIFO, one
 in-progress instruction per chatcoder session. New Code starts fresh: it
-preempts active work, clears older queued/in-progress work for the same
-session, and runs before newer queued work. This gives the user an escape
-hatch when the active agent is pursuing the wrong task while preserving
-instructions that were queued after the New Code request.
+preempts active work *at the daemon level* only if the daemon has not yet
+started executing it, clears older queued work for the same
+session, and runs before newer queued work. If the previous instruction is
+already running, New Code waits behind it in the daemon's FIFO queue. The
+in-progress DB row is preserved so 📡 Status remains accurate.
 
 ---
 

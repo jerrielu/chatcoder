@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.8 (2025-07-12)
+
+- **Fix: 🆕 New Code no longer hides the in-progress job from 📡 Status** —
+  `claimLatestNewCodeAndClearBefore()` in the bot's `MessagesRepo` was deleting
+  the in-progress DB row (messages with `processing_started_at IS NOT NULL`).
+  This caused the old job to disappear from the Status menu even though the
+  daemon was still running it, and led to `completeProcessing()` deleting the
+  wrong row. The fix adds `processing_started_at IS NULL` guards to the delete
+  conditions, preserving the in-progress row. Only older pending messages are
+  now cleared ahead of the new code.
+
 ## 0.3.7 (2025-07-11)
 
 - **`npm run local` convenience script** — combines `npm run build`, `npm install -g .`,
