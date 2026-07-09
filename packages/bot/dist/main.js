@@ -59,11 +59,28 @@ async function main() {
     }
     const telegram = {
         async sendResponse(chatId, content, sessionId) {
-            const chunks = splitForTelegram(content);
-            for (const chunk of chunks) {
-                await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu(), parse_mode: "MarkdownV2" }));
+            // Edit the processing message with the final response instead of sending
+            // a new message, so the user sees the result in-place.
+            const state = processingStates.get(sessionId);
+            if (!state) {
+                // Processing state already cleaned up — send as new message (fallback)
+                const chunks = splitForTelegram(content);
+                for (const chunk of chunks) {
+                    await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu(), parse_mode: "MarkdownV2" }));
+                }
+                return;
             }
-            // Processing state is cleaned up by sendProcessed after the acknowledgement.
+            // Accumulate multi-chunk responses and edit in-place
+            state.response = state.response ? state.response + content : content;
+            try {
+                await sendTelegramWithRetry(() => bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage(state), {
+                    reply_markup: mainMenu(),
+                    parse_mode: "MarkdownV2"
+                }));
+            }
+            catch {
+                // Best-effort — final response still available via progress updates
+            }
         },
         async sendProcessing(chatId, content, sessionId) {
             const state = {

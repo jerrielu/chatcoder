@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildLaunch, RESPONSE_INSTRUCTION, wrapWithResponsePolicy, ToolExecutor } from "../src/toolExecutor.js";
+import { buildLaunch, ToolExecutor } from "../src/toolExecutor.js";
 import { setCodexRootOverride } from "../src/codexHome.js";
 import type { Profile } from "../src/profile.js";
 
@@ -18,10 +18,6 @@ afterEach(() => {
 });
 
 describe("buildLaunch", () => {
-  it("wrapWithResponsePolicy appends the response instruction", () => {
-    const result = wrapWithResponsePolicy("do something");
-    expect(result).toBe(`do something\n\n${RESPONSE_INSTRUCTION}`);
-  });
 
   it("assembles Claude Code flags with skipPermissions and model", () => {
     const profile: Profile = {
@@ -359,7 +355,7 @@ describe("ToolExecutor", () => {
     }
   });
 
-  it("applies response instruction wrapper by default in execute()", async () => {
+  it("returns raw tool output from execute()", async () => {
     const profile: Profile = {
       name: "custom-summary",
       tool: "CUSTOM",
@@ -371,29 +367,7 @@ describe("ToolExecutor", () => {
       }
     };
     const executor = new ToolExecutor();
-    // The execute method wraps the message, but for CUSTOM profiles
-    // the wrapped message is passed as-is (appended). The tool's output
-    // should still be returned.
     const output = await executor.execute(profile, "go");
     expect(output).toBe('{"response":"done"}');
-  });
-
-  it("skips response instruction wrapper when skipResponseWrapper is set", async () => {
-    const profile: Profile = {
-      name: "custom-raw",
-      tool: "CUSTOM",
-      custom: {
-        launchBin: process.execPath,
-        args: ["-e", "process.stdout.write(process.argv[process.argv.length-1])"],
-        env: {},
-        messagePlacement: "appended"
-      }
-    };
-    const executor = new ToolExecutor();
-    const output = await executor.execute(profile, "raw-msg", {
-      skipResponseWrapper: true
-    });
-    // Should return just the raw message, not wrapped
-    expect(output).toBe("raw-msg");
   });
 });

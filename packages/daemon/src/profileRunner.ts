@@ -1,7 +1,7 @@
 import { stripAnsi } from "./ansi.js";
 import type { CodexReasoningEffort } from "@chatcoder/shared";
 import type { Profile } from "./profile.js";
-import { RESPONSE_INSTRUCTION, type ToolExecutor } from "./toolExecutor.js";
+import type { ToolExecutor } from "./toolExecutor.js";
 import { extractResponseFromJSON, extractLastBlock } from "./summary.js";
 import { convert } from "telegram-markdown-v2";
 
@@ -239,47 +239,11 @@ export class ProfileRunner {
       const rawText = finalOutput.length > 0 ? finalOutput : stripAnsi(rawOutput).trim();
       if (rawText.length === 0) return;
 
-      // Try to extract a JSON response from the tool's output
-      let responseText = extractResponseFromJSON(rawText);
-
-      if (responseText) {
-        const formatted = convert(responseText).trim();
-        await this.tryPostChunked(task.sessionId, formatted, { final: true });
-      } else if (this.deps.profile.tool === "REASONIX") {
-        // REASONIX doesn't use RESPONSE_INSTRUCTION — post the raw output directly
-        const fallback = extractLastBlock(rawText);
-        const formatted = convert(fallback || rawText).trim();
-        await this.tryPostChunked(task.sessionId, formatted, { final: true });
-      } else {
-        // Retry up to 3 times asking the AI to produce a summary
-        let context = rawText.slice(0, 3_000);
-        let success = false;
-        for (let attempt = 0; attempt < 3 && !success && !signal.aborted; attempt++) {
-          const retryMsg = `${RESPONSE_INSTRUCTION}\n\n${context}`;
-          try {
-            const retryResult = await this.deps.tool.execute(this.deps.profile, retryMsg, {
-              resumeLastSession: false,
-              skipResponseWrapper: true
-            });
-            const retryResponse = extractResponseFromJSON(retryResult);
-            if (retryResponse) {
-              const formatted = convert(retryResponse).trim();
-              await this.tryPostChunked(task.sessionId, formatted, { final: true });
-              success = true;
-            } else {
-              context = retryResult.slice(0, 3_000);
-            }
-          } catch (err) {
-            this.log("summary retry failed", { profile: this.profileName, session: task.sessionId, attempt, err });
-            context = String(err).slice(0, 3_000);
-          }
-        }
-        if (!success) {
-          const fallback = extractLastBlock(rawText);
-          const formatted = convert(fallback || rawText).trim();
-          await this.tryPostChunked(task.sessionId, formatted, { final: true });
-        }
-      }
+      // Try to extract a JSON response, or fall back to the last text block
+      const responseText = extractResponseFromJSON(rawText);
+      const finalContent = responseText ?? extractLastBlock(rawText);
+      const formatted = convert(finalContent || rawText).trim();
+      await this.tryPostChunked(task.sessionId, formatted, { final: true });
     } finally {
       finished = true;
       if (updateTimer) {

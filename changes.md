@@ -2,26 +2,19 @@
 
 ## 0.5.5 (2025-07-13)
 
-- **Fix: RESPONSE_INSTRUCTION no longer overrides the user's actual task** —
-  Changed wording from "After completing the task" to "After completing the
-  user request above" to disambiguate which "task" the LLM should execute.
-  Previously, LLM-based tools (especially Reasonix) interpreted the ambiguous
-  "task" as the RESPONSE_INSTRUCTION itself, causing them to produce a repo
-  summary instead of executing the user's actual instruction.
-  (packages/daemon/src/toolExecutor.ts)
-
-- **Change JSON key from `summary` to `response`** — Renamed the JSON key in
-  RESPONSE_INSTRUCTION from `"summary"` to `"response"`, and updated the
-  extraction function (`extractSummaryFromJSON` → `extractResponseFromJSON`)
-  accordingly. (packages/daemon/src/toolExecutor.ts, summary.ts, sessionRunner.ts,
-  profileRunner.ts)
-
-- **REASONIX tool: completely skip RESPONSE_INSTRUCTION** — The format
-  instruction appended at the end of the user message was still overriding the
-  actual task for Reasonix. Now REASONIX profiles skip `wrapWithResponsePolicy`
-  entirely, and the retry loop in both runners is bypassed for REASONIX so raw
-  output is posted directly via `extractLastBlock`.
+- **Remove RESPONSE_INSTRUCTION entirely** — Deleted the `RESPONSE_INSTRUCTION`
+  constant, `wrapWithResponsePolicy` function, and `skipResponseWrapper` option.
+  The user's message is now sent to the tool as-is, without any appended format
+  instruction. The JSON-retry loop in both runners is also removed; output is
+  processed with a simple JSON-then-fallback (`extractLastBlock`) approach.
   (packages/daemon/src/toolExecutor.ts, sessionRunner.ts, profileRunner.ts)
+
+- **Final response now edits the processing message** — Instead of sending the
+  final response as new message(s), `sendResponse` in `main.ts` edits the
+  existing "🔄 Daemon is processing…" message in-place to show the response
+  content. Multi-chunk responses accumulate into the same edit. `sendProcessed`
+  still sends "✅ Message processed." as a new message.
+  (packages/bot/src/main.ts)
 
 ## 0.5.4 (2025-07-12)
 

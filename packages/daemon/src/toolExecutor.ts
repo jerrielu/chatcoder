@@ -18,8 +18,6 @@ export interface ExecuteOptions {
   codexReasoningEffort?: CodexReasoningEffort;
   /** Working directory for the spawned process. */
   workDir?: string;
-  /** Skip the response instruction wrapper (used for retry summarization calls). */
-  skipResponseWrapper?: boolean;
 }
 
 export interface ToolExecutorOptions {
@@ -33,13 +31,6 @@ interface Launch {
   cwd: string;
   stdinText: string | null;
   finalOutputPath: string | null;
-}
-
-export const RESPONSE_INSTRUCTION =
-  'After completing the user request above, reply in the language used before this sentence. Output your response as a JSON object with exactly one key: "response". Do not include any other text outside the JSON object.';
-
-export function wrapWithResponsePolicy(message: string): string {
-  return `${message}\n\n${RESPONSE_INSTRUCTION}`;
 }
 
 function codexFinalOutputPath(profileName: string): string {
@@ -210,14 +201,9 @@ export class ToolExecutor {
     message: string,
     execOpts: ExecuteOptions = {}
   ): Promise<string> {
-    // REASONIX has its own AGENTS.md guidance — appending RESPONSE_INSTRUCTION
-    // would interfere with task execution. Other tools need it for JSON output.
-    const finalMessage = execOpts.skipResponseWrapper || profile.tool === "REASONIX"
-      ? message
-      : wrapWithResponsePolicy(message);
     const launch = buildLaunch(
       profile,
-      finalMessage,
+      message,
       execOpts.resumeLastSession ?? true,
       execOpts.codexReasoningEffort,
       execOpts.workDir
