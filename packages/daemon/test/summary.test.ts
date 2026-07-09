@@ -1,46 +1,46 @@
 import { describe, it, expect } from "vitest";
-import { extractSummaryFromJSON, extractLastBlock } from "../src/summary.js";
+import { extractResponseFromJSON, extractLastBlock } from "../src/summary.js";
 
-describe("extractSummaryFromJSON", () => {
-  it("extracts summary from plain JSON", () => {
-    const result = extractSummaryFromJSON('{"summary": "Updated parser, all tests pass"}');
+describe("extractResponseFromJSON", () => {
+  it("extracts response from plain JSON", () => {
+    const result = extractResponseFromJSON('{"response": "Updated parser, all tests pass"}');
     expect(result).toBe("Updated parser, all tests pass");
   });
 
   it("returns null for invalid JSON", () => {
-    const result = extractSummaryFromJSON("not json");
+    const result = extractResponseFromJSON("not json");
     expect(result).toBeNull();
   });
 
-  it("returns null for JSON without summary key", () => {
-    const result = extractSummaryFromJSON('{"other": "value"}');
+  it("returns null for JSON without response key", () => {
+    const result = extractResponseFromJSON('{"other": "value"}');
     expect(result).toBeNull();
   });
 
   it("handles markdown code fences around JSON", () => {
-    const output = 'Some text\n```json\n{"summary": "Fixed the bug"}\n```\nmore text';
-    const result = extractSummaryFromJSON(output);
+    const output = 'Some text\n```json\n{"response": "Fixed the bug"}\n```\nmore text';
+    const result = extractResponseFromJSON(output);
     expect(result).toBe("Fixed the bug");
   });
 
   it("handles code fences without language tag", () => {
-    const output = '```\n{"summary": "done"}\n```';
-    const result = extractSummaryFromJSON(output);
+    const output = '```\n{"response": "done"}\n```';
+    const result = extractResponseFromJSON(output);
     expect(result).toBe("done");
   });
 
   it("handles whitespace around JSON", () => {
-    const result = extractSummaryFromJSON('  {"summary": "  spaced  "}  ');
+    const result = extractResponseFromJSON('  {"response": "  spaced  "}  ');
     expect(result).toBe("spaced");
   });
 
-  it("returns null for empty summary value", () => {
-    const result = extractSummaryFromJSON('{"summary": ""}');
+  it("returns null for empty response value", () => {
+    const result = extractResponseFromJSON('{"response": ""}');
     expect(result).toBeNull();
   });
 
   it("returns null for null input", () => {
-    const result = extractSummaryFromJSON("");
+    const result = extractResponseFromJSON("");
     expect(result).toBeNull();
   });
 });

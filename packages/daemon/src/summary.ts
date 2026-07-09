@@ -1,8 +1,8 @@
 /**
- * Extract a summary field from tool output that may contain a JSON object
- * with a "summary" key. Handles markdown code fences and trailing text.
+ * Extract a response field from tool output that may contain a JSON object
+ * with a "response" key. Handles markdown code fences and trailing text.
  */
-export function extractSummaryFromJSON(output: string): string | null {
+export function extractResponseFromJSON(output: string): string | null {
   if (!output) return null;
 
   // Try to find a JSON object — look for { ... }
@@ -26,9 +26,9 @@ export function extractSummaryFromJSON(output: string): string | null {
 
   try {
     const parsed = JSON.parse(jsonStr);
-    if (parsed && typeof parsed === "object" && typeof parsed.summary === "string") {
-      const summary = parsed.summary.trim();
-      return summary.length > 0 ? summary : null;
+    if (parsed && typeof parsed === "object" && typeof parsed.response === "string") {
+      const response = parsed.response.trim();
+      return response.length > 0 ? response : null;
     }
     return null;
   } catch {

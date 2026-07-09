@@ -31,7 +31,7 @@ class EchoTool {
   public calls: Array<{ profile: string; message: string }> = [];
   async execute(profile: Profile, message: string): Promise<string> {
     this.calls.push({ profile: profile.name, message });
-    return JSON.stringify({ summary: `done with ${profile.name} instruction` });
+    return JSON.stringify({ response: `done with ${profile.name} instruction` });
   }
 }
 

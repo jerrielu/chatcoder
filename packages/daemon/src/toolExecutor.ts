@@ -36,7 +36,7 @@ interface Launch {
 }
 
 export const RESPONSE_INSTRUCTION =
-  'After completing the user request above, reply in the language used before this sentence. Output your response as a JSON object with exactly one key: "summary". Do not include any other text outside the JSON object.';
+  'After completing the user request above, reply in the language used before this sentence. Output your response as a JSON object with exactly one key: "response". Do not include any other text outside the JSON object.';
 
 export function wrapWithResponsePolicy(message: string): string {
   return `${message}\n\n${RESPONSE_INSTRUCTION}`;

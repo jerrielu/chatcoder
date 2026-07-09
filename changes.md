@@ -10,6 +10,12 @@
   summary instead of executing the user's actual instruction.
   (packages/daemon/src/toolExecutor.ts)
 
+- **Change JSON key from `summary` to `response`** — Renamed the JSON key in
+  RESPONSE_INSTRUCTION from `"summary"` to `"response"`, and updated the
+  extraction function (`extractSummaryFromJSON` → `extractResponseFromJSON`)
+  accordingly. (packages/daemon/src/toolExecutor.ts, summary.ts, sessionRunner.ts,
+  profileRunner.ts)
+
 ## 0.5.4 (2025-07-12)
 
 - **Fix: concurrent "New Code" tasks no longer break progress/status tracking** —

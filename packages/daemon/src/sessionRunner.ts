@@ -2,7 +2,7 @@ import { stripAnsi } from "./ansi.js";
 import type { CodexReasoningEffort, MessageKind } from "@chatcoder/shared";
 import type { Profile } from "./profile.js";
 import { RESPONSE_INSTRUCTION, type ToolExecutor } from "./toolExecutor.js";
-import { extractSummaryFromJSON, extractLastBlock } from "./summary.js";
+import { extractResponseFromJSON, extractLastBlock } from "./summary.js";
 import { convert } from "telegram-markdown-v2";
 
 export interface SessionRunnerTask {
@@ -246,10 +246,10 @@ export class SessionRunner {
       if (rawText.length === 0) return;
 
       // Try to extract a JSON summary from the tool's output
-      let summary = extractSummaryFromJSON(rawText);
+      let responseText = extractResponseFromJSON(rawText);
 
-      if (summary) {
-        const formatted = convert(summary).trim();
+      if (responseText) {
+        const formatted = convert(responseText).trim();
         await this.tryPostChunked(task.sessionId, formatted, { final: true });
       } else {
         // Retry up to 3 times asking the AI to produce a summary
@@ -262,9 +262,9 @@ export class SessionRunner {
               resumeLastSession: false,
               skipResponseWrapper: true
             });
-            const retrySummary = extractSummaryFromJSON(retryResult);
-            if (retrySummary) {
-              const formatted = convert(retrySummary).trim();
+            const retryResponse = extractResponseFromJSON(retryResult);
+            if (retryResponse) {
+              const formatted = convert(retryResponse).trim();
               await this.tryPostChunked(task.sessionId, formatted, { final: true });
               success = true;
             } else {

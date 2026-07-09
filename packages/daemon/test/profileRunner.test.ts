@@ -32,7 +32,7 @@ describe("ProfileRunner", () => {
         order.push(`start:${message}`);
         await new Promise((r) => setTimeout(r, 10));
         order.push(`end:${message}`);
-        return JSON.stringify({ summary: `result for ${message}` });
+        return JSON.stringify({ response: `result for ${message}` });
       }
     };
     const posted: Array<{ sessionId: string; content: string }> = [];
@@ -60,7 +60,7 @@ describe("ProfileRunner", () => {
     const tool = {
       execute: async (_profile: Profile, message: string) => {
         calls.push(message);
-        return JSON.stringify({ summary: `done ${message}` });
+        return JSON.stringify({ response: `done ${message}` });
       }
     };
     const posted: string[] = [];
@@ -104,9 +104,9 @@ describe("ProfileRunner", () => {
           await new Promise<void>((resolve) => {
             opts.signal?.addEventListener("abort", resolve, { once: true });
           });
-          return JSON.stringify({ summary: "aborted result" });
+          return JSON.stringify({ response: "aborted result" });
         }
-        return JSON.stringify({ summary: `done ${message}` });
+        return JSON.stringify({ response: `done ${message}` });
       }
     };
     const posted: string[] = [];
@@ -150,7 +150,7 @@ describe("ProfileRunner", () => {
   it("chunks large outputs at responseChunkMaxChars", async () => {
     const big = "x".repeat(50);
     const tool = {
-      execute: async () => JSON.stringify({ summary: big })
+      execute: async () => JSON.stringify({ response: big })
     };
     const posted: Array<{ sessionId: string; content: string }> = [];
     const runner = new ProfileRunner({
@@ -174,7 +174,7 @@ describe("ProfileRunner", () => {
       execute: async (_profile: Profile, _message: string, opts: { onOutput?: (chunk: string) => void }) => {
         opts.onOutput?.("working");
         await new Promise((r) => setTimeout(r, 10));
-        return JSON.stringify({ summary: "done" });
+        return JSON.stringify({ response: "done" });
       }
     };
     const posted: Array<{ sessionId: string; content: string; final?: boolean }> = [];
@@ -204,7 +204,7 @@ describe("ProfileRunner", () => {
       execute: async (_profile: Profile, _message: string, opts: { onOutput?: (chunk: string) => void }) => {
         opts.onOutput?.(words.join(" "));
         await new Promise((r) => setTimeout(r, 10));
-        return JSON.stringify({ summary: "done" });
+        return JSON.stringify({ response: "done" });
       }
     };
     const posted: Array<{ content: string; final?: boolean }> = [];
@@ -232,7 +232,7 @@ describe("ProfileRunner", () => {
 
   it("does not crash or block the queue when posting a response fails", async () => {
     const tool = {
-      execute: async (_profile: Profile, message: string) => JSON.stringify({ summary: `done ${message}` })
+      execute: async (_profile: Profile, message: string) => JSON.stringify({ response: `done ${message}` })
     };
     const posted: string[] = [];
     const logs: Array<{ msg: string; extra?: unknown }> = [];
@@ -263,7 +263,7 @@ describe("ProfileRunner", () => {
       execute: async (_profile: Profile, _message: string, opts: { onOutput?: (chunk: string) => void }) => {
         opts.onOutput?.("working");
         await new Promise((r) => setTimeout(r, 10));
-        return JSON.stringify({ summary: "done" });
+        return JSON.stringify({ response: "done" });
       }
     };
     const posted: string[] = [];

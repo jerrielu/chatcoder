@@ -32,7 +32,7 @@ function sampleProfile(): Profile {
 }
 
 class FakeToolExecutor {
-  nextOutput = '{"summary": "hi back"}';
+  nextOutput = '{"response": "hi back"}';
   calls: Array<{
     profile: string;
     message: string;
@@ -128,7 +128,7 @@ async function flushMicrotasks(): Promise<void> {
 describe("Orchestrator", () => {
   it("dispatches a polled instruction to the runner and posts its output", async () => {
     const tool = new FakeToolExecutor();
-    tool.nextOutput = '{"summary": "pong"}';
+    tool.nextOutput = '{"response": "pong"}';
     const { fn, postBodies } = makeFetch({
       poll: [
         {

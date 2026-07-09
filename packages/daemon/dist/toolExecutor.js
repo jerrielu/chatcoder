@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureCodexHome } from "./codexHome.js";
 import { stripAnsi } from "./ansi.js";
-export const RESPONSE_INSTRUCTION = 'After completing the task, reply in the language used before this sentence. Output your response as a JSON object with exactly one key: "summary". Do not include any other text outside the JSON object.';
+export const RESPONSE_INSTRUCTION = 'After completing the user request above, reply in the language used before this sentence. Output your response as a JSON object with exactly one key: "summary". Do not include any other text outside the JSON object.';
 export function wrapWithResponsePolicy(message) {
     return `${message}\n\n${RESPONSE_INSTRUCTION}`;
 }

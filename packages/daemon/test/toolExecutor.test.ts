@@ -365,7 +365,7 @@ describe("ToolExecutor", () => {
       tool: "CUSTOM",
       custom: {
         launchBin: process.execPath,
-        args: ["-e", `process.stdout.write(JSON.stringify({ summary: "done" }))`],
+        args: ["-e", `process.stdout.write(JSON.stringify({ response: "done" }))`],
         env: {},
         messagePlacement: "stdin"
       }
@@ -375,7 +375,7 @@ describe("ToolExecutor", () => {
     // the wrapped message is passed as-is (appended). The tool's output
     // should still be returned.
     const output = await executor.execute(profile, "go");
-    expect(output).toBe('{"summary":"done"}');
+    expect(output).toBe('{"response":"done"}');
   });
 
   it("skips response instruction wrapper when skipResponseWrapper is set", async () => {
