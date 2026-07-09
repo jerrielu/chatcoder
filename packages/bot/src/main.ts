@@ -41,22 +41,70 @@ async function main(): Promise<void> {
     heartbeatStaleMs: cfg.heartbeatStaleMs
   });
 
+  /**
+   * Tracks the Telegram message we sent for a session while it is being
+   * processed. Later calls (sendResponse / sendProcessed) edit this same
+   * message instead of flooding the chat with new ones.
+   */
+  const processingStates = new Map<string, { messageId: number; content: string }>();
+
   const telegram: TelegramSender = {
-    async sendResponse(chatId, content) {
-      for (const chunk of splitForTelegram(content)) {
+    async sendResponse(chatId, content, sessionId) {
+      const state = processingStates.get(sessionId);
+      const chunks = splitForTelegram(content);
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (i === 0 && state) {
+          // Edit the "Daemon is processing…" message with the first chunk
+          try {
+            await sendTelegramWithRetry(() =>
+              bot.api.editMessageText(chatId, state.messageId, chunks[0]!, {
+                reply_markup: mainMenu(),
+                parse_mode: "MarkdownV2"
+              })
+            );
+            // Remember what we now show so sendProcessed can append to it
+            processingStates.set(sessionId, { messageId: state.messageId, content: chunks[0]! });
+            continue;
+          } catch {
+            // Edit failed (e.g. message deleted) – fall through to send as new
+          }
+        }
         await sendTelegramWithRetry(() =>
-          bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu(), parse_mode: "MarkdownV2" })
+          bot.api.sendMessage(chatId, chunks[i]!, { reply_markup: mainMenu(), parse_mode: "MarkdownV2" })
         );
       }
     },
-    async sendProcessing(chatId, content) {
-      await sendTelegramWithRetry(() =>
+
+    async sendProcessing(chatId, content, sessionId) {
+      const msg = await sendTelegramWithRetry(() =>
         bot.api.sendMessage(chatId, processingMessageText(content), {
           reply_markup: mainMenu()
         })
       );
+      processingStates.set(sessionId, {
+        messageId: msg.message_id,
+        content: processingMessageText(content)
+      });
     },
-    async sendProcessed(chatId) {
+
+    async sendProcessed(chatId, sessionId) {
+      const state = processingStates.get(sessionId);
+      if (state) {
+        // Try to append "✅ Message processed." to the existing message
+        const newContent = state.content + "\n\n✅ Message processed.";
+        try {
+          await sendTelegramWithRetry(() =>
+            bot.api.editMessageText(chatId, state.messageId, newContent, {
+              reply_markup: mainMenu()
+            })
+          );
+          return;
+        } catch {
+          // Edit failed – fall through to send as new message below
+        }
+      }
+      // Fallback: send a fresh message
       await sendTelegramWithRetry(() =>
         bot.api.sendMessage(chatId, "✅ Message processed.", { reply_markup: mainMenu() })
       );

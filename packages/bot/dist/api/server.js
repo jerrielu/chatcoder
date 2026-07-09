@@ -112,7 +112,7 @@ export async function buildServer(opts) {
                 continue;
             if (notifyProcessing && opts.telegram.sendProcessing) {
                 try {
-                    await opts.telegram.sendProcessing(s.chatId, msg.content);
+                    await opts.telegram.sendProcessing(s.chatId, msg.content, s.id);
                 }
                 catch {
                     // Claiming work should not be undone or hidden from the daemon just
@@ -151,7 +151,7 @@ export async function buildServer(opts) {
             return { ok: true };
         }
         try {
-            await opts.telegram.sendResponse(session.chatId, body.content);
+            await opts.telegram.sendResponse(session.chatId, body.content, session.id);
         }
         catch (e) {
             const mapped = toApiErrorIfPermanent(e);
@@ -162,7 +162,7 @@ export async function buildServer(opts) {
         const completed = await opts.messagesRepo.completeProcessing(session.id);
         if (completed && opts.telegram.sendProcessed) {
             try {
-                await opts.telegram.sendProcessed(session.chatId);
+                await opts.telegram.sendProcessed(session.chatId, session.id);
             }
             catch {
                 // The final response was delivered and the queue item was completed.

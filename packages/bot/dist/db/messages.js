@@ -197,10 +197,14 @@ export class MessagesRepo {
                 .where("session_id", "=", sessionId)
                 .where("id", "!=", row.id)
                 .where((eb) => eb.or([
-                eb("created_at", "<", row.created_at),
+                eb.and([
+                    eb("created_at", "<", row.created_at),
+                    eb("processing_started_at", "is", null)
+                ]),
                 eb.and([
                     eb("created_at", "=", row.created_at),
-                    eb("id", "<", row.id)
+                    eb("id", "<", row.id),
+                    eb("processing_started_at", "is", null)
                 ])
             ]))
                 .execute();

@@ -153,7 +153,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       if (!msg) continue;
       if (notifyProcessing && opts.telegram.sendProcessing) {
         try {
-          await opts.telegram.sendProcessing(s.chatId, msg.content);
+          await opts.telegram.sendProcessing(s.chatId, msg.content, s.id);
         } catch {
           // Claiming work should not be undone or hidden from the daemon just
           // because this best-effort status notification failed.
@@ -192,7 +192,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       return { ok: true };
     }
     try {
-      await opts.telegram.sendResponse(session.chatId, body.content);
+      await opts.telegram.sendResponse(session.chatId, body.content, session.id);
     } catch (e) {
       const mapped = toApiErrorIfPermanent(e);
       if (mapped) throw mapped;
@@ -201,7 +201,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     const completed = await opts.messagesRepo.completeProcessing(session.id);
     if (completed && opts.telegram.sendProcessed) {
       try {
-        await opts.telegram.sendProcessed(session.chatId);
+        await opts.telegram.sendProcessed(session.chatId, session.id);
       } catch {
         // The final response was delivered and the queue item was completed.
         // Do not make the daemon retry and duplicate the final response just

@@ -162,7 +162,7 @@ describe("GET /v1/poll", () => {
       true
     ]);
     expect(sendProcessing).toHaveBeenCalledTimes(1);
-    expect(sendProcessing).toHaveBeenCalledWith(42, "do a");
+    expect(sendProcessing).toHaveBeenCalledWith(42, "do a", sessionId);
 
     const again = await app.inject({ method: "GET", url: "/v1/poll", headers: auth() });
     expect(again.json().sessions).toEqual([]);
@@ -273,9 +273,9 @@ describe("POST /v1/responses", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(sendResponse).toHaveBeenCalledTimes(1);
-    expect(sendResponse).toHaveBeenCalledWith(42, "hello world");
+    expect(sendResponse).toHaveBeenCalledWith(42, "hello world", sessionId);
     expect(sendProcessed).toHaveBeenCalledTimes(1);
-    expect(sendProcessed).toHaveBeenCalledWith(42);
+    expect(sendProcessed).toHaveBeenCalledWith(42, sessionId);
     expect(await h.messages.getProcessing(sessionId)).toBeNull();
   });
 

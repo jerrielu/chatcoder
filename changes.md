@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 (2025-07-12)
+
+- **Telegram messages now edit and append instead of sending new ones** — The
+  "🔄 Daemon is processing your message" notification is now edited in-place
+  with the first chunk of the AI response when it arrives, and "✅ Message
+  processed." is appended to the same message. This reduces Telegram message
+  spam from 3+ messages per request down to 1 (+ overflow chunks for long
+  responses). Falls back gracefully if the original message was deleted or
+  cannot be edited.
+
 ## 0.3.8 (2025-07-12)
 
 - **Fix: 🆕 New Code no longer hides the in-progress job from 📡 Status** —
