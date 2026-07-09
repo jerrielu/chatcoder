@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.4 (2025-07-12)
+
+- **Fix: concurrent "New Code" tasks no longer break progress/status tracking** —
+  Three interrelated bugs fixed in the poll and queue logic:
+  - Bug 1: `handleCode` no longer clears `session.latestMessage` to `null` when
+    enqueuing a new instruction while another task is running, which previously
+    caused "Latest Progress" to show "No progress recorded yet" for up to 5s.
+  - Bug 2/3: The poll endpoint no longer claims a new task while one is already
+    processing. This prevents `sendProcessing` from overwriting the active task's
+    Telegram edit state, and prevents `sendProcessed` from deleting the state
+    that a queued task needs for its own progress updates.
+  - Bug 4: Tasks submitted while another is running now stay "pending" in the DB
+    (`processing_started_at = null`) until the current task completes, so Status
+    correctly shows the queued count instead of making them invisible.
+  (design.md §4 — Message queue model)
+
 ## 0.5.3 (2025-07-12)
 
 - **Docs: reinforce Post-Change Automation in AGENTS.md** — Added prominent

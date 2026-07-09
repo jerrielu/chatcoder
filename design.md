@@ -173,10 +173,23 @@ Responses never queue as daemon-bound rows.
 
 `resume_last_session` controls whether a message continues the current tool
 context. Normal `/code` messages default to `true` and run FIFO. New Code
-messages set it to `false`: the poll API claims the newest pending New Code
-row first, clears older *pending* work for that session (leaving the
-currently-processing row intact), marks the New Code row in progress, and
-leaves newer queued work pending behind it.
+messages set it to `false`.
+
+**Claim strategy (v0.5.4+):** The poll API only claims new work for a session
+when no row has `processing_started_at` set. If a row is already in progress,
+the session is skipped — new items stay as pending (`processing_started_at =
+null`) and will be claimed on a future poll after the current task completes.
+This ensures at most one claimed task per session at any time, which keeps
+Status accurate (pending count = unclaimed items, processing = the single
+claimed item) and prevents the Telegram progress-editing state from being
+overwritten by a subsequent claim.
+
+When the session has no in-progress row, New Code rows take priority: the poll
+claims the newest pending New Code first, clears older *pending* work for that
+session, marks the New Code row in progress, and leaves newer queued work
+pending behind it. If no New Code row exists, the next regular instruction is
+claimed instead.
+
 The daemon treats `resume_last_session=false` as an interrupt: it aborts the
 active profile task, drops older queued local tasks for that profile, and
 starts the New Code instruction without resume flags.

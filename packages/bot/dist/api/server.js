@@ -90,22 +90,29 @@ export async function buildServer(opts) {
                 notifyProcessing = false;
             }
             else {
-                msg = await opts.messagesRepo.claimLatestNewCodeAndClearBefore(s.id);
-                if (msg) {
-                    notifyProcessing = true;
-                }
-                else if (resumeInProgress) {
-                    msg = await opts.messagesRepo.getProcessing(s.id).then((inProgress) => inProgress
-                        ? {
+                const inProgress = await opts.messagesRepo.getProcessing(s.id);
+                if (inProgress) {
+                    // A task is already processing — don't claim new work for this session.
+                    // The daemon will claim the next item after the current one completes.
+                    // Allow resume on daemon restart so the in-progress task can continue.
+                    if (resumeInProgress) {
+                        msg = {
                             ...inProgress,
                             content: RESUME_IN_PROGRESS_CONTENT,
                             resumeLastSession: true
-                        }
-                        : null);
+                        };
+                    }
+                    // else: msg stays null → session omitted from poll response
                 }
                 else {
-                    msg = await opts.messagesRepo.claimNext(s.id);
-                    notifyProcessing = msg !== null;
+                    msg = await opts.messagesRepo.claimLatestNewCodeAndClearBefore(s.id);
+                    if (msg) {
+                        notifyProcessing = true;
+                    }
+                    else {
+                        msg = await opts.messagesRepo.claimNext(s.id);
+                        notifyProcessing = msg !== null;
+                    }
                 }
             }
             if (!msg)

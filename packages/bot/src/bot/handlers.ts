@@ -742,7 +742,6 @@ export async function handleCode(
     resumeLastSession,
     codexReasoningEffort: appliedEffort
   });
-  await deps.sessions.setLatestMessage(session.id, null);
   const suffix = profile ? ` → \`${profile.name}\`` : "";
   const mode = resumeLastSession ? "resume" : "fresh";
   const effortSuffix = appliedEffort ? ` · effort \`${appliedEffort}\`` : "";
