@@ -150,9 +150,9 @@ so running multiple *API* replicas behind a load balancer is safe.
 
 **Chosen: C.** Instructions queue because the daemon polls (can't push to a
 box behind NAT). Responses *don't* queue: when the daemon POSTs
-`/v1/responses`, the bot edits the original "Daemon is processing" message
-in-place with the first chunk of the response, sends overflow chunks as new
-messages, and returns to the daemon. Failure → HTTP error → daemon's existing
+`/v1/responses`, the bot sends the response as new messages
+in the chat (splitting long responses into multiple chunks), and returns to the
+daemon. Failure → HTTP error → daemon's existing
 retry/backoff takes over (transient retries; permanent failures like "bot
 blocked" bubble as 4xx and stop retrying).
 
@@ -166,10 +166,9 @@ with `processing_started_at` instead of deleted immediately. The daemon then
 posts progress updates with `final: false`, which update the session's latest
 message for dashboards/status AND edit the original "Daemon is processing"
 Telegram message in-place (best-effort) so the user sees live progress. When it
-posts the final response, the bot edits the original "Daemon is processing"
-message to show the first chunk of the response (with overflow sent as new
-messages), deletes the in-progress row, and appends a best-effort completion
-acknowledgement to the same edited message.
+posts the final response, the bot sends the response as new messages (split
+into Telegram-sized chunks), deletes the in-progress row, and sends a separate
+"✅ Message processed." completion message.
 Responses never queue as daemon-bound rows.
 
 `resume_last_session` controls whether a message continues the current tool
@@ -203,8 +202,8 @@ can resume the last session after a daemon restart.
 
 **Chosen: C.** Matches the requirement "telegram interactive inline keyboard
 menus that covers create new session, check status, check response."
-Daemon responses are *pushed* to the chat by the bot via editing the original
-"processing" message in-place (no "Response" button needed).
+Daemon responses are *pushed* to the chat by the bot as new messages
+(progress updates still edit the "processing" message in-place).
 
 Flow:
 ```
@@ -216,9 +215,9 @@ Flow:
                     → shows key + API URL hint, one-time display warning
 /code <instruction>  → "🔄 Daemon is processing your message…" (sent once)
   Status → last heartbeat, pending instruction count
-  (daemon progress)  → same message edited in-place with live progress
-  (daemon output)    → same message edited in-place with the response content
-                    → "✅ Message processed." appended to the same message
+  (daemon progress)  → processing message edited in-place with live progress
+  (daemon output)    → new message(s) with the response content
+                    → new "✅ Message processed." message sent
 ```
 
 ### 5.1 Why `/code` prefix rather than routing all messages?

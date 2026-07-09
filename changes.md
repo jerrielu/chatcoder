@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 (2025-07-12)
+
+- **Final responses and \"✅ Message processed.\" sent as new messages** —
+  Reverted the editing behavior introduced in 0.4.0: `sendResponse` now sends
+  all response chunks as new Telegram messages instead of editing the first
+  chunk into the processing message, and `sendProcessed` sends a fresh
+  "✅ Message processed." message instead of appending it via edit. Progress
+  updates (`sendLatestProgress`) continue to edit the processing message
+  in-place. This reduces complexity and ensures the daemon's final response is
+  always a distinct message that users can easily find, reply to, or reference.
+
 ## 0.4.1 (2025-07-12)
 
 - **Telegram messages now use MarkdownV2 with structured sections** — The
