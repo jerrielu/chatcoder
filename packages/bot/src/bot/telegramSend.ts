@@ -29,6 +29,14 @@ export function splitForTelegram(s: string): string[] {
   return chunks;
 }
 
+/**
+ * Escape special characters for Telegram MarkdownV2.
+ * Characters: _ * [ ] ( ) ~ ` > # + - = | { } . !
+ */
+export function escapeMarkdownV2(text: string): string {
+  return text.replace(/[_*[\]()~`>#+\-=\|{}.!]/g, "\\$&");
+}
+
 export function processingMessageText(content: string): string {
   const words = content.trim().split(/\s+/).filter(Boolean);
   const preview = words.slice(0, 100).join(" ");

@@ -87,6 +87,21 @@ async function main() {
             }
             // Fallback: send a fresh message
             await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, "✅ Message processed.", { reply_markup: mainMenu() }));
+        },
+        async sendLatestProgress(chatId, content, sessionId) {
+            const state = processingStates.get(sessionId);
+            if (!state)
+                return; // Nothing to edit
+            try {
+                await sendTelegramWithRetry(() => bot.api.editMessageText(chatId, state.messageId, content, {
+                    reply_markup: mainMenu()
+                }));
+                // Remember what we now show so a future edit can build on it
+                processingStates.set(sessionId, { messageId: state.messageId, content });
+            }
+            catch {
+                // Best-effort — progress updates are not critical
+            }
         }
     };
     const app = await buildServer({

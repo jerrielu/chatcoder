@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 (2025-07-12)
+
+- **Telegram messages now use MarkdownV2 with structured sections** — The
+  processing message template separates preview, progress, and response into
+  distinct sections. Added `escapeMarkdownV2` helper to safely escape user
+  content for Telegram's MarkdownV2 parse mode.
+
 ## 0.4.0 (2025-07-12)
 
 - **Telegram messages now edit and append instead of sending new ones** — The

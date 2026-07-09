@@ -12,7 +12,7 @@ import { createBot } from "./bot/bot.js";
 import { FlowStore } from "./bot/flows.js";
 import { deriveLocalApiUrl } from "./apiUrl.js";
 import {
-  processingMessageText,
+  escapeMarkdownV2,
   sendTelegramWithRetry,
   splitForTelegram,
   type TelegramSender
@@ -42,11 +42,45 @@ async function main(): Promise<void> {
   });
 
   /**
-   * Tracks the Telegram message we sent for a session while it is being
-   * processed. Later calls (sendResponse / sendProcessed) edit this same
-   * message instead of flooding the chat with new ones.
+   * Tracks the Telegram message for a session while it is being processed.
+   * The message uses a template with separate sections:
+   *   - preview: the user's message (first 100 words)
+   *   - progress: the latest live progress from the daemon (replaced each update)
+   *   - response: the final response from the daemon (filled once)
    */
-  const processingStates = new Map<string, { messageId: number; content: string }>();
+  interface ProcessingState {
+    messageId: number;
+    preview: string;
+    progress: string;
+    response: string;
+  }
+  const processingStates = new Map<string, ProcessingState>();
+
+  /** Extract the first 100 words as a preview (same logic as processingMessageText). */
+  function extractPreview(content: string): string {
+    const words = content.trim().split(/\s+/).filter(Boolean);
+    const preview = words.slice(0, 100).join(" ");
+    const suffix = words.length > 100 ? "..." : "";
+    return `${preview}${suffix}`;
+  }
+
+  /**
+   * Build the template message from the state parts.
+   * Non-response parts are escaped for MarkdownV2 so the whole message can
+   * be sent with parse_mode=MarkdownV2 (the response part is already formatted
+   * by the daemon via telegram-markdown-v2).
+   */
+  function buildProcessingMessage(state: ProcessingState): string {
+    const escapedPreview = escapeMarkdownV2(state.preview);
+    let msg = `🔄 Daemon is processing your message:\n${escapedPreview}`;
+    if (state.progress) {
+      msg += `\n\n⏳ Progress:\n${escapeMarkdownV2(state.progress)}`;
+    }
+    if (state.response) {
+      msg += `\n\n✅ Response:\n${state.response}`;
+    }
+    return msg;
+  }
 
   const telegram: TelegramSender = {
     async sendResponse(chatId, content, sessionId) {
@@ -55,16 +89,15 @@ async function main(): Promise<void> {
 
       for (let i = 0; i < chunks.length; i++) {
         if (i === 0 && state) {
-          // Edit the "Daemon is processing…" message with the first chunk
+          // Fill the "Response" section with the first chunk
+          state.response = chunks[0]!;
           try {
             await sendTelegramWithRetry(() =>
-              bot.api.editMessageText(chatId, state.messageId, chunks[0]!, {
+              bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage(state), {
                 reply_markup: mainMenu(),
                 parse_mode: "MarkdownV2"
               })
             );
-            // Remember what we now show so sendProcessed can append to it
-            processingStates.set(sessionId, { messageId: state.messageId, content: chunks[0]! });
             continue;
           } catch {
             // Edit failed (e.g. message deleted) – fall through to send as new
@@ -77,26 +110,31 @@ async function main(): Promise<void> {
     },
 
     async sendProcessing(chatId, content, sessionId) {
+      const state: ProcessingState = {
+        messageId: 0,
+        preview: extractPreview(content),
+        progress: "",
+        response: ""
+      };
       const msg = await sendTelegramWithRetry(() =>
-        bot.api.sendMessage(chatId, processingMessageText(content), {
-          reply_markup: mainMenu()
+        bot.api.sendMessage(chatId, buildProcessingMessage(state), {
+          reply_markup: mainMenu(),
+          parse_mode: "MarkdownV2"
         })
       );
-      processingStates.set(sessionId, {
-        messageId: msg.message_id,
-        content: processingMessageText(content)
-      });
+      state.messageId = msg.message_id;
+      processingStates.set(sessionId, state);
     },
 
     async sendProcessed(chatId, sessionId) {
       const state = processingStates.get(sessionId);
       if (state) {
-        // Try to append "✅ Message processed." to the existing message
-        const newContent = state.content + "\n\n✅ Message processed.";
+        const tail = "\n\n" + escapeMarkdownV2("✅ Message processed.");
         try {
           await sendTelegramWithRetry(() =>
-            bot.api.editMessageText(chatId, state.messageId, newContent, {
-              reply_markup: mainMenu()
+            bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage(state) + tail, {
+              reply_markup: mainMenu(),
+              parse_mode: "MarkdownV2"
             })
           );
           return;
@@ -113,14 +151,14 @@ async function main(): Promise<void> {
     async sendLatestProgress(chatId, content, sessionId) {
       const state = processingStates.get(sessionId);
       if (!state) return; // Nothing to edit
+      state.progress = content;
       try {
         await sendTelegramWithRetry(() =>
-          bot.api.editMessageText(chatId, state.messageId, content, {
-            reply_markup: mainMenu()
+          bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage(state), {
+            reply_markup: mainMenu(),
+            parse_mode: "MarkdownV2"
           })
         );
-        // Remember what we now show so a future edit can build on it
-        processingStates.set(sessionId, { messageId: state.messageId, content });
       } catch {
         // Best-effort — progress updates are not critical
       }

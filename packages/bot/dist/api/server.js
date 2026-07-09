@@ -148,6 +148,14 @@ export async function buildServer(opts) {
         }
         if (!body.final) {
             await opts.sessionsRepo.setLatestMessage(session.id, body.content);
+            if (opts.telegram.sendLatestProgress) {
+                try {
+                    await opts.telegram.sendLatestProgress(session.chatId, body.content, session.id);
+                }
+                catch {
+                    // Best-effort — progress should not block the daemon's response flow
+                }
+            }
             return { ok: true };
         }
         try {
