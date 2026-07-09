@@ -91,7 +91,7 @@ async function main(): Promise<void> {
           bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu(), parse_mode: "MarkdownV2" })
         );
       }
-      processingStates.delete(sessionId);
+      // Processing state is cleaned up by sendProcessed after the acknowledgement.
     },
 
     async sendProcessing(chatId, content, sessionId) {

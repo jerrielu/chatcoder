@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 (2025-07-12)
+
+- **Fix: "✅ Message processed." now only sent after all responses** — The
+  `sendResponse` method no longer deletes the processing state; instead, only
+  `sendProcessed` cleans it up after sending the acknowledgement. This ensures
+  "✅ Message processed." is only sent at the very end, after all response
+  chunks have been delivered.
+
 ## 0.5.0 (2025-07-12)
 
 - **Final responses and \"✅ Message processed.\" sent as new messages** —

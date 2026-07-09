@@ -59,25 +59,11 @@ async function main() {
     }
     const telegram = {
         async sendResponse(chatId, content, sessionId) {
-            const state = processingStates.get(sessionId);
             const chunks = splitForTelegram(content);
-            for (let i = 0; i < chunks.length; i++) {
-                if (i === 0 && state) {
-                    // Fill the "Response" section with the first chunk
-                    state.response = chunks[0];
-                    try {
-                        await sendTelegramWithRetry(() => bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage(state), {
-                            reply_markup: mainMenu(),
-                            parse_mode: "MarkdownV2"
-                        }));
-                        continue;
-                    }
-                    catch {
-                        // Edit failed (e.g. message deleted) – fall through to send as new
-                    }
-                }
-                await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, chunks[i], { reply_markup: mainMenu(), parse_mode: "MarkdownV2" }));
+            for (const chunk of chunks) {
+                await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu(), parse_mode: "MarkdownV2" }));
             }
+            // Processing state is cleaned up by sendProcessed after the acknowledgement.
         },
         async sendProcessing(chatId, content, sessionId) {
             const state = {
@@ -94,22 +80,8 @@ async function main() {
             processingStates.set(sessionId, state);
         },
         async sendProcessed(chatId, sessionId) {
-            const state = processingStates.get(sessionId);
-            if (state) {
-                const tail = "\n\n" + escapeMarkdownV2("✅ Message processed.");
-                try {
-                    await sendTelegramWithRetry(() => bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage(state) + tail, {
-                        reply_markup: mainMenu(),
-                        parse_mode: "MarkdownV2"
-                    }));
-                    return;
-                }
-                catch {
-                    // Edit failed – fall through to send as new message below
-                }
-            }
-            // Fallback: send a fresh message
             await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, "✅ Message processed.", { reply_markup: mainMenu() }));
+            processingStates.delete(sessionId);
         },
         async sendLatestProgress(chatId, content, sessionId) {
             const state = processingStates.get(sessionId);
