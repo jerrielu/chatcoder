@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureCodexHome } from "./codexHome.js";
 import { stripAnsi } from "./ansi.js";
-export const SUMMARY_INSTRUCTION = 'Reply in the language used before this sentence. When you finish, output your response as a JSON object with exactly one key: "summary". Do not include any other text outside the JSON object.';
-export function wrapWithSummaryPolicy(message) {
-    return `${message}\n\n${SUMMARY_INSTRUCTION}`;
+export const RESPONSE_INSTRUCTION = 'After completing the task, reply in the language used before this sentence. Output your response as a JSON object with exactly one key: "summary". Do not include any other text outside the JSON object.';
+export function wrapWithResponsePolicy(message) {
+    return `${message}\n\n${RESPONSE_INSTRUCTION}`;
 }
 function codexFinalOutputPath(profileName) {
     const safeName = profileName.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -181,7 +181,7 @@ export class ToolExecutor {
         this.log = opts.log ?? (() => void 0);
     }
     async execute(profile, message, execOpts = {}) {
-        const finalMessage = execOpts.skipSummaryWrapper ? message : wrapWithSummaryPolicy(message);
+        const finalMessage = execOpts.skipResponseWrapper ? message : wrapWithResponsePolicy(message);
         const launch = buildLaunch(profile, finalMessage, execOpts.resumeLastSession ?? true, execOpts.codexReasoningEffort, execOpts.workDir);
         this.log("executing", {
             profile: profile.name,

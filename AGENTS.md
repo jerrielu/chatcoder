@@ -1,5 +1,11 @@
 # Repository Guidance
 
+> **⚠️ FIRST THING TO DO IN EVERY SESSION:** Before writing any code or
+> making any change, read this file **in full** and add the
+> **Post-Change Automation** steps to your `todo_write` task list **before
+> beginning work**. These steps are non-negotiable and must be executed
+> after every change — no exceptions, no "I'll do it at the end."
+
 ## Coding Principles
 
 All new code **MUST** follow these principles, in order of priority:
@@ -30,6 +36,11 @@ All new code **MUST** follow these principles, in order of priority:
    anything. Every line should earn its keep.
 
 ## Post-Change Automation
+
+**STOP — do not consider any task complete until ALL five steps below are
+done. Add these as level-0 items in your `todo_write` at the START of work,
+and flip each to `completed` as you finish it. If you finish the code change
+but skip these, the task is NOT done.**
 
 After every change to the repository (code edits, config, documentation, etc.),
 **you MUST perform the following steps in order before stopping**:

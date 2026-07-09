@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.3 (2025-07-12)
+
+- **Docs: reinforce Post-Change Automation in AGENTS.md** — Added prominent
+  callout at top of file and explicit instruction to add post-change steps to
+  the todo list before starting work, to prevent the agent from skipping them.
+
 ## 0.5.2 (2025-07-12)
 
 - **Refactor: rename `SUMMARY_INSTRUCTION` → `RESPONSE_INSTRUCTION`** — Made
