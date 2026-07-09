@@ -45,6 +45,8 @@ export interface TelegramSender {
   sendResponse(chatId: number, content: string, sessionId: string): Promise<void>;
   sendProcessing?(chatId: number, content: string, sessionId: string): Promise<void>;
   sendProcessed?(chatId: number, sessionId: string): Promise<void>;
+  /** Best-effort live progress update: edits the same "processing" message. */
+  sendLatestProgress?(chatId: number, content: string, sessionId: string): Promise<void>;
 }
 
 /**

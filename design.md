@@ -164,7 +164,8 @@ bot can track completion and resume after daemon restarts.
 Delivery-for-daemon = when the daemon's poll claims a row, the row is marked
 with `processing_started_at` instead of deleted immediately. The daemon then
 posts progress updates with `final: false`, which update the session's latest
-message for dashboards/status without sending Telegram messages. When it
+message for dashboards/status AND edit the original "Daemon is processing"
+Telegram message in-place (best-effort) so the user sees live progress. When it
 posts the final response, the bot edits the original "Daemon is processing"
 message to show the first chunk of the response (with overflow sent as new
 messages), deletes the in-progress row, and appends a best-effort completion
@@ -215,6 +216,7 @@ Flow:
                     → shows key + API URL hint, one-time display warning
 /code <instruction>  → "🔄 Daemon is processing your message…" (sent once)
   Status → last heartbeat, pending instruction count
+  (daemon progress)  → same message edited in-place with live progress
   (daemon output)    → same message edited in-place with the response content
                     → "✅ Message processed." appended to the same message
 ```
