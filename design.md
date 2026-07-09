@@ -150,9 +150,9 @@ so running multiple *API* replicas behind a load balancer is safe.
 
 **Chosen: C.** Instructions queue because the daemon polls (can't push to a
 box behind NAT). Responses *don't* queue: when the daemon POSTs
-`/v1/responses`, the bot sends the response as new messages
-in the chat (splitting long responses into multiple chunks), and returns to the
-daemon. Failure → HTTP error → daemon's existing
+`/v1/responses`, the bot edits the processing message in-place with the
+response content and attaches the full response as a text document with
+caption "full logs", and returns to the daemon. Failure → HTTP error → daemon's existing
 retry/backoff takes over (transient retries; permanent failures like "bot
 blocked" bubble as 4xx and stop retrying).
 
@@ -166,8 +166,9 @@ with `processing_started_at` instead of deleted immediately. The daemon then
 posts progress updates with `final: false`, which update the session's latest
 message for dashboards/status AND edit the original "Daemon is processing"
 Telegram message in-place (best-effort) so the user sees live progress. When it
-posts the final response, the bot sends the response as new messages (split
-into Telegram-sized chunks), deletes the in-progress row, and sends a separate
+posts the final response, the bot edits the processing message in-place with
+the response content, attaches the full response as a text document with
+caption "full logs", deletes the in-progress row, and sends a separate
 "✅ Message processed." completion message.
 Responses never queue as daemon-bound rows.
 
@@ -217,6 +218,8 @@ can resume the last session after a daemon restart.
 menus that covers create new session, check status, check response."
 Daemon responses are *pushed* to the chat by the bot as new messages
 (progress updates still edit the "processing" message in-place).
+The final response edits the processing message in-place and also attaches
+the full response as a text document with caption "full logs".
 
 Flow:
 ```
@@ -229,7 +232,8 @@ Flow:
 /code <instruction>  → "🔄 Daemon is processing your message…" (sent once)
   Status → last heartbeat, pending instruction count
   (daemon progress)  → processing message edited in-place with live progress
-  (daemon output)    → new message(s) with the response content
+  (daemon output)    → processing message edited with response content
+                    → full response attached as text document with "full logs" caption
                     → new "✅ Message processed." message sent
 ```
 

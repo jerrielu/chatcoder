@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 (2025-07-13)
+
+- **Attach full response as text document with "full logs" caption** — When
+  returning responses, the bot now attaches the full response as a text document
+  (`response.txt`) with caption "full logs" in addition to editing the processing
+  message. This provides users with a downloadable copy of the complete response.
+  (packages/bot/src/main.ts)
+
 ## 0.5.5 (2025-07-13)
 
 - **Remove RESPONSE_INSTRUCTION entirely** — Deleted the `RESPONSE_INSTRUCTION`
