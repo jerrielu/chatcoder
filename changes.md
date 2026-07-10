@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.3 (2026-07-10)
+
+- **Rename response.md → response.txt** — Changed the downloaded log filename
+  from `response.md` to `response.txt` so it opens in a text editor by default
+  instead of rendering as Markdown. (packages/bot/src/main.ts)
+
 ## 0.7.2 (2026-07-10)
 
 - **Fix response.md encoding** — Added UTF-8 BOM (Byte Order Mark) to the
