@@ -35,20 +35,3 @@ export function extractResponseFromJSON(output: string): string | null {
     return null;
   }
 }
-
-/**
- * Extract the last non-empty block (paragraph) from output as a fallback.
- * Blocks are separated by one or more blank lines.
- */
-export function extractLastBlock(output: string): string {
-  if (!output) return "";
-
-  const blocks = output
-    .split(/\n\s*\n/)
-    .map((b) => b.trim())
-    .filter((b) => b.length > 0);
-
-  if (blocks.length === 0) return output.trim();
-
-  return blocks[blocks.length - 1]!;
-}

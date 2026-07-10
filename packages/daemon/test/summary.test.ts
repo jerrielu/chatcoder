@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractResponseFromJSON, extractLastBlock } from "../src/summary.js";
+import { extractResponseFromJSON } from "../src/summary.js";
 
 describe("extractResponseFromJSON", () => {
   it("extracts response from plain JSON", () => {
@@ -42,27 +42,5 @@ describe("extractResponseFromJSON", () => {
   it("returns null for null input", () => {
     const result = extractResponseFromJSON("");
     expect(result).toBeNull();
-  });
-});
-
-describe("extractLastBlock", () => {
-  it("returns the last non-empty block", () => {
-    const result = extractLastBlock("first block\n\nsecond block\n\nfinal summary");
-    expect(result).toBe("final summary");
-  });
-
-  it("handles single block", () => {
-    const result = extractLastBlock("just one block");
-    expect(result).toBe("just one block");
-  });
-
-  it("handles empty input", () => {
-    const result = extractLastBlock("");
-    expect(result).toBe("");
-  });
-
-  it("trims whitespace from blocks", () => {
-    const result = extractLastBlock("a\n\n  b  \n\n  c  ");
-    expect(result).toBe("c");
   });
 });

@@ -1,5 +1,5 @@
 import { stripAnsi } from "./ansi.js";
-import { extractResponseFromJSON, extractLastBlock } from "./summary.js";
+import { extractResponseFromJSON } from "./summary.js";
 import { convert } from "telegram-markdown-v2";
 const DEFAULT_RESPONSE_UPDATE_INTERVAL_MS = 5_000;
 const DEFAULT_RESPONSE_CHUNK_MAX_CHARS = 4_095;
@@ -205,10 +205,10 @@ export class SessionRunner {
             const rawText = finalOutput.length > 0 ? finalOutput : stripAnsi(rawOutput).trim();
             if (rawText.length === 0)
                 return;
-            // Try to extract a JSON response, or fall back to the last text block
+            // Try to extract a JSON response, or fall back to the raw output
             const responseText = extractResponseFromJSON(rawText);
-            const finalContent = responseText ?? extractLastBlock(rawText);
-            const formatted = convert(finalContent || rawText).trim();
+            const finalContent = responseText ?? rawText;
+            const formatted = convert(finalContent).trim();
             await this.tryPostChunked(task.sessionId, formatted, { final: true });
         }
         finally {

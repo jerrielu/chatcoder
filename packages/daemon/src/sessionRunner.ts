@@ -2,7 +2,7 @@ import { stripAnsi } from "./ansi.js";
 import type { CodexReasoningEffort, MessageKind } from "@chatcoder/shared";
 import type { Profile } from "./profile.js";
 import type { ToolExecutor } from "./toolExecutor.js";
-import { extractResponseFromJSON, extractLastBlock } from "./summary.js";
+import { extractResponseFromJSON } from "./summary.js";
 import { convert } from "telegram-markdown-v2";
 
 export interface SessionRunnerTask {
@@ -245,10 +245,10 @@ export class SessionRunner {
       const rawText = finalOutput.length > 0 ? finalOutput : stripAnsi(rawOutput).trim();
       if (rawText.length === 0) return;
 
-      // Try to extract a JSON response, or fall back to the last text block
+      // Try to extract a JSON response, or fall back to the raw output
       const responseText = extractResponseFromJSON(rawText);
-      const finalContent = responseText ?? extractLastBlock(rawText);
-      const formatted = convert(finalContent || rawText).trim();
+      const finalContent = responseText ?? rawText;
+      const formatted = convert(finalContent).trim();
       await this.tryPostChunked(task.sessionId, formatted, { final: true });
     } finally {
       finished = true;

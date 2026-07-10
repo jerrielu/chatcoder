@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.5 (2026-07-10)
+
+- **Fix Reasonix final response truncated to last paragraph** — Removed
+  `extractLastBlock()` which was discarding all but the last paragraph of
+  tool output. The final response now uses the full raw output, so
+  `response.txt` contains the complete Reasonix conversation instead of just
+  the last block. Codex JSON output extraction is preserved.
+  (packages/daemon/src/sessionRunner.ts, packages/daemon/src/profileRunner.ts,
+  packages/daemon/src/summary.ts)
+
 ## 0.7.4 (2026-07-10)
 
 - **response.txt now contains only the final response** — Removed the Message
