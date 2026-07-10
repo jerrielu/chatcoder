@@ -57,7 +57,7 @@ async function runDaemon(): Promise<void> {
     config: cfg,
     tool,
     postResponse: (sessionId, content, opts) =>
-      client.postResponse({ sessionId, content, final: opts?.final ?? true }).then(() => undefined),
+      client.postResponse({ sessionId, content, final: opts?.final ?? true, rawContent: opts?.rawContent }).then(() => undefined),
     log,
     maxConcurrency: cfg.maxConcurrency
   });

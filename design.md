@@ -151,8 +151,10 @@ so running multiple *API* replicas behind a load balancer is safe.
 **Chosen: C.** Instructions queue because the daemon polls (can't push to a
 box behind NAT). Responses *don't* queue: when the daemon POSTs
 `/v1/responses`, the bot edits the processing message in-place with the
-response content and attaches the full response as a markdown file with
-caption "✅ Message processed", and returns to the daemon. Failure → HTTP error → daemon's existing
+response content and attaches the full raw tool output as a markdown file (`response.md`) with
+caption "✅ Message processed", and returns to the daemon. The daemon sends both
+`content` (Telegram MarkdownV2 formatted for the inline message) and `rawContent`
+(full unformatted tool output for the `.md` attachment). Failure → HTTP error → daemon's existing
 retry/backoff takes over (transient retries; permanent failures like "bot
 blocked" bubble as 4xx and stop retrying).
 
@@ -167,8 +169,10 @@ posts progress updates with `final: false`, which update the session's latest
 message for dashboards/status AND edit the original "Daemon is processing"
 Telegram message in-place (best-effort) so the user sees live progress. When it
 posts the final response, the bot edits the processing message in-place with
-the response content, attaches the full response as a markdown file with
+the response content, attaches the full raw tool output as a markdown file (`response.md`) with
 caption "✅ Message processed", and deletes the in-progress row.
+Final responses are sent in a single HTTP request (no chunking) to avoid
+premature `completeProcessing` destroying the processing state.
 Responses never queue as daemon-bound rows.
 
 `resume_last_session` controls whether a message continues the current tool

@@ -147,7 +147,7 @@ describe("ProfileRunner", () => {
     expect(posted[0]!.content).toMatch(/^Error: boom/);
   });
 
-  it("chunks large outputs at responseChunkMaxChars", async () => {
+  it("sends large final responses in one shot (no chunking)", async () => {
     const big = "x".repeat(50);
     const tool = {
       execute: async () => JSON.stringify({ response: big })
@@ -163,8 +163,8 @@ describe("ProfileRunner", () => {
     });
     runner.enqueue({ sessionId: "s1", messageId: "m1", content: "go" });
     await runner.whenIdle();
-    expect(posted).toHaveLength(3);
-    expect(posted.map((p) => p.content).join("")).toBe(big);
+    expect(posted).toHaveLength(1);
+    expect(posted[0].content).toBe(big);
   });
 
   it("posts streamed output as progress and final output only as final", async () => {

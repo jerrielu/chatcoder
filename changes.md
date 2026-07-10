@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.0 (2026-07-09)
+
+- **response.md now contains the full raw tool output** — Added `rawContent`
+  field to the response protocol so the `.md` attachment carries the complete
+  unformatted tool output instead of just the extracted/summarized response.
+  This fixes garbled content (Telegram MarkdownV2 escapes in the file) and
+  ensures no content is lost. (packages/shared/src/protocol.ts,
+  packages/daemon/src/profileRunner.ts, packages/daemon/src/sessionRunner.ts,
+  packages/bot/src/main.ts)
+- **Fix profileRunner final response truncation** — The profile runner was
+  chunking final responses at 4095 chars, causing `completeProcessing` to
+  destroy the processing state after the first chunk. Final responses are now
+  sent in a single HTTP request, matching the sessionRunner behavior.
+  (packages/daemon/src/profileRunner.ts)
+
 ## 0.6.2 (2026-07-09)
 
 - **Fix response .md attachment only containing partial content** — When a

@@ -273,7 +273,7 @@ describe("POST /v1/responses", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(sendResponse).toHaveBeenCalledTimes(1);
-    expect(sendResponse).toHaveBeenCalledWith(42, "hello world", sessionId);
+    expect(sendResponse).toHaveBeenCalledWith(42, "hello world", sessionId, undefined);
     expect(sendProcessed).toHaveBeenCalledTimes(1);
     expect(sendProcessed).toHaveBeenCalledWith(42, sessionId);
     expect(await h.messages.getProcessing(sessionId)).toBeNull();

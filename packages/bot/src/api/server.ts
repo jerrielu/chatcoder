@@ -204,7 +204,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       return { ok: true };
     }
     try {
-      await opts.telegram.sendResponse(session.chatId, body.content, session.id);
+      await opts.telegram.sendResponse(session.chatId, body.content, session.id, body.rawContent);
     } catch (e) {
       const mapped = toApiErrorIfPermanent(e);
       if (mapped) throw mapped;

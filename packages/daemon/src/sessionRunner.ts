@@ -23,7 +23,7 @@ export interface SessionRunnerDeps {
   postResponse: (
     sessionId: string,
     content: string,
-    opts?: { final?: boolean }
+    opts?: { final?: boolean; rawContent?: string }
   ) => Promise<void>;
   /** Logging. */
   log?: (msg: string, extra?: unknown) => void;
@@ -249,7 +249,7 @@ export class SessionRunner {
       const responseText = extractResponseFromJSON(rawText);
       const finalContent = responseText ?? extractLastBlock(rawText);
       const formatted = convert(finalContent || rawText).trim();
-      await this.tryPostChunked(task.sessionId, formatted, { final: true });
+      await this.tryPostChunked(task.sessionId, formatted, { final: true, rawContent: rawText });
     } finally {
       finished = true;
       if (updateTimer) {
@@ -262,7 +262,7 @@ export class SessionRunner {
   private async postChunked(
     sessionId: string,
     text: string,
-    opts: { final?: boolean } = {}
+    opts: { final?: boolean; rawContent?: string } = {}
   ): Promise<void> {
     if (!text) return;
     const outboundText = opts.final === false ? formatProgressUpdate(text) : text;
@@ -284,7 +284,7 @@ export class SessionRunner {
   private async tryPostChunked(
     sessionId: string,
     text: string,
-    opts: { final?: boolean } = {}
+    opts: { final?: boolean; rawContent?: string } = {}
   ): Promise<void> {
     try {
       await this.postChunked(sessionId, text, opts);
