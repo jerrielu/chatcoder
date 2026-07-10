@@ -166,7 +166,7 @@ export async function buildServer(opts) {
             return { ok: true };
         }
         try {
-            await opts.telegram.sendResponse(session.chatId, body.content, session.id, body.rawContent);
+            await opts.telegram.sendResponse(session.chatId, body.content, session.id);
         }
         catch (e) {
             const mapped = toApiErrorIfPermanent(e);

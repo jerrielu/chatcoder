@@ -29,9 +29,7 @@ export const PostResponseBody = z.object({
     /** false = progress update only; true = send final result to client. */
     final: z.boolean().default(true),
     /** Optional echo of originating instruction id for tracing. */
-    replyTo: z.string().min(1).optional(),
-    /** Full raw tool output before Telegram formatting, for the .md attachment. */
-    rawContent: z.string().optional()
+    replyTo: z.string().min(1).optional()
 });
 /* ===================== Daemon registration ===================== */
 const ProfileName = z

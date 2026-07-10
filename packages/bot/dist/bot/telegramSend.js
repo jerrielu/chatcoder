@@ -29,6 +29,14 @@ export function splitForTelegram(s) {
 export function escapeMarkdownV2(text) {
     return text.replace(/[_*[\]()~`>#+\-=\|{}.!]/g, "\\$&");
 }
+/**
+ * Strip Telegram MarkdownV2 escape backslashes to produce clean Markdown.
+ * Reverses the escaping done by escapeMarkdownV2 and by telegram-markdown-v2's
+ * convert() — removes the backslash before each escaped character.
+ */
+export function stripMarkdownV2(text) {
+    return text.replace(/\\([_*\[\]()~`>#+\-=|{}.!])/g, "$1");
+}
 export function processingMessageText(content) {
     const words = content.trim().split(/\s+/).filter(Boolean);
     const preview = words.slice(0, 100).join(" ");

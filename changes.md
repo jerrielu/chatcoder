@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.2 (2026-07-10)
+
+- **Fix response.md encoding** — Added UTF-8 BOM (Byte Order Mark) to the
+  response.md attachment so viewers/editors correctly detect UTF-8 encoding
+  instead of misinterpreting Chinese characters as Latin-1. (packages/bot/src/main.ts)
+
 ## 0.7.1 (2026-07-09)
 
 - **response.md now contains all state (message + progress + response) as clean

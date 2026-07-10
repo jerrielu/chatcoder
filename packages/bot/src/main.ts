@@ -148,7 +148,9 @@ async function main(): Promise<void> {
         const mdContent = sections.join("\n\n");
         if (mdContent) {
           try {
-            const documentBuffer = Buffer.from(mdContent, "utf-8");
+            // Prepend UTF-8 BOM so viewers detect the encoding correctly
+            const BOM = Buffer.from([0xEF, 0xBB, 0xBF]);
+            const documentBuffer = Buffer.concat([BOM, Buffer.from(mdContent, "utf-8")]);
             const inputFile = new InputFile(documentBuffer, "response.md");
             await sendTelegramWithRetry(() =>
               bot.api.sendDocument(chatId, inputFile, {
