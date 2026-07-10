@@ -118,7 +118,7 @@ async function main() {
                         // Prepend UTF-8 BOM so viewers detect the encoding correctly
                         const BOM = Buffer.from([0xEF, 0xBB, 0xBF]);
                         const documentBuffer = Buffer.concat([BOM, Buffer.from(mdContent, "utf-8")]);
-                        const inputFile = new InputFile(documentBuffer, "response.md");
+                        const inputFile = new InputFile(documentBuffer, "response.txt");
                         await sendTelegramWithRetry(() => bot.api.sendDocument(chatId, inputFile, {
                             caption: "✅ Message processed",
                             reply_markup: mainMenu()

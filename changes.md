@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.4 (2026-07-10)
+
+- **response.txt now contains only the final response** — Removed the Message
+  and Progress sections from the downloaded log file; it now holds just the
+  final AI response (MarkdownV2 escapes stripped). (packages/bot/src/main.ts)
+
 ## 0.7.3 (2026-07-10)
 
 - **Rename response.md → response.txt** — Changed the downloaded log filename

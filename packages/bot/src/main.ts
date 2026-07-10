@@ -131,21 +131,13 @@ async function main(): Promise<void> {
     },
 
     async sendProcessed(chatId, sessionId) {
-      // Build the full log: preview + progress + response, with MarkdownV2
-      // escapes stripped so the .md file is clean, readable Markdown.
+      // Build the response.txt with only the final response content,
+      // stripping MarkdownV2 escapes so the file is clean readable text.
       const state = processingStates.get(sessionId);
       if (state) {
-        const sections: string[] = [];
-        if (state.preview) {
-          sections.push(`## Message\n\n${stripMarkdownV2(state.preview)}`);
-        }
-        if (state.progress) {
-          sections.push(`## Progress\n\n${stripMarkdownV2(state.progress)}`);
-        }
-        if (state.response) {
-          sections.push(`## Response\n\n${stripMarkdownV2(state.response)}`);
-        }
-        const mdContent = sections.join("\n\n");
+        const mdContent = state.response
+          ? stripMarkdownV2(state.response)
+          : "";
         if (mdContent) {
           try {
             // Prepend UTF-8 BOM so viewers detect the encoding correctly
