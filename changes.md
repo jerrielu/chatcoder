@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.7 (2026-07-10)
+
+- **Fix: second request's "Latest Progress" not updating** — When two new code
+  requests are queued, the first request's progress updated correctly but the
+  second's was silently dropped. A race condition in `POST /v1/responses` deleted
+  the in-progress DB row before cleaning up the in-memory `ProcessingState` map,
+  allowing a concurrent poll to claim the next task and overwrite the map entry.
+  Fixed by calling `sendProcessed` (which cleans the map) before
+  `completeProcessing` (which deletes the DB row). (packages/bot/src/api/server.ts)
+
 ## 0.7.6 (2026-07-10)
 
 - **response.txt caption now shows truncated preview** — The document message

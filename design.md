@@ -171,9 +171,13 @@ Telegram message in-place (best-effort) so the user sees live progress. When it
 posts the final response, the bot edits the processing message in-place with
 the response content, attaches a clean Markdown file (`response.txt`) containing
 the full session log (message preview + progress + response) with MarkdownV2
-escapes stripped, and deletes the in-progress row.
-Final responses are sent in a single HTTP request (no chunking) to avoid
-premature `completeProcessing` destroying the processing state.
+escapes stripped, cleans up the in-progress Telegram processing state, and
+*then* deletes the in-progress DB row. The processing state is cleaned up
+first (via `sendProcessed`) to avoid a race where deleting the DB row allows a
+concurrent poll to claim a new task and overwrite the in-memory map entry
+before the cleanup reads it. Final responses are sent in a single HTTP request
+(no chunking) to avoid premature `completeProcessing` destroying the processing
+state.
 Responses never queue as daemon-bound rows.
 
 `resume_last_session` controls whether a message continues the current tool

@@ -210,8 +210,11 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       if (mapped) throw mapped;
       throw e;
     }
-    const completed = await opts.messagesRepo.completeProcessing(session.id);
-    if (completed && opts.telegram.sendProcessed) {
+    // Send the processed acknowledgement (document attachment + map cleanup)
+    // BEFORE completeProcessing to avoid a race: if the DB row is deleted
+    // first, another daemon can poll, claim a new task, and overwrite the
+    // ProcessingState in the map before we read it here.
+    if (opts.telegram.sendProcessed) {
       try {
         await opts.telegram.sendProcessed(session.chatId, session.id);
       } catch {
@@ -220,6 +223,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
         // because the best-effort acknowledgement failed.
       }
     }
+    await opts.messagesRepo.completeProcessing(session.id);
     return { ok: true };
   });
 
