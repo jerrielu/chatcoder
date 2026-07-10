@@ -144,9 +144,18 @@ async function main(): Promise<void> {
             const BOM = Buffer.from([0xEF, 0xBB, 0xBF]);
             const documentBuffer = Buffer.concat([BOM, Buffer.from(mdContent, "utf-8")]);
             const inputFile = new InputFile(documentBuffer, "response.txt");
+
+            // Caption: truncated preview so the user sees the gist without
+            // opening the file.  Telegram caption limit is 1024 chars.
+            const captionMax = 1000;
+            const truncated = mdContent.length > captionMax
+              ? mdContent.slice(0, captionMax) + "…"
+              : mdContent;
+            const caption = `✅ Message processed\n\n${truncated}`;
+
             await sendTelegramWithRetry(() =>
               bot.api.sendDocument(chatId, inputFile, {
-                caption: "✅ Message processed",
+                caption,
                 reply_markup: mainMenu()
               })
             );

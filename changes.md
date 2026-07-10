@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.6 (2026-07-10)
+
+- **response.txt caption now shows truncated preview** — The document message
+  includes the first 1000 characters of the response as its caption, so the
+  user can read the gist directly in the chat without downloading the file.
+  (packages/bot/src/main.ts)
+
 ## 0.7.5 (2026-07-10)
 
 - **Fix Reasonix final response truncated to last paragraph** — Removed
