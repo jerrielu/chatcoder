@@ -59,7 +59,7 @@ async function main() {
         return msg;
     }
     const telegram = {
-        async sendResponse(chatId, content, sessionId) {
+        async sendResponse(chatId, content, sessionId, rawContent) {
             // Edit the processing message with the final response instead of sending
             // a new message, so the user sees the result in-place.
             const state = processingStates.get(sessionId);
@@ -73,6 +73,9 @@ async function main() {
             }
             // Accumulate multi-chunk responses and edit in-place
             state.response = state.response ? state.response + content : content;
+            if (rawContent) {
+                state.rawContent = state.rawContent ? state.rawContent + "\n" + rawContent : rawContent;
+            }
             try {
                 await sendTelegramWithRetry(() => bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage(state), {
                     reply_markup: mainMenu(),
@@ -88,7 +91,8 @@ async function main() {
                 messageId: 0,
                 preview: extractPreview(content),
                 progress: "",
-                response: ""
+                response: "",
+                rawContent: ""
             };
             const msg = await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, buildProcessingMessage(state), {
                 reply_markup: mainMenu(),
@@ -100,17 +104,20 @@ async function main() {
         async sendProcessed(chatId, sessionId) {
             // Send the full response as a .md document with caption.
             const state = processingStates.get(sessionId);
-            if (state && state.response) {
-                try {
-                    const documentBuffer = Buffer.from(state.response, "utf-8");
-                    const inputFile = new InputFile(documentBuffer, "response.md");
-                    await sendTelegramWithRetry(() => bot.api.sendDocument(chatId, inputFile, {
-                        caption: "✅ Message processed",
-                        reply_markup: mainMenu()
-                    }));
-                }
-                catch {
-                    // Best-effort — document attachment is not critical
+            if (state) {
+                const mdContent = state.rawContent || state.response;
+                if (mdContent) {
+                    try {
+                        const documentBuffer = Buffer.from(mdContent, "utf-8");
+                        const inputFile = new InputFile(documentBuffer, "response.md");
+                        await sendTelegramWithRetry(() => bot.api.sendDocument(chatId, inputFile, {
+                            caption: "✅ Message processed",
+                            reply_markup: mainMenu()
+                        }));
+                    }
+                    catch {
+                        // Best-effort — document attachment is not critical
+                    }
                 }
             }
             processingStates.delete(sessionId);

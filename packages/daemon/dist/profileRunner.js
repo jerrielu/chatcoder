@@ -209,7 +209,7 @@ export class ProfileRunner {
             const responseText = extractResponseFromJSON(rawText);
             const finalContent = responseText ?? extractLastBlock(rawText);
             const formatted = convert(finalContent || rawText).trim();
-            await this.tryPostChunked(task.sessionId, formatted, { final: true });
+            await this.tryPostChunked(task.sessionId, formatted, { final: true, rawContent: rawText });
         }
         finally {
             finished = true;
@@ -223,6 +223,14 @@ export class ProfileRunner {
         if (!text)
             return;
         const outboundText = opts.final === false ? formatProgressUpdate(text) : text;
+        // Final responses are sent in one shot — chunking them causes the server
+        // to call completeProcessing after the first chunk, destroying the
+        // processing state and truncating the .md attachment.
+        if (opts.final) {
+            this.log(">>> response", { profile: this.profileName, session: sessionId, chunk: outboundText });
+            await this.deps.postResponse(sessionId, outboundText, opts);
+            return;
+        }
         for (let i = 0; i < outboundText.length; i += this.chunkMax) {
             const chunk = outboundText.slice(i, i + this.chunkMax);
             this.log(">>> response", { profile: this.profileName, session: sessionId, chunk });

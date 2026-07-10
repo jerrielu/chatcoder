@@ -13,6 +13,7 @@ import { FlowStore } from "./bot/flows.js";
 import { deriveLocalApiUrl } from "./apiUrl.js";
 import {
   escapeMarkdownV2,
+  stripMarkdownV2,
   sendTelegramWithRetry,
   splitForTelegram,
   type TelegramSender
@@ -54,7 +55,6 @@ async function main(): Promise<void> {
     preview: string;
     progress: string;
     response: string;
-    rawContent: string;
   }
   const processingStates = new Map<string, ProcessingState>();
 
@@ -85,7 +85,7 @@ async function main(): Promise<void> {
   }
 
   const telegram: TelegramSender = {
-    async sendResponse(chatId, content, sessionId, rawContent) {
+    async sendResponse(chatId, content, sessionId) {
       // Edit the processing message with the final response instead of sending
       // a new message, so the user sees the result in-place.
       const state = processingStates.get(sessionId);
@@ -101,9 +101,6 @@ async function main(): Promise<void> {
       }
       // Accumulate multi-chunk responses and edit in-place
       state.response = state.response ? state.response + content : content;
-      if (rawContent) {
-        state.rawContent = state.rawContent ? state.rawContent + "\n" + rawContent : rawContent;
-      }
       try {
         await sendTelegramWithRetry(() =>
           bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage(state), {
@@ -121,8 +118,7 @@ async function main(): Promise<void> {
         messageId: 0,
         preview: extractPreview(content),
         progress: "",
-        response: "",
-        rawContent: ""
+        response: ""
       };
       const msg = await sendTelegramWithRetry(() =>
         bot.api.sendMessage(chatId, buildProcessingMessage(state), {
@@ -135,10 +131,21 @@ async function main(): Promise<void> {
     },
 
     async sendProcessed(chatId, sessionId) {
-      // Send the full response as a .md document with caption.
+      // Build the full log: preview + progress + response, with MarkdownV2
+      // escapes stripped so the .md file is clean, readable Markdown.
       const state = processingStates.get(sessionId);
       if (state) {
-        const mdContent = state.rawContent || state.response;
+        const sections: string[] = [];
+        if (state.preview) {
+          sections.push(`## Message\n\n${stripMarkdownV2(state.preview)}`);
+        }
+        if (state.progress) {
+          sections.push(`## Progress\n\n${stripMarkdownV2(state.progress)}`);
+        }
+        if (state.response) {
+          sections.push(`## Response\n\n${stripMarkdownV2(state.response)}`);
+        }
+        const mdContent = sections.join("\n\n");
         if (mdContent) {
           try {
             const documentBuffer = Buffer.from(mdContent, "utf-8");

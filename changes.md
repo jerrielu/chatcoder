@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.1 (2026-07-09)
+
+- **response.md now contains all state (message + progress + response) as clean
+  Markdown** — Replaced the rawContent approach with a simpler solution: the bot
+  builds the .md from its existing ProcessingState (preview, progress, response)
+  and strips MarkdownV2 escape characters so the file is readable Markdown.
+  (packages/bot/src/main.ts, packages/bot/src/bot/telegramSend.ts)
+- **Fix profileRunner final response truncation** — The profile runner was
+  chunking final responses at 4095 chars, causing `completeProcessing` to
+  destroy the processing state after the first chunk. Final responses are now
+  sent in a single HTTP request, matching the sessionRunner behavior.
+  (packages/daemon/src/profileRunner.ts)
+
 ## 0.7.0 (2026-07-09)
 
 - **response.md now contains the full raw tool output** — Added `rawContent`

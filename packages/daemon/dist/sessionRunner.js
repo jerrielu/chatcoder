@@ -209,7 +209,7 @@ export class SessionRunner {
             const responseText = extractResponseFromJSON(rawText);
             const finalContent = responseText ?? extractLastBlock(rawText);
             const formatted = convert(finalContent || rawText).trim();
-            await this.tryPostChunked(task.sessionId, formatted, { final: true });
+            await this.tryPostChunked(task.sessionId, formatted, { final: true, rawContent: rawText });
         }
         finally {
             finished = true;

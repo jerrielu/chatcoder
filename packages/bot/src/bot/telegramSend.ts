@@ -37,6 +37,15 @@ export function escapeMarkdownV2(text: string): string {
   return text.replace(/[_*[\]()~`>#+\-=\|{}.!]/g, "\\$&");
 }
 
+/**
+ * Strip Telegram MarkdownV2 escape backslashes to produce clean Markdown.
+ * Reverses the escaping done by escapeMarkdownV2 and by telegram-markdown-v2's
+ * convert() — removes the backslash before each escaped character.
+ */
+export function stripMarkdownV2(text: string): string {
+  return text.replace(/\\([_*\[\]()~`>#+\-=|{}.!])/g, "$1");
+}
+
 export function processingMessageText(content: string): string {
   const words = content.trim().split(/\s+/).filter(Boolean);
   const preview = words.slice(0, 100).join(" ");
@@ -50,7 +59,7 @@ export function processingMessageText(content: string): string {
  * a spy.
  */
 export interface TelegramSender {
-  sendResponse(chatId: number, content: string, sessionId: string, rawContent?: string): Promise<void>;
+  sendResponse(chatId: number, content: string, sessionId: string): Promise<void>;
   sendProcessing?(chatId: number, content: string, sessionId: string): Promise<void>;
   sendProcessed?(chatId: number, sessionId: string): Promise<void>;
   /** Best-effort live progress update: edits the same "processing" message. */

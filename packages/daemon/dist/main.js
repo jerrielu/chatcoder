@@ -53,7 +53,7 @@ async function runDaemon() {
     const sessionManager = new SessionManager({
         config: cfg,
         tool,
-        postResponse: (sessionId, content, opts) => client.postResponse({ sessionId, content, final: opts?.final ?? true }).then(() => undefined),
+        postResponse: (sessionId, content, opts) => client.postResponse({ sessionId, content, final: opts?.final ?? true, rawContent: opts?.rawContent }).then(() => undefined),
         log,
         maxConcurrency: cfg.maxConcurrency
     });

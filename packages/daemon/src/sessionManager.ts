@@ -9,7 +9,7 @@ export interface SessionManagerDeps {
   postResponse: (
     sessionId: string,
     content: string,
-    opts?: { final?: boolean; rawContent?: string }
+    opts?: { final?: boolean }
   ) => Promise<void>;
   log?: (msg: string, extra?: unknown) => void;
   /** Max concurrent child processes across all sessions. */
