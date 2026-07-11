@@ -196,15 +196,20 @@ export class MessagesRepo {
                 .deleteFrom("messages")
                 .where("session_id", "=", sessionId)
                 .where("id", "!=", row.id)
-                .where((eb) => eb.or([
-                eb.and([
-                    eb("created_at", "<", row.created_at),
-                    eb("processing_started_at", "is", null)
-                ]),
-                eb.and([
-                    eb("created_at", "=", row.created_at),
-                    eb("id", "<", row.id),
-                    eb("processing_started_at", "is", null)
+                .where((eb) => eb.and([
+                // Only clear non-New-Code instructions ahead of the fresh run,
+                // NOT other pending New Code tasks — they should still execute.
+                eb("resume_last_session", "=", 1),
+                eb.or([
+                    eb.and([
+                        eb("created_at", "<", row.created_at),
+                        eb("processing_started_at", "is", null)
+                    ]),
+                    eb.and([
+                        eb("created_at", "=", row.created_at),
+                        eb("id", "<", row.id),
+                        eb("processing_started_at", "is", null)
+                    ])
                 ])
             ]))
                 .execute();

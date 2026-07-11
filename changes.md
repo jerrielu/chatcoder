@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.9 (2026-07-11)
+
+- **Fix: New Code tasks in the middle of the queue were silently deleted** —
+  `claimLatestNewCodeAndClearBefore` deleted ALL older pending messages when
+  claiming the latest New Code, including other pending New Code tasks. Fixed by
+  restricting the delete to only non-New-Code instructions (`resume_last_session = 1`),
+  so multiple New Code tasks all execute in order (newest-first) instead of
+  having the middle ones silently skipped. (packages/bot/src/db/messages.ts)
+
 ## 0.7.8 (2026-07-10)
 
 - **Fix: oversized final responses and empty output blocking task completion** —
