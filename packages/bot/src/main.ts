@@ -147,9 +147,9 @@ async function main(): Promise<void> {
 
             // Caption: truncated preview so the user sees the gist without
             // opening the file.  Telegram caption limit is 1024 chars.
-            const captionMax = 1000;
+            const captionMax = 1001;
             const truncated = mdContent.length > captionMax
-              ? mdContent.slice(0, captionMax) + "…"
+              ? "…" + mdContent.slice(-(captionMax - 1))
               : mdContent;
             const caption = `✅ Message processed\n\n${truncated}`;
 

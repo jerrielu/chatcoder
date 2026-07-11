@@ -160,7 +160,7 @@ export class ProfileRunner {
       } catch (err) {
         if (abort.signal.aborted) return;
         this.log("execution failed", { profile: this.profileName, err });
-        await this.tryPostChunked(task.sessionId, `Error: ${err instanceof Error ? err.message : String(err)}`);
+        await this.tryPostChunked(task.sessionId, `Error: ${err instanceof Error ? err.message : String(err)}`, { final: true });
       } finally {
         if (this.currentAbort === abort) this.currentAbort = null;
       }
@@ -237,7 +237,10 @@ export class ProfileRunner {
       if (signal.aborted) return;
 
       const rawText = finalOutput.length > 0 ? finalOutput : stripAnsi(rawOutput).trim();
-      if (rawText.length === 0) return;
+      if (rawText.length === 0) {
+        await this.tryPostChunked(task.sessionId, "(no output)", { final: true });
+        return;
+      }
 
       // Try to extract a JSON response, or fall back to the raw output
       const responseText = extractResponseFromJSON(rawText);
@@ -260,22 +263,37 @@ export class ProfileRunner {
   ): Promise<void> {
     if (!text) return;
     const outboundText = opts.final === false ? formatProgressUpdate(text) : text;
-    if (opts.final) {
-      if (outboundText.length <= this.chunkMax) {
-        this.log(">>> response", { profile: this.profileName, session: sessionId, chunk: outboundText });
-        await this.deps.postResponse(sessionId, outboundText, opts);
-        return;
-      }
-      // Oversized final: stage content as progress update, then complete.
-      this.log(">>> response (oversized, staging)", { profile: this.profileName, session: sessionId, length: outboundText.length });
-      await this.deps.postResponse(sessionId, outboundText, { final: false });
-      await this.deps.postResponse(sessionId, "(see above)", { final: true });
+    if (opts.final && outboundText.length <= this.chunkMax) {
+      this.log(">>> response", { profile: this.profileName, session: sessionId, chunk: outboundText });
+      await this.deps.postResponse(sessionId, outboundText, opts);
       return;
     }
+    // Chunk content that exceeds chunkMax.  For non-final (progress) chunks this
+    // is normal.  For oversized finals we send the first N-1 chunks as progress
+    // updates (so they survive the 32 KB server limit) and the last chunk as the
+    // actual final response — the .md attachment will only contain the last chunk
+    // but the Telegram message and "Latest Progress" preserve the full history.
+    const chunks: string[] = [];
     for (let i = 0; i < outboundText.length; i += this.chunkMax) {
-      const chunk = outboundText.slice(i, i + this.chunkMax);
-      this.log(">>> response", { profile: this.profileName, session: sessionId, chunk });
-      await this.deps.postResponse(sessionId, chunk, opts);
+      chunks.push(outboundText.slice(i, i + this.chunkMax));
+    }
+    const isOversizedFinal = opts.final && chunks.length > 1;
+    for (let ci = 0; ci < chunks.length; ci++) {
+      const chunkOpts = isOversizedFinal
+        ? { final: ci === chunks.length - 1 }
+        : opts;
+      if (isOversizedFinal) {
+        this.log(">>> response (oversized chunk)", {
+          profile: this.profileName,
+          session: sessionId,
+          chunk: ci + 1,
+          total: chunks.length,
+          final: chunkOpts.final
+        });
+      } else {
+        this.log(">>> response", { profile: this.profileName, session: sessionId, chunk: chunks[ci] });
+      }
+      await this.deps.postResponse(sessionId, chunks[ci]!, chunkOpts);
     }
   }
 

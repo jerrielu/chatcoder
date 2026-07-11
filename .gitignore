@@ -10,12 +10,12 @@ build/
 bin/
 !bin/chatcoder.js
 *.tsbuildinfo
-!packages/shared/dist/
-!packages/shared/dist/**
-!packages/bot/dist/
-!packages/bot/dist/**
-!packages/daemon/dist/
-!packages/daemon/dist/**
+packages/shared/dist/
+packages/shared/dist/**
+packages/bot/dist/
+packages/bot/dist/**
+packages/daemon/dist/
+packages/daemon/dist/**
 
 # TypeScript declaration files (generated)
 *.d.ts
