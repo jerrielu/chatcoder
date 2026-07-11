@@ -260,12 +260,16 @@ export class ProfileRunner {
   ): Promise<void> {
     if (!text) return;
     const outboundText = opts.final === false ? formatProgressUpdate(text) : text;
-    // Final responses are sent in one shot — chunking them causes the server
-    // to call completeProcessing after the first chunk, destroying the
-    // processing state and truncating the .md attachment.
     if (opts.final) {
-      this.log(">>> response", { profile: this.profileName, session: sessionId, chunk: outboundText });
-      await this.deps.postResponse(sessionId, outboundText, opts);
+      if (outboundText.length <= this.chunkMax) {
+        this.log(">>> response", { profile: this.profileName, session: sessionId, chunk: outboundText });
+        await this.deps.postResponse(sessionId, outboundText, opts);
+        return;
+      }
+      // Oversized final: stage content as progress update, then complete.
+      this.log(">>> response (oversized, staging)", { profile: this.profileName, session: sessionId, length: outboundText.length });
+      await this.deps.postResponse(sessionId, outboundText, { final: false });
+      await this.deps.postResponse(sessionId, "(see above)", { final: true });
       return;
     }
     for (let i = 0; i < outboundText.length; i += this.chunkMax) {

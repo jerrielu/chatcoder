@@ -266,12 +266,20 @@ export class SessionRunner {
   ): Promise<void> {
     if (!text) return;
     const outboundText = opts.final === false ? formatProgressUpdate(text) : text;
-    // Final responses are sent in one shot — chunking them causes the server
-    // to call completeProcessing after the first chunk, destroying the
-    // processing state and truncating the .md attachment.
     if (opts.final) {
-      this.log(">>> response", { session: this.sessionId, chunk: outboundText });
-      await this.deps.postResponse(sessionId, outboundText, opts);
+      // If the final response fits in one request, send it directly.
+      if (outboundText.length <= this.chunkMax) {
+        this.log(">>> response", { session: this.sessionId, chunk: outboundText });
+        await this.deps.postResponse(sessionId, outboundText, opts);
+        return;
+      }
+      // Oversized final: stage the content as a progress update (final:false)
+      // so the full text is preserved in the DB and shown in the Telegram
+      // message, then send an empty final to trigger completion.  The .md
+      // attachment will be truncated but the user sees the full response.
+      this.log(">>> response (oversized, staging)", { session: this.sessionId, length: outboundText.length });
+      await this.deps.postResponse(sessionId, outboundText, { final: false });
+      await this.deps.postResponse(sessionId, "(see above)", { final: true });
       return;
     }
     for (let i = 0; i < outboundText.length; i += this.chunkMax) {

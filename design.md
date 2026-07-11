@@ -175,9 +175,10 @@ escapes stripped, cleans up the in-progress Telegram processing state, and
 *then* deletes the in-progress DB row. The processing state is cleaned up
 first (via `sendProcessed`) to avoid a race where deleting the DB row allows a
 concurrent poll to claim a new task and overwrite the in-memory map entry
-before the cleanup reads it. Final responses are sent in a single HTTP request
-(no chunking) to avoid premature `completeProcessing` destroying the processing
-state.
+before the cleanup reads it. Final responses that fit within the 32KB limit
+are sent in a single HTTP request. Oversized final responses are staged as
+a progress update (`final: false`) to preserve the full content, then a
+minimal `final: true` triggers completion.
 Responses never queue as daemon-bound rows.
 
 `resume_last_session` controls whether a message continues the current tool

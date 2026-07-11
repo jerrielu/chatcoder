@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.8 (2026-07-10)
+
+- **Fix: oversized final responses permanently blocking task completion** — When
+  a final response exceeded 32KB, the daemon sent it in one shot (no chunking),
+  the server rejected it with a validation error, and the task was stuck as
+  "in-progress" forever, blocking all new claims for that session. Fixed by
+  staging oversized content as a progress update (final:false) and then sending
+  a minimal final response to trigger completion. (packages/daemon/src/sessionRunner.ts,
+  packages/daemon/src/profileRunner.ts)
+
 ## 0.7.7 (2026-07-10)
 
 - **Fix: second request's "Latest Progress" not updating** — When two new code
