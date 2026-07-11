@@ -179,49 +179,6 @@ export class MessagesRepo {
      * so its tracking persists in the DB and 📡 Status can show it). Newer
      * queued instructions remain pending and will run after it.
      */
-    async claimLatestNewCodeAndClearBefore(sessionId) {
-        return this.db.transaction().execute(async (tx) => {
-            const row = await tx
-                .selectFrom("messages")
-                .selectAll()
-                .where("session_id", "=", sessionId)
-                .where("processing_started_at", "is", null)
-                .where("resume_last_session", "=", 0)
-                .orderBy("created_at", "desc")
-                .orderBy("id", "desc")
-                .executeTakeFirst();
-            if (!row)
-                return null;
-            await tx
-                .deleteFrom("messages")
-                .where("session_id", "=", sessionId)
-                .where("id", "!=", row.id)
-                .where((eb) => eb.and([
-                // Only clear non-New-Code instructions ahead of the fresh run,
-                // NOT other pending New Code tasks — they should still execute.
-                eb("resume_last_session", "=", 1),
-                eb.or([
-                    eb.and([
-                        eb("created_at", "<", row.created_at),
-                        eb("processing_started_at", "is", null)
-                    ]),
-                    eb.and([
-                        eb("created_at", "=", row.created_at),
-                        eb("id", "<", row.id),
-                        eb("processing_started_at", "is", null)
-                    ])
-                ])
-            ]))
-                .execute();
-            const processingStartedAt = this.now();
-            await tx
-                .updateTable("messages")
-                .set({ processing_started_at: processingStartedAt })
-                .where("id", "=", row.id)
-                .execute();
-            return rowToMessage({ ...row, processing_started_at: processingStartedAt });
-        });
-    }
     async getProcessing(sessionId) {
         const row = await this.db
             .selectFrom("messages")

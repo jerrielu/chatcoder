@@ -105,14 +105,9 @@ export async function buildServer(opts) {
                     // else: msg stays null → session omitted from poll response
                 }
                 else {
-                    msg = await opts.messagesRepo.claimLatestNewCodeAndClearBefore(s.id);
-                    if (msg) {
-                        notifyProcessing = true;
-                    }
-                    else {
-                        msg = await opts.messagesRepo.claimNext(s.id);
-                        notifyProcessing = msg !== null;
-                    }
+                    // Pure FIFO — claim the oldest pending message regardless of type.
+                    msg = await opts.messagesRepo.claimNext(s.id);
+                    notifyProcessing = msg !== null;
                 }
             }
             if (!msg)
