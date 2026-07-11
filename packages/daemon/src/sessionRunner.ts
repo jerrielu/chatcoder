@@ -285,6 +285,7 @@ export class SessionRunner {
     // the last chunk, but the Telegram message and "Latest Progress" preserve
     // the full history for the rare case a response exceeds 32 KB.
     const displayLimit = this.chunkMax;
+    const chunks: string[] = [];
     for (let i = 0; i < outboundText.length; i += displayLimit) {
       chunks.push(outboundText.slice(i, i + displayLimit));
     }

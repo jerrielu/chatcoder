@@ -1,8 +1,9 @@
 import { stripAnsi } from "./ansi.js";
+import { MAX_RESPONSE_BYTES } from "@chatcoder/shared";
 import { extractResponseFromJSON } from "./summary.js";
 import { convert } from "telegram-markdown-v2";
 const DEFAULT_RESPONSE_UPDATE_INTERVAL_MS = 5_000;
-const DEFAULT_RESPONSE_CHUNK_MAX_CHARS = 4_095;
+const DEFAULT_RESPONSE_CHUNK_MAX_CHARS = 3_500;
 const PROGRESS_WORD_LIMIT = 50;
 function firstWords(text, limit) {
     return text.trim().split(/\s+/).filter(Boolean).slice(0, limit).join(" ");
@@ -227,19 +228,22 @@ export class SessionRunner {
         if (!text)
             return;
         const outboundText = opts.final === false ? formatProgressUpdate(text) : text;
-        if (opts.final && outboundText.length <= this.chunkMax) {
+        if (opts.final && outboundText.length <= MAX_RESPONSE_BYTES) {
             this.log(">>> response", { session: this.sessionId, chunk: outboundText });
             await this.deps.postResponse(sessionId, outboundText, opts);
             return;
         }
-        // Chunk content that exceeds chunkMax.  For non-final (progress) chunks this
-        // is normal.  For oversized finals we send the first N-1 chunks as progress
-        // updates (so they survive the 32 KB server limit) and the last chunk as the
-        // actual final response — the .md attachment will only contain the last chunk
-        // but the Telegram message and "Latest Progress" preserve the full history.
+        // Chunk content that exceeds the server's Zod body limit (MAX_RESPONSE_BYTES).
+        // For non-final (progress) chunks this is normal — Telegram has a 4096 char
+        // message limit, so progress chunks still use chunkMax for the display.  For
+        // oversized finals we send the first N-1 chunks as progress updates and the
+        // last chunk as the actual final response — response.txt will only contain
+        // the last chunk, but the Telegram message and "Latest Progress" preserve
+        // the full history for the rare case a response exceeds 32 KB.
+        const displayLimit = this.chunkMax;
         const chunks = [];
-        for (let i = 0; i < outboundText.length; i += this.chunkMax) {
-            chunks.push(outboundText.slice(i, i + this.chunkMax));
+        for (let i = 0; i < outboundText.length; i += displayLimit) {
+            chunks.push(outboundText.slice(i, i + displayLimit));
         }
         const isOversizedFinal = opts.final && chunks.length > 1;
         for (let ci = 0; ci < chunks.length; ci++) {
