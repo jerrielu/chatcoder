@@ -2,12 +2,24 @@
 
 ## 0.7.8 (2026-07-10)
 
-- **Fix: oversized final responses permanently blocking task completion** — When
-  a final response exceeded 32KB, the daemon sent it in one shot (no chunking),
-  the server rejected it with a validation error, and the task was stuck as
-  "in-progress" forever, blocking all new claims for that session. Fixed by
-  staging oversized content as a progress update (final:false) and then sending
-  a minimal final response to trigger completion. (packages/daemon/src/sessionRunner.ts,
+- **Fix: oversized final responses and empty output blocking task completion** —
+  When a final response exceeded 32KB, the daemon sent it in one shot and the
+  server rejected it with a validation error, leaving the task stuck as
+  "in-progress" forever. The initial fix (staging as a progress update) failed
+  because progress updates also have the same 32KB server-side limit. Now
+  properly handled by chunking oversized content at chunkMax (4095 chars):
+  first N-1 chunks sent as progress updates (final:false), last chunk as
+  the actual final (final:true). Each chunk is well within the 32KB limit.
+  (packages/daemon/src/sessionRunner.ts, packages/daemon/src/profileRunner.ts)
+- **Fix: error responses now complete the task** — The error handler in runOne
+  was sending the error message without `{ final: true }`, so the bot treated
+  it as a progress update and never called completeProcessing, leaving the
+  task stuck. (packages/daemon/src/sessionRunner.ts,
+  packages/daemon/src/profileRunner.ts)
+- **Fix: empty output no longer hangs the queue** — When the tool produced no
+  output, executeWithOutputUpdates exited early without sending any response
+  to the server, leaving the task stuck. Now sends "(no output)" as a final
+  response to trigger completion. (packages/daemon/src/sessionRunner.ts,
   packages/daemon/src/profileRunner.ts)
 
 ## 0.7.7 (2026-07-10)
