@@ -175,10 +175,16 @@ escapes stripped, cleans up the in-progress Telegram processing state, and
 *then* deletes the in-progress DB row. The processing state is cleaned up
 first (via `sendProcessed`) to avoid a race where deleting the DB row allows a
 concurrent poll to claim a new task and overwrite the in-memory map entry
-before the cleanup reads it. Final responses that fit within the 32KB limit
-are sent in a single HTTP request. Oversized final responses are staged as
-a progress update (`final: false`) to preserve the full content, then a
-minimal `final: true` triggers completion.
+before the cleanup reads it.
+
+Final responses ≤ `MAX_RESPONSE_BYTES` (32 KB) are sent in a single `{final: true}`
+HTTP POST, so the full content reaches `state.response` and the downloadable
+`response.txt` contains the complete log. If the final response exceeds 32 KB
+it is split into ~3.5 KB chunks: the first N-1 chunks are sent as progress
+updates (`final: false`) and the last chunk is sent as `{final: true}`. In this
+case `response.txt` will only contain the last chunk, but the Telegram message
+and "Latest Progress" preserve the full history. The chunk size for progress
+updates and Telegram display is 3500 characters (leaving room for markup).
 Responses never queue as daemon-bound rows.
 
 `resume_last_session` controls whether a message continues the current tool

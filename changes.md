@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.10 (2026-07-11)
+
+- **Fix: response.txt only contained the last chunk of the execution log** —
+  Commit `f5e6c17` (v0.7.8) lowered the single-shot threshold for final responses
+  from the server's Zod limit (32KB) to chunkMax (4095 chars), causing any
+  response over 4095 chars to be split into chunks with only the last chunk sent
+  as `{final: true}`. The bot accumulated only final chunks into `state.response`,
+  so the downloadable `response.txt` file contained only the last ~4KB instead of
+  the full log. Restored the single-shot threshold to `MAX_RESPONSE_BYTES` (32KB)
+  so responses under 32KB are sent in one request and the full content reaches
+  `response.txt`. Progress-update chunking (for Telegram display) remains at
+  chunkMax. (packages/daemon/src/sessionRunner.ts, packages/daemon/src/profileRunner.ts)
+- **Display chunk size reduced from 4095 to 3500** — Telegram message text limit
+  is 4096 characters; lowered chunkMax to 3500 to leave room for Telegram's
+  markup overhead and avoid silent truncation of the last chunk.
+  (packages/daemon/src/sessionRunner.ts, packages/daemon/src/profileRunner.ts)
+
 ## 0.7.9 (2026-07-11)
 
 - **Fix: New Code tasks in the middle of the queue were silently deleted** —
