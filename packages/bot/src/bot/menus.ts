@@ -102,7 +102,7 @@ export function folderPickerMenu(dirs: string[]): InlineKeyboard {
   for (let i = 0; i < dirs.length; i++) {
     kb.text(`📁 ${dirs[i]!}`, CB.folderPrefix + i).row();
   }
-  kb.text("⏭ Use default", CB.folderPrefix + "default");
+  kb.text("⏭ Use default", CB.folderPrefix + "default").row();
   kb.text("« Menu", CB.menu);
   return kb;
 }

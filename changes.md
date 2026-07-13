@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.11 (2026-07-11)
+
+- **Fix: folder picker menu alignment** — The `« Menu` (返回菜单) button in the
+  folder picker now appears on its own row, aligned with the folder options above,
+  instead of sharing a row with "Use default". (packages/bot/src/bot/menus.ts)
+
 ## 0.7.10 (2026-07-11)
 
 - **Fix: response.txt only contained the last chunk of the execution log** —
