@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0 (2026-07-27)
+
+- **Feature: New Code (with Review) menu item** — Added `🔬 New Code + Review`
+  button to the Telegram main menu. When tapped, it prompts the user for an
+  instruction, then automatically composes a combined prompt that performs a
+  deep code review on the previous commit and uncommitted changes (checking
+  SOLID principles and user requirements) before executing the instruction.
+  Flows through the existing `awaiting_instruction` state with a new `review`
+  flag. (packages/bot/src/bot/flows.ts, menus.ts, handlers.ts, bot.ts)
+
 ## 0.7.11 (2026-07-11)
 
 - **Fix: folder picker menu alignment** — The `« Menu` (返回菜单) button in the

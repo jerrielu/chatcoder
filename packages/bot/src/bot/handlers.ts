@@ -663,6 +663,28 @@ export function handleNewCodeRequest(
   };
 }
 
+export function handleNewCodeReviewRequest(
+  deps: HandlerDeps,
+  chatId: number,
+  telegramUser: number
+): Reply {
+  deps.flows.set(chatId, telegramUser, {
+    kind: "awaiting_instruction",
+    resumeLastSession: false,
+    review: true
+  });
+  return {
+    text:
+      "🔬 *New Code (with Review)*\n\n" +
+      "Enter the instruction for your daemon. This will start a fresh CLI run\n" +
+      "and perform a deep code review on the previous commit and uncommitted changes.\n\n" +
+      "Reply with the instruction, or send `/cancel` to abort.",
+    forceReply: true,
+    inputPlaceholder: "Describe the code change",
+    parseMode: "Markdown"
+  };
+}
+
 export async function handleInstructionSubmission(
   deps: HandlerDeps,
   chatId: number,
@@ -679,7 +701,17 @@ export async function handleInstructionSubmission(
       parseMode: "Markdown"
     };
   }
-  if (instruction.length > MAX_INSTRUCTION_BYTES) {
+
+  // Compose the final instruction — prepend review prompt if in review mode
+  let finalInstruction = instruction;
+  if (state.review) {
+    finalInstruction =
+      `Deep Dive Code Review on the previous commit and uncommitted changes to make sure ` +
+      `it complies with the software engineering principles such as SOLID, and it can achieve ` +
+      `what user asked: ${instruction}`;
+  }
+
+  if (finalInstruction.length > MAX_INSTRUCTION_BYTES) {
     return {
       text:
         `❌ Instruction exceeds ${MAX_INSTRUCTION_BYTES} bytes.\n` +
@@ -692,7 +724,7 @@ export async function handleInstructionSubmission(
   const reply = await handleCode(
     deps,
     chatId,
-    instruction,
+    finalInstruction,
     state.resumeLastSession,
     codexReasoningEffort
   );

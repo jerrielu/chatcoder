@@ -10,6 +10,7 @@ import {
   handleLatestProgress,
   handleMenu,
   handleNewCodeRequest,
+  handleNewCodeReviewRequest,
   handleNewSessionCancel,
   handleNewSessionRequest,
   handlePlainText,
@@ -114,6 +115,12 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
     await ctx.answerCallbackQuery();
     if (!ctx.chat || !ctx.from) return;
     await send(ctx, handleNewCodeRequest(deps, ctx.chat.id, ctx.from.id));
+  });
+
+  bot.callbackQuery(CB.newCodeReview, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!ctx.chat || !ctx.from) return;
+    await send(ctx, handleNewCodeReviewRequest(deps, ctx.chat.id, ctx.from.id));
   });
 
   bot.on("callback_query:data", async (ctx) => {
@@ -267,6 +274,7 @@ function recoverInstructionMode(ctx: Context): boolean | null {
   }
   if (prompt.text.includes("Code (resume)")) return true;
   if (prompt.text.includes("New Code (fresh)")) return false;
+  if (prompt.text.includes("New Code (with Review)")) return false;
   return null;
 }
 

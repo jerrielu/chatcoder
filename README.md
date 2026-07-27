@@ -131,3 +131,22 @@ pm2 delete chatcoder-coder        # remove from PM2
 pm2 delete chatcoder-chat chatcoder-coder  # remove all chatcoder processes
 ```
 
+---
+
+## Telegram Menu
+
+The bot presents an inline keyboard with these actions:
+
+| Button | Behaviour |
+|--------|-----------|
+| 💻 Code | Resume the last CLI session with a new instruction |
+| 🆕 New Code | Start a fresh CLI run with a new instruction |
+| 🔬 New Code + Review | Fresh run that auto-prepends a deep code review prompt (previous commit + uncommitted changes, SOLID principles) before your instruction |
+| 👤 Profile | Switch the active AI tool profile |
+| 📁 Folder | Pick a working directory |
+| 📋 Latest Progress | Show the latest daemon progress output |
+| ⏹ Stop | Request the daemon to stop the current task |
+| 🆕 New Session | Create a new session (revokes the current one) |
+| 📡 Status | Show daemon heartbeat and queue status |
+| 📦 vX.Y.Z | Show version and changelog |
+

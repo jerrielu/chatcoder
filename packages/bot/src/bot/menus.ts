@@ -20,13 +20,16 @@ export const CB = {
   /** Prefix for folder-menu pick callbacks: `cc:folder:<index>` */
   folderPrefix: "cc:folder:",
   /** Show version and changelog. */
-  version: "cc:version"
+  version: "cc:version",
+  /** New Code with automatic code review on previous commit + uncommitted changes. */
+  newCodeReview: "cc:newcode:review"
 } as const;
 
 export function mainMenu(): InlineKeyboard {
   return new InlineKeyboard()
     .text("💻 Code", CB.code)
     .text("🆕 New Code", CB.newCode)
+    .text("🔬 New Code + Review", CB.newCodeReview)
     .row()
     .text("👤 Profile", CB.profileMenu)
     .text("📁 Folder", CB.folderMenu)

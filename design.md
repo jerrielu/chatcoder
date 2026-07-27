@@ -266,6 +266,37 @@ session, and runs before newer queued work. If the previous instruction is
 already running, New Code waits behind it in the daemon's FIFO queue. The
 in-progress DB row is preserved so 📡 Status remains accurate.
 
+### 5.3 New Code (with Review)
+
+New Code (with Review) extends New Code by automatically composing a code
+review prompt before the user's instruction. When the user taps
+`🔬 New Code + Review` and enters an instruction (e.g. "Add a login page"),
+the bot sends the following combined prompt to the daemon in a fresh session:
+
+```
+Deep Dive Code Review on the previous commit and uncommitted changes to make sure it
+complies with the software engineering principles such as SOLID, and it can achieve what
+user asked: {user instruction}
+```
+
+**Implementation:** The `awaiting_instruction` flow state gains an optional
+`review?: boolean` flag. When `true`, `handleInstructionSubmission` prepends
+the review prompt template to the user's instruction before passing it to
+`handleCode`. The daemon and CLI tools receive a plain instruction string —
+no schema or daemon changes are needed.
+
+**Options considered**
+
+| # | Option | Pros | Cons |
+|---|--------|------|------|
+| A | **Bot-side prompt composition (chosen)** | Zero daemon changes; prompt is just a string; easy to modify template | Prompt is opaque to daemon |
+| B | New `kind: "review"` field on messages table | Explicit semantics | Schema change; over-engineering for a prompt prepend |
+| C | Daemon-side prompt injection | Prompt lives with execution context | Tight coupling; requires daemon code change |
+
+**Chosen: A.** The review prompt is a text string prepended to the user's
+instruction. The daemon and CLI tools don't need to know it's a "review" —
+they just receive a combined instruction.
+
 ---
 
 ## 6. API key lifecycle
