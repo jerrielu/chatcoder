@@ -5,10 +5,11 @@
 新增一个 Telegram Menu Item **"🆕 New Code (with Review)"**，功能是：
 
 1. 用户输入指令（同 New Code）
-2. Bot 自动将指令与一个额外的 **code review prompt** 组合
-3. 组合后的完整指令发送给 daemon 执行（fresh session，`resumeLastSession=false`）
+2. Bot 先将用户指令本身作为一个 fresh run 发送给 daemon
+3. Bot 再将一个 **code review prompt** 作为另一个 fresh run 发送给 daemon
+4. 用户指令先执行，然后 review 指令自动对上一次 commit 做深度 Code Review，确保代码符合 SOLID 等工程原则，并且实现了用户要求的功能，最后修复发现的所有问题。
 
-用户指令传给 New Code 功能的同时，附加一个 prompt 让 AI 对上一次 commit 做深度 Code Review，确保代码符合 SOLID 等工程原则，并且实现了用户要求的功能。
+这样 AI 先实现功能，再独立进行 review + fix，形成清晰的 two-step 工作流。
 
 ---
 
@@ -17,17 +18,15 @@
 1. 用户点击 `🆕 New Code (with Review)` 按钮
 2. Bot 回复 force-reply 提示用户输入指令
 3. 用户输入指令（例如 "Add a login page"）
-4. Bot 将以下组合指令发送给 daemon（fresh session）:
-
-```
-Deep Dive Code Review on the previous commit and uncommitted changes to make sure it
-complies with the software engineering principles such as SOLID, and it can achieve what
-user asked: {user instruction}
-```
-
-5. Daemon 在 fresh session 中执行该组合指令
-6. AI 先做 code review（覆盖 previous commit + uncommitted changes），然后根据 review 结果执行用户的指令
-7. 结果正常返回给用户（与其他指令相同的回复流程）
+4. Bot 将用户指令作为第一条消息 enqueue（fresh session）
+5. Bot 再将 review prompt 作为第二条消息 enqueue（fresh session）
+6. Daemon 先执行用户指令（实现功能），然后执行 review 指令
+7. Review 指令内容:
+   - 对 previous commit + uncommitted changes 做深度 Code Review
+   - 确保符合 SOLID 等工程原则
+   - 确保实现了用户要求
+   - **修复所有发现的问题**
+8. 两条指令的结果正常返回给用户
 
 ---
 
@@ -39,11 +38,12 @@ user asked: {user instruction}
 
 | # | Option | Pros | Cons |
 |---|--------|------|------|
-| A | **Bot-side prompt composition (chosen)** | Zero daemon changes; prompt is just a string; easy to modify prompt template | Prompt is opaque to daemon; no special logging |
-| B | New `kind: "review"` field on messages table | Explicit semantics; daemon could handle review differently | Schema change; daemon change; over-engineering for a prompt prepend |
-| C | Daemon-side prompt injection | Prompt logic lives with execution context | Tight coupling; requires daemon code change for a bot-level feature |
+| A | **Bot-side dual queue (chosen)** | User's instruction runs first, then review runs independently; AI implements then reviews+f/puples — a clear two-step workflow; zero daemon changes | Two queued messages instead of one |
+| B | Bot-side prompt composition (original v0.8.0) | Single enqueue; minimal code change | Combined prompt forces AI to do review and implementation in one pass, which can dilute focus |
+| C | New `kind: "review"` field on messages table | Explicit semantics; daemon could handle review differently | Schema change; daemon change; over-engineering |
+| D | Daemon-side prompt injection | Prompt logic lives with execution context | Tight coupling; requires daemon code change for a bot-level feature |
 
-**Chosen: A.** The review prompt is just a text string prepended to the user's instruction. The daemon and CLI tools don't need to know it's a "review" — they just receive a combined instruction. This keeps the change **entirely in the bot package** with zero schema or daemon modifications.
+**Chosen: A (v0.9.0).** Instead of composing a single combined prompt, the bot now enqueues two separate fresh-run instructions: first the user's instruction, then a review instruction ending with "Fix all issues you found." This gives the AI a clear two-phase workplan — implement first, then review and fix. The change remains entirely in the bot package.
 
 ---
 
@@ -67,11 +67,11 @@ user asked: {user instruction}
 
 | # | Option | Pros | Cons |
 |---|--------|------|------|
-| A | **Third button in the first row: `Code \| New Code \| New Code+Review` (chosen)** | All code-related actions are together; visually grouped | First row has 3 buttons (slightly wider) |
-| B | Second row, below Code/New Code | Clear visual separation | Separates related actions |
+| A | Third button in the first row: `Code \| New Code \| New Code+Review` (v0.8.0) | All code-related actions together | First row has 3 buttons (slightly wider) |
+| B | **Second row, on its own line (v0.9.0, chosen)** | Clear visual separation from Code / New Code; more tappable target | Needs an extra row in the menu |
 | C | Sub-menu under "New Code" | Keeps main menu compact | Extra tap; less discoverable |
 
-**Chosen: A.** The button label will be `🔬 New Code + Review` to keep it concise. Three buttons in the first row is acceptable for inline keyboards.
+**Chosen: B (v0.9.0).** The "🔬 New Code + Review" button now sits alone on the second row of the inline keyboard, visually distinguishing it as a separate workflow from "💻 Code" and "🆕 New Code" on row 1.
 
 ---
 
@@ -101,11 +101,12 @@ Add to `CB`:
 newCodeReview: "cc:newcode:review"
 ```
 
-Add button to `mainMenu()` — first row becomes:
+Add button to `mainMenu()` — first row is Code + New Code, second row is Review alone:
 
 ```typescript
 .text("💻 Code", CB.code)
 .text("🆕 New Code", CB.newCode)
+.row()
 .text("🔬 New Code + Review", CB.newCodeReview)
 .row()
 ```
@@ -128,8 +129,9 @@ export function handleNewCodeReviewRequest(
   return {
     text:
       "🔬 *New Code (with Review)*\n\n" +
-      "Enter the instruction for your daemon. This will start a fresh CLI run\n" +
-      "and perform a deep code review on the previous commit and uncommitted changes.\n\n" +
+      "Enter the instruction for your daemon. This will queue your instruction " +
+      "first, then automatically queue a deep code review on the previous commit " +
+      "and uncommitted changes.\n\n" +
       "Reply with the instruction, or send `/cancel` to abort.",
     forceReply: true,
     inputPlaceholder: "Describe the code change",
@@ -140,54 +142,51 @@ export function handleNewCodeReviewRequest(
 
 ### 4. Modify `handleInstructionSubmission` (`packages/bot/src/bot/handlers.ts`)
 
-When `state.review === true`, compose the review prompt:
+When `state.review === true`, enqueue two separate fresh-run instructions instead of composing one:
 
 ```typescript
-export async function handleInstructionSubmission(
-  deps: HandlerDeps,
-  chatId: number,
-  telegramUser: number,
-  text: string
-): Promise<Reply | null> {
-  const state = deps.flows.get(chatId, telegramUser);
-  if (state.kind !== "awaiting_instruction") return null;
+// Review mode: queue user's instruction first, then a separate review instruction
+if (state.review) {
+  const session = await deps.sessions.getActiveByChatId(chatId);
+  if (!session) { /* error */ }
 
-  const instruction = text.trim();
-  if (instruction.length === 0) {
-    return {
-      text: "❌ Instruction cannot be empty. Enter a message or send `/cancel`.",
-      parseMode: "Markdown"
-    };
-  }
+  const ok = await deps.sessions.tryConsumeRate(session.id);
+  if (!ok) throw ApiError.rateLimited();
 
-  // Compose the final instruction — prepend review prompt if in review mode
-  let finalInstruction = instruction;
-  if (state.review) {
-    finalInstruction =
-      `Deep Dive Code Review on the previous commit and uncommitted changes to make sure ` +
-      `it complies with the software engineering principles such as SOLID, and it can achieve ` +
-      `what user asked: ${instruction}`;
-  }
+  const pending = await deps.messages.count(session.id);
+  if (pending >= MAX_QUEUE_DEPTH) { /* error */ }
 
-  if (finalInstruction.length > MAX_INSTRUCTION_BYTES) {
-    return {
-      text:
-        `❌ Instruction exceeds ${MAX_INSTRUCTION_BYTES} bytes.\n` +
-        "Send a shorter instruction or `/cancel`.",
-      parseMode: "Markdown"
-    };
-  }
+  const profile = await deps.profiles.getById(session.profileId);
+  const appliedEffort = profile?.tool === "OPENAI" ? codexReasoningEffort : undefined;
 
-  const codexReasoningEffort = deps.flows.getCodexReasoningEffort(chatId, telegramUser);
-  const reply = await handleCode(
-    deps,
-    chatId,
-    finalInstruction,
-    state.resumeLastSession,
-    codexReasoningEffort
-  );
+  // 1. Queue user instruction as a fresh run
+  await deps.messages.enqueue({
+    sessionId: session.id,
+    content: instruction,
+    resumeLastSession: false,
+    codexReasoningEffort: appliedEffort
+  });
+
+  // 2. Compose and queue review instruction (ends with "Fix all issues you found")
+  const reviewInstruction =
+    `Deep Dive Code Review on the previous commit and uncommitted changes to make sure ` +
+    `it complies with the software engineering principles such as SOLID, and it can achieve ` +
+    `what user asked: ${instruction}. Fix all issues you found.`;
+
+  if (reviewInstruction.length > MAX_INSTRUCTION_BYTES) { /* error */ }
+
+  await deps.messages.enqueue({
+    sessionId: session.id,
+    content: reviewInstruction,
+    resumeLastSession: false,
+    codexReasoningEffort: appliedEffort
+  });
+
   deps.flows.clear(chatId, telegramUser);
-  return reply;
+  return {
+    text: `📥 Queued for daemon${suffix} (fresh).\n🔬 Review also queued.`,
+    parseMode: "Markdown"
+  };
 }
 ```
 
@@ -227,9 +226,11 @@ Note: Review recovery sets `resumeLastSession: false` (same as New Code). The `r
 | File | Change |
 |------|--------|
 | `packages/bot/src/bot/flows.ts` | Add `review?: boolean` to `awaiting_instruction` state |
-| `packages/bot/src/bot/menus.ts` | Add `CB.newCodeReview` callback constant + button |
-| `packages/bot/src/bot/handlers.ts` | Add `handleNewCodeReviewRequest()`; modify `handleInstructionSubmission()` for review prompt composition |
+| `packages/bot/src/bot/menus.ts` | Add `CB.newCodeReview` callback constant + button on row 2 |
+| `packages/bot/src/bot/handlers.ts` | Add `handleNewCodeReviewRequest()`; modify `handleInstructionSubmission()` for dual-queue review (user instruction first, then review instruction ending with "Fix all issues you found") |
 | `packages/bot/src/bot/bot.ts` | Wire `CB.newCodeReview` callback; update `recoverInstructionMode()` |
+| `changes.md` | v0.9.0 changelog entry |
+| `design-new-code-with-review.md` | This document — updated for dual-queue design |
 
 ---
 

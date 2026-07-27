@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0 (2026-07-27)
+
+- **Feature: New Code (with Review) now queues two separate instructions** —
+  Instead of composing a single combined prompt, the review flow now first queues
+  the user's instruction as a fresh run, then queues a separate review instruction
+  that asks the AI to review the output and fix all issues found. This gives the
+  AI a clear two-step workflow: implement first, then review+fix.
+  (packages/bot/src/bot/handlers.ts)
+- **Menu: 🔬 New Code + Review moved to its own row** — The review button now
+  sits alone on the second row of the Telegram inline keyboard, visually
+  separated from "💻 Code" and "🆕 New Code" on row 1.
+  (packages/bot/src/bot/menus.ts)
+
 ## 0.8.0 (2026-07-27)
 
 - **Feature: New Code (with Review) menu item** — Added `🔬 New Code + Review`

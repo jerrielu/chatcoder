@@ -676,8 +676,9 @@ export function handleNewCodeReviewRequest(
   return {
     text:
       "🔬 *New Code (with Review)*\n\n" +
-      "Enter the instruction for your daemon. This will start a fresh CLI run\n" +
-      "and perform a deep code review on the previous commit and uncommitted changes.\n\n" +
+      "Enter the instruction for your daemon. This will queue your instruction " +
+      "first, then automatically queue a deep code review on the previous commit " +
+      "and uncommitted changes.\n\n" +
       "Reply with the instruction, or send `/cancel` to abort.",
     forceReply: true,
     inputPlaceholder: "Describe the code change",
@@ -702,16 +703,7 @@ export async function handleInstructionSubmission(
     };
   }
 
-  // Compose the final instruction — prepend review prompt if in review mode
-  let finalInstruction = instruction;
-  if (state.review) {
-    finalInstruction =
-      `Deep Dive Code Review on the previous commit and uncommitted changes to make sure ` +
-      `it complies with the software engineering principles such as SOLID, and it can achieve ` +
-      `what user asked: ${instruction}`;
-  }
-
-  if (finalInstruction.length > MAX_INSTRUCTION_BYTES) {
+  if (instruction.length > MAX_INSTRUCTION_BYTES) {
     return {
       text:
         `❌ Instruction exceeds ${MAX_INSTRUCTION_BYTES} bytes.\n` +
@@ -721,10 +713,74 @@ export async function handleInstructionSubmission(
   }
 
   const codexReasoningEffort = deps.flows.getCodexReasoningEffort(chatId, telegramUser);
+
+  // Review mode: queue user's instruction first, then a separate review instruction
+  if (state.review) {
+    const session = await deps.sessions.getActiveByChatId(chatId);
+    if (!session) {
+      return {
+        text: "No active session. Tap *New Session* first.",
+        keyboard: mainMenu(),
+        parseMode: "Markdown"
+      };
+    }
+
+    const ok = await deps.sessions.tryConsumeRate(session.id);
+    if (!ok) throw ApiError.rateLimited();
+
+    const pending = await deps.messages.count(session.id);
+    if (pending >= MAX_QUEUE_DEPTH) {
+      return {
+        text: `❌ Queue full (${MAX_QUEUE_DEPTH} pending). Wait for your daemon to drain it.`
+      };
+    }
+
+    const profile = await deps.profiles.getById(session.profileId);
+    const appliedEffort = profile?.tool === "OPENAI" ? codexReasoningEffort : undefined;
+
+    // 1. Queue user instruction as a fresh run
+    await deps.messages.enqueue({
+      sessionId: session.id,
+      content: instruction,
+      resumeLastSession: false,
+      codexReasoningEffort: appliedEffort
+    });
+
+    // 2. Compose and queue review instruction
+    const reviewInstruction =
+      `Deep Dive Code Review on the previous commit and uncommitted changes to make sure ` +
+      `it complies with the software engineering principles such as SOLID, and it can achieve ` +
+      `what user asked: ${instruction}. Fix all issues you found.`;
+
+    if (reviewInstruction.length > MAX_INSTRUCTION_BYTES) {
+      deps.flows.clear(chatId, telegramUser);
+      const suffix = profile ? ` → \`${profile.name}\`` : "";
+      return {
+        text: `📥 Queued for daemon${suffix} (fresh).\n⚠️ Review instruction too long, skipped.`,
+        parseMode: "Markdown"
+      };
+    }
+
+    await deps.messages.enqueue({
+      sessionId: session.id,
+      content: reviewInstruction,
+      resumeLastSession: false,
+      codexReasoningEffort: appliedEffort
+    });
+
+    deps.flows.clear(chatId, telegramUser);
+    const suffix = profile ? ` → \`${profile.name}\`` : "";
+    return {
+      text: `📥 Queued for daemon${suffix} (fresh).\n🔬 Review also queued.`,
+      parseMode: "Markdown"
+    };
+  }
+
+  // Normal (non-review): single instruction as before
   const reply = await handleCode(
     deps,
     chatId,
-    finalInstruction,
+    instruction,
     state.resumeLastSession,
     codexReasoningEffort
   );

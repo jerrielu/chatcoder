@@ -141,7 +141,7 @@ The bot presents an inline keyboard with these actions:
 |--------|-----------|
 | 💻 Code | Resume the last CLI session with a new instruction |
 | 🆕 New Code | Start a fresh CLI run with a new instruction |
-| 🔬 New Code + Review | Fresh run that auto-prepends a deep code review prompt (previous commit + uncommitted changes, SOLID principles) before your instruction |
+| 🔬 New Code + Review | Queues your instruction first, then separately queues a deep code review that also fixes all found issues |
 | 👤 Profile | Switch the active AI tool profile |
 | 📁 Folder | Pick a working directory |
 | 📋 Latest Progress | Show the latest daemon progress output |
