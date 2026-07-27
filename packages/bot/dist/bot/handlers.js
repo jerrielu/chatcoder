@@ -515,6 +515,22 @@ export function handleNewCodeRequest(deps, chatId, telegramUser) {
         parseMode: "Markdown"
     };
 }
+export function handleNewCodeReviewRequest(deps, chatId, telegramUser) {
+    deps.flows.set(chatId, telegramUser, {
+        kind: "awaiting_instruction",
+        resumeLastSession: false,
+        review: true
+    });
+    return {
+        text: "🔬 *New Code (with Review)*\n\n" +
+            "Enter the instruction for your daemon. This will start a fresh CLI run\n" +
+            "and perform a deep code review on the previous commit and uncommitted changes.\n\n" +
+            "Reply with the instruction, or send `/cancel` to abort.",
+        forceReply: true,
+        inputPlaceholder: "Describe the code change",
+        parseMode: "Markdown"
+    };
+}
 export async function handleInstructionSubmission(deps, chatId, telegramUser, text) {
     const state = deps.flows.get(chatId, telegramUser);
     if (state.kind !== "awaiting_instruction")
@@ -526,7 +542,15 @@ export async function handleInstructionSubmission(deps, chatId, telegramUser, te
             parseMode: "Markdown"
         };
     }
-    if (instruction.length > MAX_INSTRUCTION_BYTES) {
+    // Compose the final instruction — prepend review prompt if in review mode
+    let finalInstruction = instruction;
+    if (state.review) {
+        finalInstruction =
+            `Deep Dive Code Review on the previous commit and uncommitted changes to make sure ` +
+                `it complies with the software engineering principles such as SOLID, and it can achieve ` +
+                `what user asked: ${instruction}`;
+    }
+    if (finalInstruction.length > MAX_INSTRUCTION_BYTES) {
         return {
             text: `❌ Instruction exceeds ${MAX_INSTRUCTION_BYTES} bytes.\n` +
                 "Send a shorter instruction or `/cancel`.",
@@ -534,7 +558,7 @@ export async function handleInstructionSubmission(deps, chatId, telegramUser, te
         };
     }
     const codexReasoningEffort = deps.flows.getCodexReasoningEffort(chatId, telegramUser);
-    const reply = await handleCode(deps, chatId, instruction, state.resumeLastSession, codexReasoningEffort);
+    const reply = await handleCode(deps, chatId, finalInstruction, state.resumeLastSession, codexReasoningEffort);
     deps.flows.clear(chatId, telegramUser);
     return reply;
 }

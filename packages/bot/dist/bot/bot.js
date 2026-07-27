@@ -1,6 +1,6 @@
 import { Bot } from "grammy";
 import { ApiError, ERROR_CODES } from "@chatcoder/shared";
-import { handleApiKeySubmission, handleCodeRequest, handleFolderMenu, handleFolderPicked, handleInstructionSubmission, handleLatestProgress, handleMenu, handleNewCodeRequest, handleNewSessionCancel, handleNewSessionRequest, handlePlainText, handleProfileMenu, handleProfilePicked, handleStart, handleStatus, handleStop, handleVersion, handleWorkDirPicked } from "./handlers.js";
+import { handleApiKeySubmission, handleCodeRequest, handleFolderMenu, handleFolderPicked, handleInstructionSubmission, handleLatestProgress, handleMenu, handleNewCodeRequest, handleNewCodeReviewRequest, handleNewSessionCancel, handleNewSessionRequest, handlePlainText, handleProfileMenu, handleProfilePicked, handleStart, handleStatus, handleStop, handleVersion, handleWorkDirPicked } from "./handlers.js";
 import { CB, mainMenu, parseFolderCallback, parseProfileCallback, parseWorkDirCallback } from "./menus.js";
 import { sendTelegramWithRetry } from "./telegramSend.js";
 import { transcribeAudio } from "./transcription.js";
@@ -80,6 +80,12 @@ export function wireBot(bot, deps) {
         if (!ctx.chat || !ctx.from)
             return;
         await send(ctx, handleNewCodeRequest(deps, ctx.chat.id, ctx.from.id));
+    });
+    bot.callbackQuery(CB.newCodeReview, async (ctx) => {
+        await ctx.answerCallbackQuery();
+        if (!ctx.chat || !ctx.from)
+            return;
+        await send(ctx, handleNewCodeReviewRequest(deps, ctx.chat.id, ctx.from.id));
     });
     bot.on("callback_query:data", async (ctx) => {
         const data = ctx.callbackQuery.data;
@@ -208,6 +214,8 @@ function recoverInstructionMode(ctx) {
     if (prompt.text.includes("Code (resume)"))
         return true;
     if (prompt.text.includes("New Code (fresh)"))
+        return false;
+    if (prompt.text.includes("New Code (with Review)"))
         return false;
     return null;
 }
