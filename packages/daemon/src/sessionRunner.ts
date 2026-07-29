@@ -85,6 +85,14 @@ export class SessionRunner {
     return this.queue.length + (this.running ? 1 : 0);
   }
 
+  /**
+   * Update the profile used by this runner. Called when the session's profile
+   * is changed via the Telegram menu while the runner is still alive.
+   */
+  updateProfile(profile: Profile): void {
+    this.deps.profile = profile;
+  }
+
   enqueue(task: SessionRunnerTask): void {
     if (this.stopping) return;
 

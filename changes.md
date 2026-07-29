@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.1 (2026-07-27)
+
+- **Bugfix: Profile switch via Telegram menu now propagates to the daemon** —
+  When changing profiles through the Telegram Profile menu, the session's
+  `profile_id` was correctly updated in the database and the poll response
+  returned the new profile name, but the daemon's `SessionManager` held on to
+  the old `SessionRunner` with the stale profile configuration. The runner now
+  updates its profile reference when it differs from the one passed by the
+  orchestrator, so subsequent instructions use the correct tool config (env
+  vars, model, CLI args, etc.).
+  (packages/daemon/src/sessionRunner.ts, packages/daemon/src/sessionManager.ts)
+
 ## 0.9.0 (2026-07-27)
 
 - **Feature: New Code (with Review) now queues two separate instructions** —

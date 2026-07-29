@@ -43,6 +43,10 @@ export class SessionManager {
         acquireSlot: () => this.acquire()
       });
       this.runners.set(sessionId, runner);
+    } else {
+      // Profile may have changed via Telegram menu — keep the runner's
+      // profile in sync so new tasks use the correct configuration.
+      runner.updateProfile(profile);
     }
     return runner;
   }
