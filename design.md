@@ -472,6 +472,18 @@ The daemon's `ApiClient` classifies responses into three buckets:
 | Other 4xx   | throws `ApiClientError` (no retry — bad request) |
 | 5xx         | retry with exponential backoff                 |
 | Network err | retry with exponential backoff                 |
+| **Timeout** (30 s default) | retry with exponential backoff (`AbortController` + `setTimeout`) |
+
+Every HTTP request from the daemon to the bot API enforces a configurable
+timeout via an `AbortController` (default 30 s, `ApiClientOptions.timeout`).
+The timer is always cleaned up in a `finally` block.  This prevents the
+cascading failures described in *§14.5 — Stale fetches*: when a `postResponse`
+request hung indefinitely, `flushInFlight` in `SessionRunner` got permanently
+stuck at `true`, silently dropping all subsequent progress updates; and when a
+`poll` request hung, `Orchestrator.tickPoll()` never rescheduled the next poll
+cycle, starving the daemon of new work.  Both the progress and poll paths use
+independent `fetch` calls, so a single stalled request blocks only its own
+pathway.
 
 Retrying 4xx is pointless — the server will keep rejecting the same malformed
 body — so we fail fast and surface the original error code instead.

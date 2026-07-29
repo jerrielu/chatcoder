@@ -32,6 +32,8 @@ export interface ApiClientOptions {
   retries?: number;
   /** Base backoff between retries in ms (exponential). */
   backoffMs?: number;
+  /** HTTP request timeout in milliseconds. Defaults to 30_000. */
+  timeout?: number;
 }
 
 export class ApiClient {
@@ -40,6 +42,7 @@ export class ApiClient {
   private readonly fetchImpl: typeof fetch;
   private readonly retries: number;
   private readonly backoffMs: number;
+  private readonly timeout: number;
 
   constructor(opts: ApiClientOptions) {
     this.baseUrl = opts.apiUrl.replace(/\/$/, "");
@@ -47,6 +50,7 @@ export class ApiClient {
     this.fetchImpl = opts.fetchImpl ?? fetch;
     this.retries = opts.retries ?? 3;
     this.backoffMs = opts.backoffMs ?? 500;
+    this.timeout = opts.timeout ?? 30_000;
   }
 
   async register(body: DaemonRegisterBody): Promise<DaemonRegisterResponse> {
@@ -74,27 +78,34 @@ export class ApiClient {
     const url = this.baseUrl + path;
     let lastErr: unknown;
     for (let attempt = 0; attempt <= this.retries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(new Error("Request timeout")), this.timeout);
       try {
-        const res = await this.fetchImpl(url, {
-          method,
-          headers: {
-            authorization: `Bearer ${this.apiKey}`,
-            "content-type": "application/json",
-            accept: "application/json"
-          },
-          body: body === undefined ? undefined : JSON.stringify(body)
-        });
-        if (res.status === 401) throw new UnauthorizedError();
-        if (res.status === 410) throw new SessionRevokedError();
-        if (res.status >= 500) {
-          lastErr = new Error(`server ${res.status}`);
-        } else if (!res.ok) {
-          const envelope = (await res.json().catch(() => null)) as ApiErrorEnvelope | null;
-          const msg = envelope?.error?.message ?? `HTTP ${res.status}`;
-          const code = envelope?.error?.code ?? ERROR_CODES.INTERNAL;
-          throw new ApiClientError(code, `${code}: ${msg}`);
-        } else {
-          return (await res.json()) as T;
+        try {
+          const res = await this.fetchImpl(url, {
+            method,
+            headers: {
+              authorization: `Bearer ${this.apiKey}`,
+              "content-type": "application/json",
+              accept: "application/json"
+            },
+            body: body === undefined ? undefined : JSON.stringify(body),
+            signal: controller.signal
+          });
+          if (res.status === 401) throw new UnauthorizedError();
+          if (res.status === 410) throw new SessionRevokedError();
+          if (res.status >= 500) {
+            lastErr = new Error(`server ${res.status}`);
+          } else if (!res.ok) {
+            const envelope = (await res.json().catch(() => null)) as ApiErrorEnvelope | null;
+            const msg = envelope?.error?.message ?? `HTTP ${res.status}`;
+            const code = envelope?.error?.code ?? ERROR_CODES.INTERNAL;
+            throw new ApiClientError(code, `${code}: ${msg}`);
+          } else {
+            return (await res.json()) as T;
+          }
+        } finally {
+          clearTimeout(timer);
         }
       } catch (e) {
         if (

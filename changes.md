@@ -1,6 +1,22 @@
 # Changelog
 
-## 0.9.2 (2026-07-29)
+## 0.9.3 (2026-07-29)
+
+- **Fix: daemon HTTP requests now have a configurable timeout (default 30s)** —
+  `ApiClient.request()` (used by poll, postResponse, and heartbeat) had **no
+  timeout on fetch**, causing HTTP calls to hang indefinitely when the bot API
+  was briefly unreachable or a TCP connection stalled. This triggered two
+  cascading failures: (1) `flushInFlight` in `SessionRunner.executeWithOutputUpdates`
+  got permanently stuck at `true`, silently dropping all subsequent progress
+  updates for the current task; (2) `Orchestrator.tickPoll()` never completed,
+  preventing any future poll cycles and starving the daemon of new work. Both
+  progress updates and new task processing stopped simultaneously until the
+  daemon was restarted. Fixed by adding an `AbortController` with a configurable
+  `timeout` (default 30 s, `ApiClientOptions.timeout`) to every HTTP request,
+  with the timer always cleaned up via `finally`. Additionally, the progress-flush
+  loop now has a safety timer (`updateMs * 2`) that releases `flushInFlight` even
+  if the HTTP call stalls beyond the request timeout, providing defense in depth.
+  (packages/daemon/src/client.ts, packages/daemon/src/sessionRunner.ts)
 
 - **Bugfix: `response.txt` no longer truncated for large Reasonix responses** —
   When a final response exceeded 32 KB the daemon split it into chunks and sent
