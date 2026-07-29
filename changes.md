@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.4 (2026-07-29)
+
+- **Fix: final response now sent as a new single message instead of editing the
+  processing/progress message** — Previously, `sendResponse` edited the "processing"
+  Telegram message in-place to inject the final response, which meant the progress
+  updates were lost once the response appeared. Now the final response is sent as a
+  **brand new message**, leaving the progress message untouched. If the response
+  exceeds Telegram's 4096-char limit, it is truncated with a pointer to
+  `response.txt` for the full text. The `response.txt` document attachment
+  (`sendProcessed`) is unaffected. (packages/bot/src/main.ts)
+
 ## 0.9.3 (2026-07-29)
 
 - **Fix: daemon HTTP requests now have a configurable timeout (default 30s)** —

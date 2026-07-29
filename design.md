@@ -150,10 +150,10 @@ so running multiple *API* replicas behind a load balancer is safe.
 
 **Chosen: C.** Instructions queue because the daemon polls (can't push to a
 box behind NAT). Responses *don't* queue: when the daemon POSTs
-`/v1/responses`, the bot edits the processing message in-place with the
-response content and attaches a clean Markdown file (`response.txt`) containing
-the full session log (message preview + progress + response) with MarkdownV2
-escapes stripped, with caption "✅ Message processed", and returns to the daemon.
+`/v1/responses`, the bot sends the response content as a **new Telegram message**
+and attaches a clean Markdown file (`response.txt`) containing the full response
+with MarkdownV2 escapes stripped, with caption "✅ Message processed", and
+returns to the daemon.
 Failure → HTTP error → daemon's existing
 retry/backoff takes over (transient retries; permanent failures like "bot
 blocked" bubble as 4xx and stop retrying).
@@ -168,9 +168,9 @@ with `processing_started_at` instead of deleted immediately. The daemon then
 posts progress updates with `final: false`, which update the session's latest
 message for dashboards/status AND edit the original "Daemon is processing"
 Telegram message in-place (best-effort) so the user sees live progress. When it
-posts the final response, the bot edits the processing message in-place with
-the response content, attaches a clean Markdown file (`response.txt`) containing
-the full session log (message preview + progress + response) with MarkdownV2
+posts the final response, the bot sends the response content as a **new Telegram
+message** (leaving the processing/progress message untouched), attaches a clean
+Markdown file (`response.txt`) containing the full response with MarkdownV2
 escapes stripped, cleans up the in-progress Telegram processing state, and
 *then* deletes the in-progress DB row. The processing state is cleaned up
 first (via `sendProcessed`) to avoid a race where deleting the DB row allows a
@@ -188,14 +188,14 @@ last fragment. The chunk size for progress updates and Telegram display is 3500
 characters (leaving room for markup). Responses never queue as daemon-bound
 rows.
 
-The bot's `sendResponse` (`packages/bot/src/main.ts`) always keeps the **full**
+The bot's `sendResponse` (`packages/bot/src/main.ts`) accumulates the **full**
 response text in `state.response` so the downloadable `response.txt` attachment
-contains everything. The Telegram message body that the user sees is capped at
-4096 characters (Telegram's hard limit on `editMessageText`). If the full
-template (preview + progress + response) exceeds this limit, `sendResponse`
-shows only the **tail** of the response with a truncation marker appended:
-"— Truncated — full response in response.txt". This ensures the user always sees
-the most recent portion of the answer in chat and knows where to find the rest.
+contains everything, while the visible Telegram message is sent as a **brand new
+message** (not editing the processing/progress message). The visible message is
+capped at Telegram's 4096-character hard limit; if the response exceeds it,
+`sendResponse` shows the **beginning** of the response with a truncation marker:
+"— Truncated — full response in response.txt". The processing message remains
+intact, showing the live progress updates that were streamed during execution.
 
 `resume_last_session` controls whether a message continues the current tool
 context. Normal `/code` messages default to `true` and run FIFO. New Code
@@ -243,8 +243,9 @@ can resume the last session after a daemon restart.
 menus that covers create new session, check status, check response."
 Daemon responses are *pushed* to the chat by the bot as new messages
 (progress updates still edit the "processing" message in-place).
-The final response edits the processing message in-place and also attaches
-the full response as a markdown file with caption "✅ Message processed".
+The final response is sent as a **new message** (not editing the processing
+message) and also attaches the full response as a markdown file with caption
+"✅ Message processed".
 
 Flow:
 ```
@@ -257,7 +258,7 @@ Flow:
 /code <instruction>  → "🔄 Daemon is processing your message…" (sent once)
   Status → last heartbeat, pending instruction count
   (daemon progress)  → processing message edited in-place with live progress
-  (daemon output)    → processing message edited with response content
+  (daemon output)    → new message sent with final response (processing message untouched)
                     → full response attached as markdown file with "✅ Message processed" caption
 ```
 
