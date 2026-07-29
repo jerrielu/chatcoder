@@ -289,9 +289,8 @@ export class SessionRunner {
     // For non-final (progress) chunks this is normal — Telegram has a 4096 char
     // message limit, so progress chunks still use chunkMax for the display.  For
     // oversized finals we send the first N-1 chunks as progress updates and the
-    // last chunk as the actual final response — response.txt will only contain
-    // the last chunk, but the Telegram message and "Latest Progress" preserve
-    // the full history for the rare case a response exceeds 32 KB.
+    // last chunk as the actual final response carrying the FULL text — so
+    // response.txt always contains the complete answer.
     const displayLimit = this.chunkMax;
     const chunks: string[] = [];
     for (let i = 0; i < outboundText.length; i += displayLimit) {
@@ -312,7 +311,14 @@ export class SessionRunner {
       } else {
         this.log(">>> response", { session: this.sessionId, chunk: chunks[ci] });
       }
-      await this.deps.postResponse(sessionId, chunks[ci]!, chunkOpts);
+      // The last chunk of an oversized final carries the FULL text so
+      // response.txt (built from state.response on the bot side) contains
+      // the complete response, not just the last fragment.
+      const content =
+        isOversizedFinal && ci === chunks.length - 1
+          ? outboundText
+          : chunks[ci]!;
+      await this.deps.postResponse(sessionId, content, chunkOpts);
     }
   }
 

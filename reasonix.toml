@@ -1,2 +1,2 @@
 [permissions]
-allow = ["Edit", "Bash(npm install:*)", "Bash(cd /home/sporule/projects/chatcoder && npm run local 2>&1)"]
+allow = ["Edit", "Bash(npm install:*)", "Bash(cd /home/sporule/projects/chatcoder && npm run local 2>&1)", "Bash(grep -n 'deps.profile\\|deps.tool.execute' packages/daemon/src/sessionRunner.ts)"]

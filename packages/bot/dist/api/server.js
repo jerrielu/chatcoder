@@ -18,7 +18,7 @@ function wantsResumeInProgress(query) {
 export async function buildServer(opts) {
     const app = Fastify({
         logger: opts.logger ?? false,
-        bodyLimit: 64 * 1024
+        bodyLimit: 1024 * 1024
     });
     await installAdminCors(app);
     installErrorHandler(app);

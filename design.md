@@ -177,15 +177,16 @@ first (via `sendProcessed`) to avoid a race where deleting the DB row allows a
 concurrent poll to claim a new task and overwrite the in-memory map entry
 before the cleanup reads it.
 
-Final responses ≤ `MAX_RESPONSE_BYTES` (32 KB) are sent in a single `{final: true}`
-HTTP POST, so the full content reaches `state.response` and the downloadable
-`response.txt` contains the complete log. If the final response exceeds 32 KB
-it is split into ~3.5 KB chunks: the first N-1 chunks are sent as progress
-updates (`final: false`) and the last chunk is sent as `{final: true}`. In this
-case `response.txt` will only contain the last chunk, but the Telegram message
-and "Latest Progress" preserve the full history. The chunk size for progress
-updates and Telegram display is 3500 characters (leaving room for markup).
-Responses never queue as daemon-bound rows.
+Final responses ≤ `MAX_RESPONSE_BYTES` (512 KB, raised from 32 KB in v0.9.2)
+are sent in a single `{final: true}` HTTP POST, so the full content reaches
+`state.response` and the downloadable `response.txt` contains the complete log.
+If the final response still exceeds 512 KB it is split into ~3.5 KB chunks:
+the first N-1 chunks are sent as progress updates (`final: false`) and the last
+chunk is sent as `{final: true}` carrying the **full** text — so even in this
+corner case `response.txt` contains the complete answer rather than only the
+last fragment. The chunk size for progress updates and Telegram display is 3500
+characters (leaving room for markup). Responses never queue as daemon-bound
+rows.
 
 `resume_last_session` controls whether a message continues the current tool
 context. Normal `/code` messages default to `true` and run FIFO. New Code
@@ -336,7 +337,7 @@ We solve it with an **idle-quiet heuristic**:
 - Collect output chunks into a rolling buffer.
 - When no chunk arrives for `QUIET_MS` (default 1500ms) AND the buffer is
   non-empty, flush buffer as one response message.
-- Hard cap `MAX_RESPONSE_BYTES` (default 32 KiB) — if exceeded, flush early.
+- Hard cap `MAX_RESPONSE_BYTES` (default 512 KiB) — if exceeded, flush early.
 - Strip ANSI escape sequences before posting (so the Telegram user sees
   readable markdown, not `\x1b[31m`).
 

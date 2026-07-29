@@ -26,6 +26,7 @@ export function mainMenu() {
     return new InlineKeyboard()
         .text("💻 Code", CB.code)
         .text("🆕 New Code", CB.newCode)
+        .row()
         .text("🔬 New Code + Review", CB.newCodeReview)
         .row()
         .text("👤 Profile", CB.profileMenu)

@@ -13,7 +13,7 @@ export const CODE_RATE_LIMIT_MS = 1_000;
 export const MAX_INSTRUCTION_BYTES = 4 * 1024;
 
 /** Max bytes for a single response (daemon → user). */
-export const MAX_RESPONSE_BYTES = 32 * 1024;
+export const MAX_RESPONSE_BYTES = 512 * 1024;
 
 /** Max profile names a single daemon can register. */
 export const MAX_PROFILES_PER_DAEMON = 32;

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.2 (2026-07-29)
+
+- **Bugfix: `response.txt` no longer truncated for large Reasonix responses** —
+  When a final response exceeded 32 KB the daemon split it into chunks and sent
+  all but the last as progress updates, so only the final ~3.5 KB reached
+  `response.txt`. Fixed by (a) raising `MAX_RESPONSE_BYTES` from 32 KB to
+  512 KB so most responses arrive as a single chunk, and (b) making the last
+  oversized-final chunk carry the **full** text instead of just the last slice.
+  The Fastify `bodyLimit` was also raised from 64 KB to 1 MB to match.
+  (packages/shared/src/constants.ts, packages/daemon/src/sessionRunner.ts,
+  packages/daemon/src/profileRunner.ts, packages/bot/src/api/server.ts)
+
 ## 0.9.1 (2026-07-27)
 
 - **Bugfix: Profile switch via Telegram menu now propagates to the daemon** —

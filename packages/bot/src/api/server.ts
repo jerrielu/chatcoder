@@ -48,7 +48,7 @@ function wantsResumeInProgress(query: unknown): boolean {
 export async function buildServer(opts: BuildServerOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger: opts.logger ?? false,
-    bodyLimit: 64 * 1024
+    bodyLimit: 1024 * 1024
   });
 
   await installAdminCors(app);
