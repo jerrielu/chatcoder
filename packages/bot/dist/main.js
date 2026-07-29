@@ -58,6 +58,10 @@ async function main() {
         }
         return msg;
     }
+    /** Telegram's hard limit on message body text (sendMessage / editMessageText). */
+    const TELEGRAM_MSG_LIMIT = 4096;
+    /** Truncation marker appended when the response doesn't fit in the message body. */
+    const TRUNCATION_MARKER = "\n\n\u2014 Truncated \u2014 full response in response.txt";
     const telegram = {
         async sendResponse(chatId, content, sessionId) {
             // Edit the processing message with the final response instead of sending
@@ -71,16 +75,41 @@ async function main() {
                 }
                 return;
             }
-            // Accumulate multi-chunk responses and edit in-place
+            // Accumulate multi-chunk responses and edit in-place.
+            // state.response always holds the FULL text for response.txt.
             state.response = state.response ? state.response + content : content;
+            // Build a display-safe version of the response for the message body.
+            // Telegram's editMessageText limit is 4096 chars — if the full template
+            // exceeds it, show the tail of the response with a truncation indicator.
+            const fullMsg = buildProcessingMessage(state);
+            let displayResponse;
+            if (fullMsg.length <= TELEGRAM_MSG_LIMIT) {
+                displayResponse = state.response;
+            }
+            else {
+                // Calculate the overhead from the template prefix (preview + progress + labels)
+                const template = buildProcessingMessage({
+                    messageId: 0,
+                    preview: state.preview,
+                    progress: state.progress,
+                    response: ""
+                });
+                const room = TELEGRAM_MSG_LIMIT - template.length - TRUNCATION_MARKER.length;
+                if (room > 20) {
+                    displayResponse = "\u2026\n" + state.response.slice(-room) + TRUNCATION_MARKER;
+                }
+                else {
+                    displayResponse = "Response too large for preview \u2014 see response.txt";
+                }
+            }
             try {
-                await sendTelegramWithRetry(() => bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage(state), {
+                await sendTelegramWithRetry(() => bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage({ ...state, response: displayResponse }), {
                     reply_markup: mainMenu(),
                     parse_mode: "MarkdownV2"
                 }));
             }
             catch {
-                // Best-effort — final response still available via progress updates
+                // Best-effort — final response still available via response.txt
             }
         },
         async sendProcessing(chatId, content, sessionId) {

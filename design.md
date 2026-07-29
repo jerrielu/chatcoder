@@ -188,6 +188,15 @@ last fragment. The chunk size for progress updates and Telegram display is 3500
 characters (leaving room for markup). Responses never queue as daemon-bound
 rows.
 
+The bot's `sendResponse` (`packages/bot/src/main.ts`) always keeps the **full**
+response text in `state.response` so the downloadable `response.txt` attachment
+contains everything. The Telegram message body that the user sees is capped at
+4096 characters (Telegram's hard limit on `editMessageText`). If the full
+template (preview + progress + response) exceeds this limit, `sendResponse`
+shows only the **tail** of the response with a truncation marker appended:
+"— Truncated — full response in response.txt". This ensures the user always sees
+the most recent portion of the answer in chat and knows where to find the rest.
+
 `resume_last_session` controls whether a message continues the current tool
 context. Normal `/code` messages default to `true` and run FIFO. New Code
 messages set it to `false`.

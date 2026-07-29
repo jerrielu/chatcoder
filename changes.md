@@ -11,6 +11,12 @@
   The Fastify `bodyLimit` was also raised from 64 KB to 1 MB to match.
   (packages/shared/src/constants.ts, packages/daemon/src/sessionRunner.ts,
   packages/daemon/src/profileRunner.ts, packages/bot/src/api/server.ts)
+- **Enhancement: Telegram message body now shows tail of oversized responses** —
+  When the final response exceeds Telegram's 4096-character message limit, the
+  edited processing message now displays the **last portion** of the response
+  with a truncation notice, instead of silently failing the edit. The full text
+  is always available via `response.txt`.
+  (packages/bot/src/main.ts)
 
 ## 0.9.1 (2026-07-27)
 
