@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.11.0 (2026-08-06)
+
+- **Feature: "if something is stale, kill it and rerun it"** — a hung or
+  orphaned daemon/task can no longer freeze a session forever. Four pieces:
+  - **Daemon single-instance registry** (`packages/daemon/src/daemonState.ts`):
+    a `~/.chatcoder/daemon-state.json` records the current daemon PID and the
+    PIDs of its tool children. On startup the daemon kills any previous daemon
+    and any leftover tool processes (the orphaned reasonix/claude/codex
+    processes that froze progress and burned CPU), then claims sole ownership.
+    On exit (SIGINT/SIGTERM, plus a sync `process.on("exit")` fallback) it
+    kills its registered tool children and clears the registry.
+  - **Periodic self-sweep**: every 60s the daemon checks it is still the only
+    instance (if superseded it kills its children and exits) and prunes dead
+    tool PIDs from the registry.
+  - **CLI wrapper signal forwarding** (`bin/chatcoder.js`): the wrapper now
+    spawns the daemon/bot as an async child and forwards SIGINT/SIGTERM, so a
+    PM2/systemd restart kills the whole tree instead of orphaning the child —
+    that orphaning was the root cause of the frozen progress messages.
+  - **Bot stale-task sweep** (`packages/bot/src/staleSweep.ts`): every 60s the
+    bot kills in-progress rows whose daemon stopped heartbeating
+    (`heartbeatStaleMs`, default 60s) and **re-queues the instruction** so it
+    reruns when a daemon reconnects; the user gets a plain-text Telegram
+    notice. This is the safety net for a daemon crash, where the v0.10.0 stall
+    watchdog (which only runs while the daemon is alive) can't help.
+- Fixes the observed production incident: 4 orphaned daemons (ppid 1) running
+  pre-watchdog code + 4 orphaned reasonix children (2 of them duplicating the
+  same task at ~90% CPU each) froze the game session's progress message and
+  pushed host load to ~7.5. All 8 stale processes were killed; the registry +
+  sweep prevent recurrence.
+
 ## 0.10.0 (2026-08-06)
 
 - **Fix: progress updates no longer freeze forever when a task stalls** — The

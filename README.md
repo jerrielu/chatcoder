@@ -117,6 +117,16 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 | `idleShutdownMs`  | `3600000` (1 h)   | Shut down the daemon after this long with no work              |
 | `maxConcurrency`  | `4`               | Max tool processes running at once                             |
 
+**Stale-process recovery (automatic):** the daemon keeps a single-instance
+registry at `~/.chatcoder/daemon-state.json`. On startup it kills any daemon
+from a previous run and its leftover tool processes, then claims sole
+ownership; on shutdown it kills its own tool children. The bot additionally
+re-checks every 60 s: any in-progress task whose daemon stopped heartbeating
+(`BOT_HEARTBEAT_STALE_MS`, default 60 s) is killed and re-queued so it reruns
+when a daemon reconnects — you get a Telegram notice when that happens. Restarts
+(PM2/systemd) now forward SIGINT/SIGTERM to the whole process tree, so orphaned
+processes and frozen progress messages can no longer accumulate.
+
 > If you see a `better_sqlite3` native module error after switching Node
 > versions, run `npm rebuild better-sqlite3`.
 

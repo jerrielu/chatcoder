@@ -384,6 +384,55 @@ Tests can't assume a real `codex` binary is installed. The daemon accepts
 that echoes input back with a prefix — this lets us exercise the real PTY
 wrapper without depending on a cloud LLM.
 
+### 7.4 Stale-process lifecycle: "kill it and rerun it"
+
+The v0.10.0 stall watchdog only works while the daemon is alive. A dead or
+orphaned daemon leaves its tool children running and its in-progress DB row
+blocking the session forever — observed in production as 4 orphaned daemons
+(ppid 1, running pre-watchdog code) plus 4 orphaned reasonix children (two of
+them duplicating the same task at ~90 % CPU each), which froze the game
+session's progress message and pushed host load to ~7.5.
+
+**Options considered**
+
+| # | Option | Pros | Cons |
+|---|--------|------|------|
+| A | Keep only the daemon-side stall watchdog | Already shipped, no new code | Does nothing when the daemon itself dies/orphans |
+| B | Single-instance registry + kill-on-exit + bot heartbeat sweep | Kills stale daemons/tools on the host and re-queues dead tasks; no zombie accumulation | A small state file to maintain; re-queue races if a wedged daemon revives |
+| C | Bot only: mark stale rows failed and require manual retry | Simple | Leaves the user stuck when the daemon is gone; no automatic rerun |
+
+**Chosen: B — layered stale detection and recovery:**
+
+1. **Daemon registry** (`packages/daemon/src/daemonState.ts`):
+   `~/.chatcoder/daemon-state.json` = `{ daemonPid, startedAt, toolPids }`,
+   written atomically (tmp + rename). `ToolExecutor` registers each child PID
+   on spawn and unregisters on close.
+2. **Startup sweep**: before registering with the bot, the daemon kills the
+   previous daemon (if alive) and every registered tool PID, then claims sole
+   ownership. Restart is therefore a clean handover, never a stack-up.
+3. **Exit cleanup**: SIGINT/SIGTERM kills registered tool children and clears
+   the registry; a sync `process.on("exit")` handler SIGKILLs them as a
+   fallback for hard kills/crashes.
+4. **Periodic self-sweep** (60 s): if another daemon took over the registry,
+   the superseded daemon kills its children and exits; dead tool PIDs are
+   pruned.
+5. **CLI wrapper forwards signals** (`bin/chatcoder.js`): the wrapper now
+   `spawn`s the daemon/bot and forwards SIGINT/SIGTERM, so a PM2/systemd
+   restart kills the whole tree instead of orphaning the child. (The previous
+   `spawnSync` wrapper died on SIGTERM while the child survived, reparented to
+   PID 1 — the root cause of the orphan accumulation.)
+6. **Bot stale-task sweep** (`packages/bot/src/staleSweep.ts`, every 60 s):
+   for each active API key whose last heartbeat is older than
+   `heartbeatStaleMs` (default 60 s), any in-progress row is deleted (killed)
+   and its instruction re-queued as pending (rerun) with the same content,
+   kind, resume flag and reasoning effort; the user gets a plain-text Telegram
+   notice. A key that never heartbeated is skipped (no daemon ever ran).
+
+Known trade-off: if a daemon is wedged but its HTTP client recovers, the bot
+may re-queue a task the old daemon still finishes — an unlikely duplicate
+(requires ≥ 60 s without any heartbeat) rather than a frozen session; the
+daemon's 30 s request timeout (v0.9.3) makes the wedge window small.
+
 ---
 
 ## 8. Polling strategy
@@ -445,6 +494,11 @@ cwd: /home/you/projects/myrepo
 ```
 
 Sensitive values (`apiKey`) written with file mode `0600`.
+
+Runtime state (not config): `~/.chatcoder/daemon-state.json` records the
+current daemon PID and its tool children so a restart can kill whatever the
+previous run left behind (see §7.4). Override for tests:
+`CHATCODER_STATE_FILE`.
 
 ---
 

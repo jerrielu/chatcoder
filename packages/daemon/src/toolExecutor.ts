@@ -7,6 +7,7 @@ import type { CodexReasoningEffort } from "@chatcoder/shared";
 import { ensureCodexHome } from "./codexHome.js";
 import type { Profile } from "./profile.js";
 import { stripAnsi } from "./ansi.js";
+import { registerToolPid, unregisterToolPid } from "./daemonState.js";
 
 export interface ExecuteOptions {
   onOutput?: (chunk: string) => void;
@@ -236,6 +237,14 @@ export class ToolExecutor {
       } catch (err) {
         reject(err);
         return;
+      }
+      // Track the child in the daemon registry so a restart or crash of this
+      // daemon can find and kill it (stale tools = frozen progress + CPU burn).
+      if (child.pid) {
+        registerToolPid(child.pid);
+        const unregister = (): void => unregisterToolPid(child.pid!);
+        child.once("close", unregister);
+        child.once("error", unregister);
       }
 
       let stdout = "";

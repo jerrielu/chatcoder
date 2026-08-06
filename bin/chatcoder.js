@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -25,22 +25,41 @@ function usage(exitCode = 0) {
 
 function runNode(entryRelativePath, args) {
   const entryPath = path.join(rootDir, entryRelativePath);
-  const result = spawnSync(process.execPath, [entryPath, ...args], {
+  const child = spawn(process.execPath, [entryPath, ...args], {
     cwd: process.cwd(),
     stdio: "inherit",
     env: process.env
   });
 
-  if (result.error) {
-    process.stderr.write(`chatcoder: failed to execute ${entryRelativePath}: ${String(result.error)}\n`);
-    process.exit(1);
-  }
+  // Forward termination signals so a PM2/systemd restart kills the whole tree
+  // (daemon/bot AND their tool children) instead of killing only this wrapper
+  // and orphaning the child — that orphaning was the root cause of the frozen
+  // progress messages and runaway CPU from stale reasonix processes.
+  const forward = (sig) => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    try {
+      child.kill(sig);
+    } catch {
+      // Already gone.
+    }
+  };
+  process.on("SIGINT", () => forward("SIGINT"));
+  process.on("SIGTERM", () => forward("SIGTERM"));
 
-  if (result.signal) {
-    process.kill(process.pid, result.signal);
-    return;
-  }
-  process.exit(result.status ?? 1);
+  child.on("error", (err) => {
+    process.stderr.write(`chatcoder: failed to execute ${entryRelativePath}: ${String(err)}\n`);
+    process.exit(1);
+  });
+
+  child.on("exit", (code, signal) => {
+    process.removeListener("SIGINT", forward);
+    process.removeListener("SIGTERM", forward);
+    if (signal) {
+      process.kill(process.pid, signal);
+      return;
+    }
+    process.exit(code ?? 1);
+  });
 }
 
 function currentRuntimeUser() {

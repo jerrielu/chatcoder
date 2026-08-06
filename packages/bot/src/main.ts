@@ -19,6 +19,10 @@ import {
 } from "./bot/telegramSend.js";
 import { InputFile } from "grammy";
 import { mainMenu } from "./bot/menus.js";
+import { sweepStaleTasks } from "./staleSweep.js";
+
+/** How often the bot checks for tasks whose daemon stopped heartbeating. */
+const STALE_TASK_SWEEP_INTERVAL_MS = 60_000;
 
 async function main(): Promise<void> {
   const cfg = loadConfigFromEnv();
@@ -226,9 +230,27 @@ async function main(): Promise<void> {
     drop_pending_updates: true
   }).catch((err) => log.error({ err }, "bot crashed"));
 
+  // "If something is stale, kill it and rerun it": periodically kill
+  // in-progress tasks whose daemon stopped heartbeating (killing the stuck DB
+  // row) and re-queue the instruction so it reruns when a daemon reconnects.
+  const staleSweepTimer = setInterval(() => {
+    void sweepStaleTasks({
+      apiKeys,
+      sessions,
+      messages,
+      staleAfterMs: cfg.heartbeatStaleMs,
+      notify: async (chatId, text) => {
+        await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, text));
+      },
+      log: (m, extra) => log.warn({ extra }, m)
+    }).catch((err) => log.error({ err }, "stale task sweep failed"));
+  }, STALE_TASK_SWEEP_INTERVAL_MS);
+  staleSweepTimer.unref?.();
+
   const shutdown = async (sig: string): Promise<void> => {
     log.info({ sig }, "shutting down");
     try {
+      clearInterval(staleSweepTimer);
       await bot.stop();
       await app.close();
       await handle.close();
