@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureCodexHome } from "./codexHome.js";
 import { stripAnsi } from "./ansi.js";
+import { registerToolPid, unregisterToolPid } from "./daemonState.js";
 const DEFAULT_STALL_TIMEOUT_MS = 15 * 60_000;
 function codexFinalOutputPath(profileName) {
     const safeName = profileName.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -198,6 +199,14 @@ export class ToolExecutor {
             catch (err) {
                 reject(err);
                 return;
+            }
+            // Track the child in the daemon registry so a restart or crash of this
+            // daemon can find and kill it (stale tools = frozen progress + CPU burn).
+            if (child.pid) {
+                registerToolPid(child.pid);
+                const unregister = () => unregisterToolPid(child.pid);
+                child.once("close", unregister);
+                child.once("error", unregister);
             }
             let stdout = "";
             let stderr = "";
