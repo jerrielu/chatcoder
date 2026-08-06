@@ -122,6 +122,11 @@ async function main(): Promise<void> {
     },
 
     async sendProcessing(chatId, content, sessionId) {
+      // If we are already tracking a processing message for this session (e.g.
+      // the daemon resumed an in-progress task but this bot never restarted),
+      // don't post a second one — sendLatestProgress will keep editing the
+      // existing message instead.
+      if (processingStates.has(sessionId)) return;
       const state: ProcessingState = {
         messageId: 0,
         preview: extractPreview(content),

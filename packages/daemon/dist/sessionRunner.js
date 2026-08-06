@@ -177,6 +177,14 @@ export class SessionRunner {
             if (flushInFlight)
                 return;
             flushInFlight = true;
+            // Safety timer: release flushInFlight even if the HTTP call stalls
+            // (defense in depth — ApiClient.request() also has its own timeout).
+            const safetyTimer = this.setTimer(() => {
+                if (flushInFlight) {
+                    this.log("progress flush safety release", { session: this.sessionId });
+                    flushInFlight = false;
+                }
+            }, this.updateMs * 2);
             try {
                 await flushPendingProgress();
             }
@@ -184,6 +192,7 @@ export class SessionRunner {
                 this.log("progress response failed", { session: this.sessionId, err });
             }
             finally {
+                this.clearTimer(safetyTimer);
                 flushInFlight = false;
             }
         };

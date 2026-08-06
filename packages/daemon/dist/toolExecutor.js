@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureCodexHome } from "./codexHome.js";
 import { stripAnsi } from "./ansi.js";
+const DEFAULT_STALL_TIMEOUT_MS = 15 * 60_000;
 function codexFinalOutputPath(profileName) {
     const safeName = profileName.replace(/[^a-zA-Z0-9_-]/g, "_");
     return join(tmpdir(), `chatcoder-codex-final-${safeName}-${process.pid}-${Date.now()}.txt`);
@@ -184,6 +185,7 @@ export class ToolExecutor {
             args: launch.args,
             cwd: launch.cwd
         });
+        const stallTimeoutMs = this.opts.stallTimeoutMs ?? DEFAULT_STALL_TIMEOUT_MS;
         return new Promise((resolve, reject) => {
             let child;
             try {
@@ -201,6 +203,42 @@ export class ToolExecutor {
             let stderr = "";
             let settled = false;
             let abortKillTimer = null;
+            let stallTimer = null;
+            /** SIGTERM then SIGKILL after a grace period — shared by abort and stall. */
+            const killChild = () => {
+                if (!child.killed)
+                    child.kill("SIGTERM");
+                abortKillTimer ??= setTimeout(() => {
+                    if (child.exitCode === null && child.signalCode === null) {
+                        child.kill("SIGKILL");
+                    }
+                }, 2_000);
+            };
+            const clearStallTimer = () => {
+                if (stallTimer)
+                    clearTimeout(stallTimer);
+                stallTimer = null;
+            };
+            /** (Re)arm the stall watchdog: kills the child if it goes silent too long. */
+            const armStallWatchdog = () => {
+                if (stallTimeoutMs <= 0)
+                    return;
+                clearStallTimer();
+                stallTimer = setTimeout(() => {
+                    stallTimer = null;
+                    if (settled)
+                        return;
+                    this.log("tool execution stalled — killing process", {
+                        profile: profile.name,
+                        pid: child.pid,
+                        stallTimeoutMs
+                    });
+                    killChild();
+                    settleReject(new Error(`Execution stalled: no output from the tool for ` +
+                        `${Math.round(stallTimeoutMs / 1000)}s (stallTimeoutMs). ` +
+                        `The process was terminated — check the provider/network and retry.`));
+                }, stallTimeoutMs);
+            };
             const settleResolve = (value) => {
                 if (settled)
                     return;
@@ -208,6 +246,7 @@ export class ToolExecutor {
                 execOpts.signal?.removeEventListener("abort", onAbort);
                 if (abortKillTimer)
                     clearTimeout(abortKillTimer);
+                clearStallTimer();
                 resolve(value);
             };
             const settleReject = (err) => {
@@ -217,6 +256,7 @@ export class ToolExecutor {
                 execOpts.signal?.removeEventListener("abort", onAbort);
                 if (abortKillTimer)
                     clearTimeout(abortKillTimer);
+                clearStallTimer();
                 reject(err);
             };
             const emitOutput = (chunk) => {
@@ -228,13 +268,7 @@ export class ToolExecutor {
                 }
             };
             const onAbort = () => {
-                if (!child.killed)
-                    child.kill("SIGTERM");
-                abortKillTimer ??= setTimeout(() => {
-                    if (child.exitCode === null && child.signalCode === null) {
-                        child.kill("SIGKILL");
-                    }
-                }, 2_000);
+                killChild();
             };
             execOpts.signal?.addEventListener("abort", onAbort);
             if (execOpts.signal?.aborted)
@@ -243,11 +277,13 @@ export class ToolExecutor {
                 const chunk = data.toString();
                 emitOutput(chunk);
                 stdout += chunk;
+                armStallWatchdog();
             });
             child.stderr.on("data", (data) => {
                 const chunk = data.toString();
                 emitOutput(chunk);
                 stderr += chunk;
+                armStallWatchdog();
             });
             child.stdout.on("error", (err) => {
                 this.log("stdout stream error", { profile: profile.name, err });
@@ -255,6 +291,8 @@ export class ToolExecutor {
             child.stderr.on("error", (err) => {
                 this.log("stderr stream error", { profile: profile.name, err });
             });
+            // Start the stall watchdog; re-armed on every stdout/stderr chunk above.
+            armStallWatchdog();
             child.stdin.on("error", (err) => {
                 this.log("stdin stream error", { profile: profile.name, err });
             });

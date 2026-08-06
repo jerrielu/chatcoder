@@ -11,7 +11,7 @@ import { buildServer } from "./api/server.js";
 import { createBot } from "./bot/bot.js";
 import { FlowStore } from "./bot/flows.js";
 import { deriveLocalApiUrl } from "./apiUrl.js";
-import { escapeMarkdownV2, stripMarkdownV2, sendTelegramWithRetry, splitForTelegram } from "./bot/telegramSend.js";
+import { escapeMarkdownV2, stripMarkdownV2, sendTelegramWithRetry } from "./bot/telegramSend.js";
 import { InputFile } from "grammy";
 import { mainMenu } from "./bot/menus.js";
 async function main() {
@@ -64,46 +64,25 @@ async function main() {
     const TRUNCATION_MARKER = "\n\n\u2014 Truncated \u2014 full response in response.txt";
     const telegram = {
         async sendResponse(chatId, content, sessionId) {
-            // Edit the processing message with the final response instead of sending
-            // a new message, so the user sees the result in-place.
+            // Send the final response as a NEW message, leaving the processing/progress
+            // message untouched. The full text is accumulated in state.response so that
+            // sendProcessed can attach it as response.txt.
             const state = processingStates.get(sessionId);
-            if (!state) {
-                // Processing state already cleaned up — send as new message (fallback)
-                const chunks = splitForTelegram(content);
-                for (const chunk of chunks) {
-                    await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, chunk, { reply_markup: mainMenu(), parse_mode: "MarkdownV2" }));
-                }
-                return;
+            if (state) {
+                state.response = state.response ? state.response + content : content;
             }
-            // Accumulate multi-chunk responses and edit in-place.
-            // state.response always holds the FULL text for response.txt.
-            state.response = state.response ? state.response + content : content;
-            // Build a display-safe version of the response for the message body.
-            // Telegram's editMessageText limit is 4096 chars — if the full template
-            // exceeds it, show the tail of the response with a truncation indicator.
-            const fullMsg = buildProcessingMessage(state);
-            let displayResponse;
-            if (fullMsg.length <= TELEGRAM_MSG_LIMIT) {
-                displayResponse = state.response;
+            // Telegram's hard limit is 4096 chars per message — truncate if needed
+            // and point to response.txt for the full text.
+            let text;
+            if (content.length <= TELEGRAM_MSG_LIMIT) {
+                text = content;
             }
             else {
-                // Calculate the overhead from the template prefix (preview + progress + labels)
-                const template = buildProcessingMessage({
-                    messageId: 0,
-                    preview: state.preview,
-                    progress: state.progress,
-                    response: ""
-                });
-                const room = TELEGRAM_MSG_LIMIT - template.length - TRUNCATION_MARKER.length;
-                if (room > 20) {
-                    displayResponse = "\u2026\n" + state.response.slice(-room) + TRUNCATION_MARKER;
-                }
-                else {
-                    displayResponse = "Response too large for preview \u2014 see response.txt";
-                }
+                const room = TELEGRAM_MSG_LIMIT - TRUNCATION_MARKER.length;
+                text = content.slice(0, room) + TRUNCATION_MARKER;
             }
             try {
-                await sendTelegramWithRetry(() => bot.api.editMessageText(chatId, state.messageId, buildProcessingMessage({ ...state, response: displayResponse }), {
+                await sendTelegramWithRetry(() => bot.api.sendMessage(chatId, text, {
                     reply_markup: mainMenu(),
                     parse_mode: "MarkdownV2"
                 }));
@@ -113,6 +92,12 @@ async function main() {
             }
         },
         async sendProcessing(chatId, content, sessionId) {
+            // If we are already tracking a processing message for this session (e.g.
+            // the daemon resumed an in-progress task but this bot never restarted),
+            // don't post a second one — sendLatestProgress will keep editing the
+            // existing message instead.
+            if (processingStates.has(sessionId))
+                return;
             const state = {
                 messageId: 0,
                 preview: extractPreview(content),

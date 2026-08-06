@@ -220,7 +220,11 @@ describe("GET /v1/poll", () => {
     expect(group.messages).toHaveLength(1);
     expect(group.messages[0].content).toBe("continue");
     expect(group.messages[0].resumeLastSession).toBe(true);
-    expect(sendProcessing).toHaveBeenCalledTimes(1);
+    // First poll notified with the claimed message; the resume poll re-creates
+    // the processing notification with the ORIGINAL content so progress is
+    // visible again after a bot restart (the bot skips it if state exists).
+    expect(sendProcessing).toHaveBeenCalledTimes(2);
+    expect(sendProcessing).toHaveBeenLastCalledWith(42, "original instruction", sessionId);
   });
 
   it("still returns claimed work when processing notification fails", async () => {

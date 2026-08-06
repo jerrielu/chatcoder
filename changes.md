@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.10.0 (2026-08-06)
+
+- **Fix: progress updates no longer freeze forever when a task stalls** — The
+  daemon's `ToolExecutor` waited indefinitely for the child process (reasonix /
+  claude / codex / custom) with no way to detect a hang. If the provider call
+  or network stalled, the child produced no output, so the progress message in
+  Telegram froze at the last chunk and the task stayed in-progress forever,
+  blocking the session. Added a **stall watchdog**: if the child emits no
+  output for `stallTimeoutMs` (default 15 min, configurable in `config.yml`,
+  `0` disables), it is killed (SIGTERM → SIGKILL) and the task completes with
+  a clear error instead of hanging silently. (packages/daemon/src/toolExecutor.ts,
+  packages/daemon/src/config.ts, packages/daemon/src/main.ts)
+- **Fix: resumed tasks show live progress again after a bot restart** — The
+  "processing" message and its edit state live in the bot's memory, so after a
+  bot restart a resumed in-progress task had no progress message and all
+  progress updates were silently dropped (the old message stayed stale on
+  screen). The server now re-creates the processing notification with the
+  original instruction on resume, and the bot skips it when it already has
+  state (daemon-only restart), avoiding duplicates.
+  (packages/bot/src/api/server.ts, packages/bot/src/main.ts)
+
 ## 0.9.4 (2026-07-29)
 
 - **Fix: final response now sent as a new single message instead of editing the

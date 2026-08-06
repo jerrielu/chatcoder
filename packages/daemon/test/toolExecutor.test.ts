@@ -370,4 +370,53 @@ describe("ToolExecutor", () => {
     const output = await executor.execute(profile, "go");
     expect(output).toBe('{"response":"done"}');
   });
+
+  it("kills a silent child and rejects after the stall timeout", async () => {
+    const profile: Profile = {
+      name: "custom-slow",
+      tool: "CUSTOM",
+      custom: {
+        launchBin: process.execPath,
+        args: ["-e", "process.stdout.write('hello'); setInterval(() => {}, 1000)"],
+        env: {},
+        messagePlacement: "stdin"
+      }
+    };
+    const logs: Array<{ msg: string; extra?: unknown }> = [];
+    const executor = new ToolExecutor({
+      log: (msg, extra) => logs.push({ msg, extra }),
+      stallTimeoutMs: 200
+    });
+
+    await expect(executor.execute(profile, "go")).rejects.toThrow(/stalled/i);
+    expect(logs.some((entry) => entry.msg === "tool execution stalled — killing process")).toBe(true);
+  });
+
+  it("does not stall a child that keeps producing output", async () => {
+    const profile: Profile = {
+      name: "custom-chatty",
+      tool: "CUSTOM",
+      custom: {
+        launchBin: process.execPath,
+        args: [
+          "-e",
+          [
+            "let i = 0;",
+            "const t = setInterval(() => {",
+            "  process.stdout.write('tick ' + i + '\\n');",
+            "  if (++i >= 20) { clearInterval(t); process.exit(0); }",
+            "}, 50);"
+          ].join("")
+        ],
+        env: {},
+        messagePlacement: "stdin"
+      }
+    };
+    // Watchdog (500ms) is longer than the 50ms output cadence, so the child
+    // must be allowed to run to completion instead of being killed.
+    const executor = new ToolExecutor({ stallTimeoutMs: 500 });
+
+    const output = await executor.execute(profile, "go");
+    expect(output).toContain("tick 19");
+  });
 });

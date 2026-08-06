@@ -22,7 +22,16 @@ export interface ExecuteOptions {
 
 export interface ToolExecutorOptions {
   log?: (msg: string, extra?: unknown) => void;
+  /**
+   * Stall watchdog: if the child process emits no output (stdout/stderr) for
+   * this long, it is killed and the execution rejects with a descriptive error
+   * so the session completes instead of showing a frozen progress message
+   * forever. `0` disables the watchdog. Defaults to 15 minutes.
+   */
+  stallTimeoutMs?: number;
 }
+
+const DEFAULT_STALL_TIMEOUT_MS = 15 * 60_000;
 
 interface Launch {
   cmd: string;
@@ -214,6 +223,7 @@ export class ToolExecutor {
       args: launch.args,
       cwd: launch.cwd
     });
+    const stallTimeoutMs = this.opts.stallTimeoutMs ?? DEFAULT_STALL_TIMEOUT_MS;
 
     return new Promise<string>((resolve, reject) => {
       let child: ChildProcessWithoutNullStreams;
@@ -232,12 +242,52 @@ export class ToolExecutor {
       let stderr = "";
       let settled = false;
       let abortKillTimer: ReturnType<typeof setTimeout> | null = null;
+      let stallTimer: ReturnType<typeof setTimeout> | null = null;
+
+      /** SIGTERM then SIGKILL after a grace period — shared by abort and stall. */
+      const killChild = (): void => {
+        if (!child.killed) child.kill("SIGTERM");
+        abortKillTimer ??= setTimeout(() => {
+          if (child.exitCode === null && child.signalCode === null) {
+            child.kill("SIGKILL");
+          }
+        }, 2_000);
+      };
+
+      const clearStallTimer = (): void => {
+        if (stallTimer) clearTimeout(stallTimer);
+        stallTimer = null;
+      };
+
+      /** (Re)arm the stall watchdog: kills the child if it goes silent too long. */
+      const armStallWatchdog = (): void => {
+        if (stallTimeoutMs <= 0) return;
+        clearStallTimer();
+        stallTimer = setTimeout(() => {
+          stallTimer = null;
+          if (settled) return;
+          this.log("tool execution stalled — killing process", {
+            profile: profile.name,
+            pid: child.pid,
+            stallTimeoutMs
+          });
+          killChild();
+          settleReject(
+            new Error(
+              `Execution stalled: no output from the tool for ` +
+                `${Math.round(stallTimeoutMs / 1000)}s (stallTimeoutMs). ` +
+                `The process was terminated — check the provider/network and retry.`
+            )
+          );
+        }, stallTimeoutMs);
+      };
 
       const settleResolve = (value: string): void => {
         if (settled) return;
         settled = true;
         execOpts.signal?.removeEventListener("abort", onAbort);
         if (abortKillTimer) clearTimeout(abortKillTimer);
+        clearStallTimer();
         resolve(value);
       };
 
@@ -246,6 +296,7 @@ export class ToolExecutor {
         settled = true;
         execOpts.signal?.removeEventListener("abort", onAbort);
         if (abortKillTimer) clearTimeout(abortKillTimer);
+        clearStallTimer();
         reject(err);
       };
 
@@ -258,12 +309,7 @@ export class ToolExecutor {
       };
 
       const onAbort = (): void => {
-        if (!child.killed) child.kill("SIGTERM");
-        abortKillTimer ??= setTimeout(() => {
-          if (child.exitCode === null && child.signalCode === null) {
-            child.kill("SIGKILL");
-          }
-        }, 2_000);
+        killChild();
       };
       execOpts.signal?.addEventListener("abort", onAbort);
       if (execOpts.signal?.aborted) onAbort();
@@ -272,12 +318,14 @@ export class ToolExecutor {
         const chunk = data.toString();
         emitOutput(chunk);
         stdout += chunk;
+        armStallWatchdog();
       });
 
       child.stderr.on("data", (data) => {
         const chunk = data.toString();
         emitOutput(chunk);
         stderr += chunk;
+        armStallWatchdog();
       });
 
       child.stdout.on("error", (err) => {
@@ -287,6 +335,9 @@ export class ToolExecutor {
       child.stderr.on("error", (err) => {
         this.log("stderr stream error", { profile: profile.name, err });
       });
+
+      // Start the stall watchdog; re-armed on every stdout/stderr chunk above.
+      armStallWatchdog();
 
       child.stdin.on("error", (err) => {
         this.log("stdin stream error", { profile: profile.name, err });

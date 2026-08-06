@@ -49,7 +49,7 @@ async function runDaemon() {
         console.error("[daemon] register failed:", err);
         process.exit(1);
     }
-    const tool = new ToolExecutor({ log });
+    const tool = new ToolExecutor({ log, stallTimeoutMs: cfg.stallTimeoutMs });
     const sessionManager = new SessionManager({
         config: cfg,
         tool,

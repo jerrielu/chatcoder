@@ -14,6 +14,12 @@ export const DaemonConfig = z.object({
     /** How often to re-register profiles/workDirs via heartbeat (ms). */
     reRegisterIntervalMs: z.number().int().min(10_000).max(3_600_000).default(300_000),
     idleShutdownMs: z.number().int().min(1_000).default(60 * 60_000),
+    /**
+     * Stall watchdog for tool executions: kill the child process (and fail the
+     * task with an error) when it emits no output for this long. Prevents a hung
+     * provider call from freezing the progress message forever. `0` disables.
+     */
+    stallTimeoutMs: z.number().int().min(0).default(15 * 60_000),
     /** Global in-flight cap across profiles. */
     maxConcurrency: z.number().int().min(1).max(32).default(4),
     profiles: z.array(Profile).min(1).max(MAX_PROFILES_PER_DAEMON),

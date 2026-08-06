@@ -101,6 +101,19 @@ export async function buildServer(opts) {
                             content: RESUME_IN_PROGRESS_CONTENT,
                             resumeLastSession: true
                         };
+                        // The processing state (and the Telegram progress message) lives in
+                        // the bot's memory, so after a bot restart it is gone. Re-create the
+                        // "processing" notification with the ORIGINAL content so the user
+                        // sees live progress again; the bot skips it if state already exists
+                        // (daemon-only restart), avoiding a duplicate message.
+                        if (opts.telegram.sendProcessing) {
+                            try {
+                                await opts.telegram.sendProcessing(s.chatId, inProgress.content, s.id);
+                            }
+                            catch {
+                                // Best-effort — the resumed task still runs either way.
+                            }
+                        }
                     }
                     // else: msg stays null → session omitted from poll response
                 }

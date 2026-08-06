@@ -104,6 +104,19 @@ Environment variables for the bot:
 | `BOT_LISTEN_HOST`    | `0.0.0.0`               | API bind host          |
 | `BOT_LISTEN_PORT`    | `8080`                  | API bind port          |
 
+### Daemon configuration
+
+The daemon reads `~/.chatcoder/config.yml` (created by the setup wizard).
+Notable options (full list in [design.md](./design.md#9-configuration)):
+
+| Key               | Default           | Purpose                                                        |
+|-------------------|-------------------|----------------------------------------------------------------|
+| `stallTimeoutMs`  | `900000` (15 min) | Kill a tool process that emits no output for this long and fail the task with an error instead of freezing the progress message forever (`0` disables) |
+| `pollIntervalMs`  | `2000`            | How often the daemon polls the bot API for new instructions    |
+| `heartbeatIntervalMs` | `15000`       | How often the daemon reports liveness                          |
+| `idleShutdownMs`  | `3600000` (1 h)   | Shut down the daemon after this long with no work              |
+| `maxConcurrency`  | `4`               | Max tool processes running at once                             |
+
 > If you see a `better_sqlite3` native module error after switching Node
 > versions, run `npm rebuild better-sqlite3`.
 
