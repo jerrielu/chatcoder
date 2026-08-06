@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.12.0 (2026-08-06)
+
+- **Feature: on stall timeout the task is now killed AND relaunched under the
+  same session** — Previously (0.10.0) a stalled tool process was killed and
+  the task failed with an error. Now the same task is automatically relaunched
+  (same message, same resume flags) so progress keeps updating under the same
+  session, up to `stallRetries` times (default 3, configurable in
+  `config.yml`, `0` disables the relaunch = old behaviour) before it finally
+  fails with a clear error.
+  (packages/daemon/src/toolExecutor.ts, packages/daemon/src/config.ts,
+  packages/daemon/src/main.ts)
+- **Fix: killing a stale tool now kills its whole process tree** — Tool CLIs
+  are two-level (a node wrapper that spawns the real binary); killing only the
+  direct child orphaned the binary, which is how frozen tasks kept running
+  after restarts. Tool children are now spawned `detached` (process-group
+  leader) and all kill paths (stall watchdog, abort, shutdown, startup sweep)
+  kill the whole group via `kill(-pid)`.
+  (packages/daemon/src/toolExecutor.ts, packages/daemon/src/daemonState.ts,
+  packages/daemon/src/main.ts)
+
 ## 0.11.0 (2026-08-06)
 
 - **Feature: "if something is stale, kill it and rerun it"** — a hung or

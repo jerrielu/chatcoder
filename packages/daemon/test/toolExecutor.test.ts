@@ -385,11 +385,92 @@ describe("ToolExecutor", () => {
     const logs: Array<{ msg: string; extra?: unknown }> = [];
     const executor = new ToolExecutor({
       log: (msg, extra) => logs.push({ msg, extra }),
-      stallTimeoutMs: 200
+      stallTimeoutMs: 200,
+      stallRetries: 0
     });
 
     await expect(executor.execute(profile, "go")).rejects.toThrow(/stalled/i);
     expect(logs.some((entry) => entry.msg === "tool execution stalled — killing process")).toBe(true);
+    expect(logs.some((entry) => entry.msg.includes("relaunching the same task"))).toBe(false);
+  });
+
+  it("kills a stalled run and relaunches the same task, resolving with the relaunched output", async () => {
+    const counterFile = path.join(tmpRoot, "stall-once-counter");
+    const profile: Profile = {
+      name: "custom-stall-once",
+      tool: "CUSTOM",
+      custom: {
+        launchBin: process.execPath,
+        args: [
+          "-e",
+          [
+            "const fs = require('fs');",
+            "const file = process.env.COUNTER_FILE;",
+            "let n = 0;",
+            "try { n = parseInt(fs.readFileSync(file, 'utf8'), 10) || 0; } catch {}",
+            "n++;",
+            "fs.writeFileSync(file, String(n));",
+            "if (n === 1) {",
+            "  process.stdout.write('first run started\\n');",
+            "  setInterval(() => {}, 1000);", // stall — killed by the watchdog
+            "} else {",
+            "  process.stdout.write('second run done\\n');",
+            "  process.exit(0);",
+            "}"
+          ].join("")
+        ],
+        env: { COUNTER_FILE: counterFile },
+        messagePlacement: "stdin"
+      }
+    };
+    const logs: Array<{ msg: string; extra?: unknown }> = [];
+    const executor = new ToolExecutor({
+      log: (msg, extra) => logs.push({ msg, extra }),
+      stallTimeoutMs: 200,
+      stallRetries: 2
+    });
+
+    const output = await executor.execute(profile, "go");
+    expect(output).toContain("second run done");
+    expect(fs.readFileSync(counterFile, "utf8").trim()).toBe("2");
+    expect(logs.some((entry) => entry.msg.includes("relaunching the same task"))).toBe(true);
+  });
+
+  it("stops relaunching after stallRetries and rejects with the stall error", async () => {
+    const counterFile = path.join(tmpRoot, "always-stall-counter");
+    const profile: Profile = {
+      name: "custom-always-stall",
+      tool: "CUSTOM",
+      custom: {
+        launchBin: process.execPath,
+        args: [
+          "-e",
+          [
+            "const fs = require('fs');",
+            "const file = process.env.COUNTER_FILE;",
+            "let n = 0;",
+            "try { n = parseInt(fs.readFileSync(file, 'utf8'), 10) || 0; } catch {}",
+            "n++;",
+            "fs.writeFileSync(file, String(n));",
+            "process.stdout.write('run ' + n + '\\n');",
+            "setInterval(() => {}, 1000);"
+          ].join("")
+        ],
+        env: { COUNTER_FILE: counterFile },
+        messagePlacement: "stdin"
+      }
+    };
+    const logs: Array<{ msg: string; extra?: unknown }> = [];
+    const executor = new ToolExecutor({
+      log: (msg, extra) => logs.push({ msg, extra }),
+      stallTimeoutMs: 150,
+      stallRetries: 2 // 3 runs total before failing
+    });
+
+    await expect(executor.execute(profile, "go")).rejects.toThrow(/stalled/i);
+    expect(fs.readFileSync(counterFile, "utf8").trim()).toBe("3");
+    const relaunches = logs.filter((entry) => entry.msg.includes("relaunching the same task"));
+    expect(relaunches.length).toBe(2);
   });
 
   it("does not stall a child that keeps producing output", async () => {

@@ -7,6 +7,7 @@ import {
   clearState,
   isProcessAlive,
   killProcess,
+  killProcessTree,
   killRegisteredTools,
   readState,
   registerToolPid,
@@ -29,9 +30,47 @@ afterEach(() => {
 
 function spawnSleeper(): number {
   const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
-    stdio: "ignore"
+    stdio: "ignore",
+    detached: true // group leader, like production tool children
   });
   return child.pid!;
+}
+
+/** Spawn a detached leader that itself spawns a grandchild — mirrors the
+ *  two-level tool CLIs (node wrapper → real binary). */
+function spawnTree(): { leader: number; getGrandchild: () => number } {
+  let grandchild = 0;
+  const child = spawn(
+    process.execPath,
+    [
+      "-e",
+      "const {spawn}=require('node:child_process');" +
+        "const g=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});" +
+        "console.log('GC:'+g.pid);" +
+        "setInterval(()=>{},1000)"
+    ],
+    { stdio: ["ignore", "pipe", "ignore"], detached: true }
+  );
+  child.stdout.on("data", (d) => {
+    const m = /GC:(\d+)/.exec(d.toString());
+    if (m) grandchild = Number(m[1]);
+  });
+  return { leader: child.pid!, getGrandchild: () => grandchild };
+}
+
+function waitFor(fn: () => boolean, ms = 3000): Promise<void> {
+  const deadline = Date.now() + ms;
+  return new Promise((resolve, reject) => {
+    const t = setInterval(() => {
+      if (fn()) {
+        clearInterval(t);
+        resolve();
+      } else if (Date.now() > deadline) {
+        clearInterval(t);
+        reject(new Error("condition not met in time"));
+      }
+    }, 50);
+  });
 }
 
 describe("daemonState", () => {
@@ -77,6 +116,21 @@ describe("daemonState", () => {
     for (const pid of pids) {
       expect(isProcessAlive(pid)).toBe(false);
     }
+  });
+
+  it("killProcessTree kills the whole two-level tree, not just the leader", async () => {
+    const { leader, getGrandchild } = spawnTree();
+    await waitFor(() => getGrandchild() !== 0 && isProcessAlive(leader));
+    const grandchild = getGrandchild();
+    expect(isProcessAlive(leader)).toBe(true);
+    expect(isProcessAlive(grandchild)).toBe(true);
+
+    await killProcessTree(leader);
+
+    expect(isProcessAlive(leader)).toBe(false);
+    // The grandchild must NOT survive its parent's death (the old bug: killing
+    // only the direct child orphaned the real tool binary).
+    expect(isProcessAlive(grandchild)).toBe(false);
   });
 
   it("clearState removes the registry file", () => {

@@ -20,6 +20,12 @@ export const DaemonConfig = z.object({
      * provider call from freezing the progress message forever. `0` disables.
      */
     stallTimeoutMs: z.number().int().min(0).default(15 * 60_000),
+    /**
+     * After a stall timeout the same task is killed and relaunched (so progress
+     * keeps updating under the same session) up to this many times before the
+     * task finally fails. `0` disables the relaunch.
+     */
+    stallRetries: z.number().int().min(0).max(10).default(3),
     /** Global in-flight cap across profiles. */
     maxConcurrency: z.number().int().min(1).max(32).default(4),
     profiles: z.array(Profile).min(1).max(MAX_PROFILES_PER_DAEMON),

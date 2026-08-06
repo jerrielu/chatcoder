@@ -360,18 +360,28 @@ We solve it with an **idle-quiet heuristic**:
 
 `ToolExecutor.execute()` arms a watchdog timer that is **reset on every output
 chunk** (stdout/stderr). If the child process emits nothing for
-`stallTimeoutMs` (default 15 minutes, `0` disables), the process is killed
-(SIGTERM → SIGKILL after a 2 s grace) and the execution rejects with a
-descriptive error, which the runner posts as a final response so the task
-completes and the session unblocks.
+`stallTimeoutMs` (default 15 minutes, `0` disables), the process group is
+killed (SIGTERM → SIGKILL after a 2 s grace) and — since 0.12.0 — **the same
+task is automatically relaunched** (same message, same resume flags) so
+progress keeps updating under the same session, up to `stallRetries` times
+(default 3, `0` disables the relaunch = the old fail-fast behaviour). Only when
+the relaunch attempts are exhausted does the execution reject with a
+descriptive `StallTimeoutError`, which the runner posts as a final response so
+the task completes and the session unblocks.
 
 This matters because a hung provider call or dead network produces **no output
 at all**: without the watchdog, the progress timer has nothing to flush, the
 Telegram progress message freezes at the last chunk, and the in-progress DB row
 blocks the session forever (observed as a 2.5 h freeze in production). The
-watchdog turns that into a clear error the user can act on (check
-provider/network, retry). It applies to every tool type (reasonix / claude /
-codex / custom), not just the PTY path.
+watchdog turns that into either a transparent re-run (transient hang) or a
+clear error the user can act on (check provider/network, retry). It applies to
+every tool type (reasonix / claude / codex / custom), not just the PTY path.
+
+Tool children are spawned `detached` so each is a process-group leader, and
+every kill path (stall, abort, shutdown, startup sweep) kills the whole group
+via `kill(-pid)` — tool CLIs are two-level (a node wrapper that spawns the
+real binary), and killing only the direct child used to orphan the binary,
+leaving frozen tasks running after restarts.
 
 ### 7.2 Session-reset reaction
 `/poll` can return `{ reset: true }`. The daemon kills codex immediately,
@@ -406,13 +416,17 @@ session's progress message and pushed host load to ~7.5.
 1. **Daemon registry** (`packages/daemon/src/daemonState.ts`):
    `~/.chatcoder/daemon-state.json` = `{ daemonPid, startedAt, toolPids }`,
    written atomically (tmp + rename). `ToolExecutor` registers each child PID
-   on spawn and unregisters on close.
+   on spawn and unregisters on close. Tool children are spawned `detached`
+   (process-group leaders) so `killProcessTree`/`kill(-pid)` can reach the
+   whole two-level CLI tree (node wrapper → real binary), not just the direct
+   child.
 2. **Startup sweep**: before registering with the bot, the daemon kills the
-   previous daemon (if alive) and every registered tool PID, then claims sole
-   ownership. Restart is therefore a clean handover, never a stack-up.
-3. **Exit cleanup**: SIGINT/SIGTERM kills registered tool children and clears
-   the registry; a sync `process.on("exit")` handler SIGKILLs them as a
-   fallback for hard kills/crashes.
+   previous daemon (if alive) and every registered tool **tree** (`killProcessTree`),
+   then claims sole ownership. Restart is therefore a clean handover, never a
+   stack-up.
+3. **Exit cleanup**: SIGINT/SIGTERM kills registered tool trees and clears
+   the registry; a sync `process.on("exit")` handler SIGKILLs each group
+   (`kill(-pid)`) as a fallback for hard kills/crashes.
 4. **Periodic self-sweep** (60 s): if another daemon took over the registry,
    the superseded daemon kills its children and exits; dead tool PIDs are
    pruned.
@@ -487,7 +501,8 @@ apiKey: cc_xxxxxxxx…
 pollIntervalMs: 2000
 heartbeatIntervalMs: 15000
 idleShutdownMs: 3600000       # 1 hour
-stallTimeoutMs: 900000         # 15 min without tool output → kill + fail task (0 disables)
+stallTimeoutMs: 900000         # 15 min without tool output → kill + relaunch task (0 disables)
+stallRetries: 3                # relaunch attempts after a stall before failing (0 disables relaunch)
 codexCommand: codex
 codexArgs: []
 cwd: /home/you/projects/myrepo

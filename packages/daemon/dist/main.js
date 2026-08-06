@@ -24,16 +24,8 @@ async function sweepStaleInstances(log) {
         await killProcess(before.daemonPid);
     }
     // Now the old daemon is dead, so its registered tool children are stale.
-    // Kill them (they were the frozen-progress CPU burners).
-    const after = readState();
-    if (after) {
-        for (const pid of after.toolPids) {
-            if (isProcessAlive(pid)) {
-                log(`stale tool process ${pid} — killing it`);
-                await killProcess(pid);
-            }
-        }
-    }
+    // Kill them and their descendants (the frozen-progress CPU burners).
+    await killRegisteredTools();
     // Claim sole ownership.
     writeState({ daemonPid: process.pid, startedAt: Date.now(), toolPids: [] });
 }
@@ -64,14 +56,15 @@ async function runDaemon() {
     // anything else so we are guaranteed to be the only daemon instance.
     await sweepStaleInstances(log);
     // Sync fallback for unexpected exits (SIGKILL, crash, process.exit): kill
-    // whatever tool children we registered so they can never be orphaned.
+    // whatever tool children we registered so they can never be orphaned. Tool
+    // children are detached group leaders, so -pid reaches the whole tree.
     process.on("exit", () => {
         const state = readState();
         if (!state || state.daemonPid !== process.pid)
             return;
         for (const pid of state.toolPids) {
             try {
-                process.kill(pid, "SIGKILL");
+                process.kill(-pid, "SIGKILL");
             }
             catch {
                 // Already gone.
@@ -97,7 +90,11 @@ async function runDaemon() {
         console.error("[daemon] register failed:", err);
         process.exit(1);
     }
-    const tool = new ToolExecutor({ log, stallTimeoutMs: cfg.stallTimeoutMs });
+    const tool = new ToolExecutor({
+        log,
+        stallTimeoutMs: cfg.stallTimeoutMs,
+        stallRetries: cfg.stallRetries
+    });
     const sessionManager = new SessionManager({
         config: cfg,
         tool,

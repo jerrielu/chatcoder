@@ -111,7 +111,8 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 
 | Key               | Default           | Purpose                                                        |
 |-------------------|-------------------|----------------------------------------------------------------|
-| `stallTimeoutMs`  | `900000` (15 min) | Kill a tool process that emits no output for this long and fail the task with an error instead of freezing the progress message forever (`0` disables) |
+| `stallTimeoutMs`  | `900000` (15 min) | Kill a tool process that emits no output for this long and relaunch the same task under the same session (`0` disables) |
+| `stallRetries`    | `3`               | How many times a stalled task is killed and relaunched before it fails with an error (`0` = fail on the first stall) |
 | `pollIntervalMs`  | `2000`            | How often the daemon polls the bot API for new instructions    |
 | `heartbeatIntervalMs` | `15000`       | How often the daemon reports liveness                          |
 | `idleShutdownMs`  | `3600000` (1 h)   | Shut down the daemon after this long with no work              |

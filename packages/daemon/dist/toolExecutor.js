@@ -6,6 +6,17 @@ import { ensureCodexHome } from "./codexHome.js";
 import { stripAnsi } from "./ansi.js";
 import { registerToolPid, unregisterToolPid } from "./daemonState.js";
 const DEFAULT_STALL_TIMEOUT_MS = 15 * 60_000;
+const DEFAULT_STALL_RETRIES = 3;
+/** Thrown when the stall watchdog kills a child that produced no output for too long. */
+export class StallTimeoutError extends Error {
+    constructor(stallTimeoutMs) {
+        super(`Execution stalled: no output from the tool for ` +
+            `${Math.round(stallTimeoutMs / 1000)}s (stallTimeoutMs). ` +
+            `The process was terminated after the relaunch attempts were exhausted — ` +
+            `check the provider/network and retry.`);
+        this.name = "StallTimeoutError";
+    }
+}
 function codexFinalOutputPath(profileName) {
     const safeName = profileName.replace(/[^a-zA-Z0-9_-]/g, "_");
     return join(tmpdir(), `chatcoder-codex-final-${safeName}-${process.pid}-${Date.now()}.txt`);
@@ -187,13 +198,48 @@ export class ToolExecutor {
             cwd: launch.cwd
         });
         const stallTimeoutMs = this.opts.stallTimeoutMs ?? DEFAULT_STALL_TIMEOUT_MS;
+        // 1 initial run + `stallRetries` relaunches of the same task after stalls.
+        const maxAttempts = Math.max(1, (this.opts.stallRetries ?? DEFAULT_STALL_RETRIES) + 1);
+        for (let attempt = 1;; attempt++) {
+            try {
+                return await this.runOnce(profile, launch, execOpts, stallTimeoutMs);
+            }
+            catch (err) {
+                if (!(err instanceof StallTimeoutError))
+                    throw err;
+                // A user stop always wins — never relaunch after an abort.
+                if (execOpts.signal?.aborted || attempt >= maxAttempts)
+                    throw err;
+                this.log("tool execution stalled — killing and relaunching the same task", {
+                    profile: profile.name,
+                    attempt,
+                    maxAttempts
+                });
+            }
+        }
+    }
+    /**
+     * Runs a single launch of the tool. Streams stdout+stderr (ANSI-stripped via
+     * the caller's `onOutput`) and resolves with the full combined output; if the
+     * child exits non-zero the output is returned anyway (exit code is appended
+     * when there's nothing useful to show). Rejects with `StallTimeoutError` when
+     * the child emits no output for `stallTimeoutMs` — only after the child has
+     * fully exited, so the caller can relaunch the same task without two
+     * processes racing over the same resume session / final-output file.
+     */
+    runOnce(profile, launch, execOpts, stallTimeoutMs) {
         return new Promise((resolve, reject) => {
             let child;
             try {
+                // detached: true gives the tool its own process group (PGID = child
+                // PID). The tool CLIs are two-level (a node wrapper that spawns the
+                // real binary), so killing just the direct child orphans the binary —
+                // the stall/abort/cleanup paths kill the whole group instead.
                 child = spawn(launch.cmd, launch.args, {
                     cwd: launch.cwd,
                     env: launch.env,
-                    stdio: ["pipe", "pipe", "pipe"]
+                    stdio: ["pipe", "pipe", "pipe"],
+                    detached: true
                 });
             }
             catch (err) {
@@ -213,13 +259,30 @@ export class ToolExecutor {
             let settled = false;
             let abortKillTimer = null;
             let stallTimer = null;
-            /** SIGTERM then SIGKILL after a grace period — shared by abort and stall. */
+            // Set from the moment the stall watchdog fires until this run settles:
+            // the stall rejection (not the natural close handler) owns the outcome,
+            // so a killed child can't resolve the run as a "success".
+            let stallRejectPending = false;
+            /** SIGTERM then SIGKILL the whole process group — shared by abort and
+             *  stall. The tool is the group leader (spawned detached), so
+             *  kill(-pid) reaches the direct child AND any descendants it spawned
+             *  (e.g. reasonix's node wrapper → the real CLI binary). */
             const killChild = () => {
-                if (!child.killed)
-                    child.kill("SIGTERM");
+                const pid = child.pid;
+                if (pid === undefined)
+                    return;
+                try {
+                    process.kill(-pid, "SIGTERM");
+                }
+                catch {
+                    // Group already gone.
+                }
                 abortKillTimer ??= setTimeout(() => {
-                    if (child.exitCode === null && child.signalCode === null) {
-                        child.kill("SIGKILL");
+                    try {
+                        process.kill(-pid, "SIGKILL");
+                    }
+                    catch {
+                        // Already gone.
                     }
                 }, 2_000);
             };
@@ -227,6 +290,16 @@ export class ToolExecutor {
                 if (stallTimer)
                     clearTimeout(stallTimer);
                 stallTimer = null;
+            };
+            /** Resolves once the child has fully exited (or after a 3 s hard cap). */
+            const waitForExit = () => {
+                if (child.exitCode !== null || child.signalCode !== null) {
+                    return Promise.resolve();
+                }
+                return new Promise((resolveExit) => {
+                    child.once("close", () => resolveExit());
+                    setTimeout(resolveExit, 3_000);
+                });
             };
             /** (Re)arm the stall watchdog: kills the child if it goes silent too long. */
             const armStallWatchdog = () => {
@@ -242,10 +315,13 @@ export class ToolExecutor {
                         pid: child.pid,
                         stallTimeoutMs
                     });
+                    stallRejectPending = true;
                     killChild();
-                    settleReject(new Error(`Execution stalled: no output from the tool for ` +
-                        `${Math.round(stallTimeoutMs / 1000)}s (stallTimeoutMs). ` +
-                        `The process was terminated — check the provider/network and retry.`));
+                    // Wait for the child to actually die before rejecting so the retry
+                    // loop can relaunch the same task without racing the dying process.
+                    void waitForExit().then(() => {
+                        settleReject(new StallTimeoutError(stallTimeoutMs));
+                    });
                 }, stallTimeoutMs);
             };
             const settleResolve = (value) => {
@@ -312,6 +388,8 @@ export class ToolExecutor {
                 child.stdin.end();
             }
             child.on("close", (code) => {
+                if (stallRejectPending)
+                    return; // the stall rejection owns the outcome
                 const output = stripAnsi(stdout + stderr).trim();
                 const finalOutput = launch.finalOutputPath
                     ? readAndRemoveFinalOutput(launch.finalOutputPath)

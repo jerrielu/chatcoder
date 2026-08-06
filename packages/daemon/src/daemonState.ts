@@ -81,6 +81,41 @@ export async function killProcess(pid: number, graceMs = 2_000): Promise<void> {
   }
 }
 
+/**
+ * Kill a tool process AND its descendants by process group. Tool children are
+ * spawned `detached` (group leader = child PID), and tool CLIs are two-level
+ * (a node wrapper that spawns the real binary) — killing just the direct child
+ * orphans the binary, which is how frozen tasks kept running after restarts.
+ * `kill(-pid)` reaches every member of the group. Safe only for PIDs we
+ * spawned detached, i.e. registered tool PIDs.
+ */
+export async function killProcessTree(pid: number, graceMs = 2_000): Promise<void> {
+  if (!isProcessAlive(pid)) return;
+  try {
+    process.kill(-pid, "SIGTERM");
+  } catch {
+    // Group already gone.
+  }
+  const deadline = Date.now() + graceMs;
+  while (Date.now() < deadline && isProcessAlive(pid)) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  if (isProcessAlive(pid)) {
+    try {
+      process.kill(-pid, "SIGKILL");
+    } catch {
+      // Already gone.
+    }
+  }
+}
+
+/** Kill every tool process (and its descendants) recorded in the registry. */
+export async function killRegisteredTools(graceMs = 2_000): Promise<void> {
+  const state = readState();
+  if (!state) return;
+  await Promise.all(state.toolPids.map((pid) => killProcessTree(pid, graceMs)));
+}
+
 export function registerToolPid(pid: number): void {
   const state = readState() ?? { daemonPid: process.pid, startedAt: Date.now(), toolPids: [] };
   if (!state.toolPids.includes(pid)) {
@@ -96,13 +131,6 @@ export function unregisterToolPid(pid: number): void {
   if (next.length !== state.toolPids.length) {
     writeState({ ...state, toolPids: next });
   }
-}
-
-/** Kill every tool process recorded in the registry. */
-export async function killRegisteredTools(graceMs = 2_000): Promise<void> {
-  const state = readState();
-  if (!state) return;
-  await Promise.all(state.toolPids.map((pid) => killProcess(pid, graceMs)));
 }
 
 export function clearState(): void {
