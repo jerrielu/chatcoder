@@ -447,6 +447,29 @@ may re-queue a task the old daemon still finishes — an unlikely duplicate
 (requires ≥ 60 s without any heartbeat) rather than a frozen session; the
 daemon's 30 s request timeout (v0.9.3) makes the wedge window small.
 
+### 7.5 Reasonix always runs with auto permission mode
+
+Reasonix launches (daemon sessions via `reasonix run ...` and interactive TUI
+launches via `reasonix ...`) append `--permission-mode auto` **after** the
+profile's `extraArgs`, so every reasonix run auto-approves ordinary writer
+fallbacks while still asking for genuinely risky operations.
+
+**Options considered**
+
+| # | Option | Pros | Cons |
+|---|--------|------|------|
+| A | Per-profile `extraArgs: ["--permission-mode", "auto"]` in `config.yml` | No code change; per-profile control | Forgettable on new profiles (setup wizard starts with `extraArgs: []`); silently re-enables prompts if omitted |
+| B | Force `--permission-mode auto` in code, before `extraArgs` | Always on by default | Profiles could accidentally override it via `extraArgs` |
+| C | Force `--permission-mode auto` in code, **after** `extraArgs` (chosen) | Always on, cannot be overridden — one uniform behaviour for every reasonix run | A profile can no longer opt out per-profile |
+
+**Chosen: C.** The operator wants every reasonix run in auto mode, period.
+Placing the flag after `extraArgs` makes the guarantee unconditional, keeps the
+config files free of the repeated workaround, and matches how the CLIs are
+launched in both `packages/daemon/src/launcher.ts` (TUI) and
+`packages/daemon/src/toolExecutor.ts` (daemon sessions). If a per-profile
+opt-out is ever needed, the flag would move back into the profile config
+(option A).
+
 ---
 
 ## 8. Polling strategy

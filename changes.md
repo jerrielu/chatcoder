@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.1 (2026-08-15)
+
+- **Reasonix profiles now always run with auto permission mode** — Every
+  reasonix launch (`reasonix run ...` for daemon sessions, `reasonix ...` for
+  interactive TUI launches) now appends `--permission-mode auto` after the
+  profile's `extraArgs`, so the mode cannot be overridden per-profile and the
+  `extraArgs: ["--permission-mode", "auto"]` workaround is no longer needed in
+  `~/.chatcoder/config.yml`. Auto mode auto-approves ordinary writer fallbacks
+  while still asking for genuinely risky operations.
+  (packages/daemon/src/launcher.ts, packages/daemon/src/toolExecutor.ts,
+  packages/daemon/test/toolExecutor.test.ts — see design.md §reasonix-auto-mode)
+
 ## 0.12.0 (2026-08-06)
 
 - **Feature: on stall timeout the task is now killed AND relaunched under the

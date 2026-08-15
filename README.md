@@ -118,6 +118,12 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 | `idleShutdownMs`  | `3600000` (1 h)   | Shut down the daemon after this long with no work              |
 | `maxConcurrency`  | `4`               | Max tool processes running at once                             |
 
+> **Reasonix permission mode:** all reasonix runs (bot sessions and TUI
+> launches) are forced to auto permission mode (`--permission-mode auto`,
+> appended after any profile `extraArgs`), so they auto-approve ordinary
+> writer fallbacks while still asking for genuinely risky operations. This
+> cannot be overridden per profile. See [design.md §7.5](./design.md).
+
 **Stale-process recovery (automatic):** the daemon keeps a single-instance
 registry at `~/.chatcoder/daemon-state.json`. On startup it kills any daemon
 from a previous run and its leftover tool processes, then claims sole

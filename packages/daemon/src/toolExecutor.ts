@@ -174,6 +174,9 @@ export function buildLaunch(
     if (resumeLastSession) args.push("-c");
     if (c.model) args.push("--model", c.model);
     args.push(...c.extraArgs);
+    // Forced: reasonix always runs in auto permission mode (cannot be
+    // overridden by profile extraArgs). See design.md §reasonix-auto-mode.
+    args.push("--permission-mode", "auto");
     args.push(message);
     return {
       cmd: "reasonix",

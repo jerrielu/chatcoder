@@ -222,6 +222,51 @@ describe("buildLaunch", () => {
     ]);
   });
 
+  it("runs reasonix with run subcommand and forced auto permission mode", () => {
+    const profile: Profile = {
+      name: "rx",
+      tool: "REASONIX",
+      reasonix: {
+        model: "deepseek-flash/deepseek-v4-flash",
+        extraArgs: ["--verbose"]
+      }
+    };
+    const launch = buildLaunch(profile, "implement the TODO", true);
+    expect(launch.cmd).toBe("reasonix");
+    expect(launch.args).toEqual([
+      "run",
+      "-c",
+      "--model",
+      "deepseek-flash/deepseek-v4-flash",
+      "--verbose",
+      "--permission-mode",
+      "auto",
+      "implement the TODO"
+    ]);
+  });
+
+  it("forces auto permission mode even when extraArgs try to override it", () => {
+    const profile: Profile = {
+      name: "rx2",
+      tool: "REASONIX",
+      reasonix: {
+        model: "mimo-opencode-go/mimo-v2.5",
+        extraArgs: ["--permission-mode", "manual"]
+      }
+    };
+    const launch = buildLaunch(profile, "do the thing", false);
+    expect(launch.args).toEqual([
+      "run",
+      "--model",
+      "mimo-opencode-go/mimo-v2.5",
+      "--permission-mode",
+      "manual",
+      "--permission-mode",
+      "auto",
+      "do the thing"
+    ]);
+  });
+
   it("CUSTOM appended placement adds message as last arg", () => {
     const profile: Profile = {
       name: "c",

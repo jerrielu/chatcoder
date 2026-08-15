@@ -60,6 +60,9 @@ export async function launchProfile(profile: Profile, cwd?: string): Promise<num
     args = [];
     if (c.model) args.push("--model", c.model);
     args.push(...c.extraArgs);
+    // Forced: reasonix always runs in auto permission mode (cannot be
+    // overridden by profile extraArgs). See design.md §reasonix-auto-mode.
+    args.push("--permission-mode", "auto");
     cmd = "reasonix";
   } else {
     const c = profile.custom;
