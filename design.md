@@ -54,6 +54,13 @@ the release build of both services (`chat` bot service and `coder --daemon`)
 from their compiled `dist` artifacts concurrently, forwarding SIGINT/SIGTERM
 to both child processes. See `scripts/start.mjs`.
 
+**`npm run pm2:start`:** for supervised production runs, the root `pm2:start`
+script builds and then asks PM2 to run both services as named processes —
+`chatcoder-chat` and `chatcoder-coder` — launched from the repo-local
+`bin/chatcoder.js` (so they use the compiled `dist` output), then saves the
+PM2 process list. It is idempotent: it starts a new instance the first time
+and restarts an existing one on later runs. See `scripts/pm2-start.mjs`.
+
 ---
 
 ## 2. Persistence layer

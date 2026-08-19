@@ -51,6 +51,7 @@ npm run build
 | Command | What it does |
 |---------|-------------|
 | `npm start` | Build release artifacts and run **both** the bot chat service and the coder daemon (`coder --daemon`) |
+| `npm run pm2:start` | Build and run **both** services under PM2 (`chatcoder-chat`, `chatcoder-coder`) |
 | `npm run dev:coder` | TUI interactive menu |
 | `npm run dev:coder -- --daemon` | Daemon mode (connects to bot) |
 | `npm run dev:chat` | Bot HTTP API service (port 8080) |
@@ -148,6 +149,13 @@ processes and frozen progress messages can no longer accumulate.
 ## PM2 (Production)
 
 Run both services under PM2 for automatic restarts and logging:
+
+```bash
+cd <chatcoder repo>
+npm run pm2:start          # builds and runs BOTH chat and coder under PM2
+```
+
+Or start them manually:
 
 ```bash
 npm install -g pm2

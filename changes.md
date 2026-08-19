@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.3 (2026-08-19)
+
+- **Feature: `npm run pm2:start` runs both services under PM2 with one
+  command** — Builds the release artifacts and starts (or restarts, if the
+  processes already exist) `chatcoder-chat` and `chatcoder-coder` as PM2
+  processes, launched from the repo-local `bin/chatcoder.js` so they run the
+  compiled `dist` output, then saves the PM2 process list. Idempotent: starts
+  new instances or restarts existing ones.
+  (package.json, scripts/pm2-start.mjs)
+
 ## 0.12.2 (2026-08-19)
 
 - **Fix: `npm install` no longer fails with `404 Not Found - GET
