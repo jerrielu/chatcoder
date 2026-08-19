@@ -36,6 +36,24 @@ also work, but `better-sqlite3` is a native addon, so after changing Node
 you must run `npm rebuild better-sqlite3` (or a fresh `npm install`) to
 recompile it.
 
+**Workspace dependency strategy:** the `bot`, `daemon` and `dashboard`
+workspaces depend on the private `@chatcoder/shared` workspace package. The
+dependency reference is pinned to the same version as the monorepo (e.g.
+`"@chatcoder/shared": "0.12.2"`) rather than `workspace:*` — npm versions in
+this environment ship an old `npm-package-arg` that does not understand the
+`workspace:` protocol. When the reference matches the local package version,
+npm links `node_modules/@chatcoder/shared` to `packages/shared` via a symlink
+and never queries the registry; a mismatched (stale) reference makes npm fall
+back to the registry and fail with `404 Not Found - GET
+https://registry.npmjs.org/@chatcoder%2fshared`. **Every version bump must
+therefore keep the `@chatcoder/shared` reference in `packages/{bot,daemon,dashboard}/package.json`
+in sync with the workspace version.**
+
+**`npm start`:** the root `start` script runs `npm run build` and then launches
+the release build of both services (`chat` bot service and `coder --daemon`)
+from their compiled `dist` artifacts concurrently, forwarding SIGINT/SIGTERM
+to both child processes. See `scripts/start.mjs`.
+
 ---
 
 ## 2. Persistence layer

@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.12.2 (2026-08-19)
+
+- **Fix: `npm install` no longer fails with `404 Not Found - GET
+  https://registry.npmjs.org/@chatcoder%2fshared`** — The `bot`, `daemon` and
+  `dashboard` workspaces declared `@chatcoder/shared` as version `0.1.0`, but
+  the actual local workspace package is versioned with the monorepo (currently
+  `0.x.y`). Because `0.1.0` could not match the local workspace package, npm
+  fell back to fetching it from the registry — where it does not exist (it's a
+  private workspace package), producing the 404. The references now pin the
+  workspace package version so npm links `node_modules/@chatcoder/shared`
+  locally via a symlink and never touches the registry. Note: this environment's
+  npm does not support the `workspace:*` protocol, so the matching-version pin
+  is used instead; keep the `@chatcoder/shared` reference in sync with the
+  workspace version on every bump.
+  (packages/bot/package.json, packages/daemon/package.json,
+  packages/dashboard/package.json, package-lock.json)
+- **Fix: dashboard production build was failing** — `src/config.ts` uses
+  `import.meta.env`, which requires Vite client types that were missing from
+  the dashboard tsconfig, so `npm run build` (and thus `npm start`) errored
+  with `TS2339: Property 'env' does not exist on type 'ImportMeta'`. Added
+  `"types": ["vite/client"]` to `packages/dashboard/tsconfig.json`.
+- **Feature: `npm start` now builds and runs the release version of both
+  services** — Adds a root `start` script that runs `npm run build` and then
+  launches the `chat` (bot API, port 8080) and `coder --daemon` services from
+  their built `dist` artifacts concurrently, forwarding SIGINT/SIGTERM to both.
+  (package.json, scripts/start.mjs)
+
 ## 0.12.1 (2026-08-15)
 
 - **Reasonix profiles now always run with auto permission mode** — Every

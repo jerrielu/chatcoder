@@ -50,6 +50,7 @@ npm run build
 
 | Command | What it does |
 |---------|-------------|
+| `npm start` | Build release artifacts and run **both** the bot chat service and the coder daemon (`coder --daemon`) |
 | `npm run dev:coder` | TUI interactive menu |
 | `npm run dev:coder -- --daemon` | Daemon mode (connects to bot) |
 | `npm run dev:chat` | Bot HTTP API service (port 8080) |
@@ -84,6 +85,11 @@ options:
 ## Quick Start
 
 ```bash
+# One command: build and run both the bot (chat) and the coder daemon
+export TELEGRAM_BOT_TOKEN=123456:ABC-xxxxxxxx
+npm start
+
+# Or run them separately:
 # Terminal 1: start the bot
 export TELEGRAM_BOT_TOKEN=123456:ABC-xxxxxxxx
 chatcoder chat
