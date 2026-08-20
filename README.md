@@ -68,13 +68,17 @@ npm install
 npm run build
 ```
 
-> **Voice transcription** (optional): to use voice messages, install `ffmpeg`:
+> **Voice transcription** (optional): to use voice messages, install `ffmpeg`
+> and the `whisper-node` npm dependency (its bundled whisper.cpp is compiled via
+> cmake on install):
 > ```bash
-> sudo apt-get install ffmpeg
+> sudo apt-get install ffmpeg cmake build-essential
+> npm install whisper-node
 > ```
-> The first time a voice message is received, whisper.cpp will be compiled and
-> the multilingual `base` model (~142 MB) will be downloaded automatically
-> via the `whisper-node` npm dependency.
+> The multilingual `base` model (~142 MB) is downloaded automatically on first use.
+> If `whisper-node` is not installed, the bot keeps working normally — text
+> commands and menus are unaffected — but a voice message returns a notice that
+> transcription is unavailable and asks the user to type their instruction.
 >
 
 ---

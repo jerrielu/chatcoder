@@ -790,6 +790,18 @@ locally on the server using whisper.cpp (the C++ port of OpenAI's Whisper).
 7. The transcribed text is shown to the user, then injected into the same
    `handleInstructionSubmission()` flow as a typed instruction.
 
+### Optional dependency & graceful degradation
+
+Voice transcription depends on the optional `whisper-node` npm package (and its
+bundled, cmake-built whisper.cpp). The `transcription` module does **not**
+require it at import time: `isTranscriptionAvailable()` checks for the
+`whisper-node` install, and `transcribeAudio()` returns `""` (with a warning)
+when it is absent, so the rest of the bot keeps working. If a user sends a
+voice message on a server without whisper installed, the voice handler replies
+that transcription is unavailable and asks them to type their instruction
+instead. The absence of `whisper-node` therefore degrades only voice
+transcription, never the core text/menus functionality.
+
 ### Language support
 
 The multilingual `base` model supports 99 languages. English and Chinese are

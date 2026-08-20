@@ -3,7 +3,7 @@ import { ApiError, ERROR_CODES } from "@chatcoder/shared";
 import { handleApiKeySubmission, handleCodeRequest, handleFolderMenu, handleFolderPicked, handleInstructionSubmission, handleLatestProgress, handleMenu, handleNewCodeRequest, handleNewCodeReviewRequest, handleNewSessionCancel, handleNewSessionRequest, handlePlainText, handleProfileMenu, handleProfilePicked, handleStart, handleStatus, handleStop, handleVersion, handleWorkDirPicked } from "./handlers.js";
 import { CB, mainMenu, parseFolderCallback, parseProfileCallback, parseWorkDirCallback } from "./menus.js";
 import { sendTelegramWithRetry } from "./telegramSend.js";
-import { transcribeAudio } from "./transcription.js";
+import { transcribeAudio, isTranscriptionAvailable } from "./transcription.js";
 export function createBot(opts) {
     const bot = new Bot(opts.telegramBotToken);
     wireBot(bot, opts);
@@ -132,7 +132,13 @@ export function wireBot(bot, deps) {
             // 3. Transcribe
             const text = await transcribeAudio(audioBuffer);
             if (!text) {
-                await ctx.api.sendMessage(ctx.chat.id, "❌ Could not transcribe voice message. The audio may be too long or unclear.");
+                if (!isTranscriptionAvailable()) {
+                    await ctx.api.sendMessage(ctx.chat.id, "🎤 Voice transcription is not available on this server (whisper not installed). " +
+                        "Please type your instruction instead.");
+                }
+                else {
+                    await ctx.api.sendMessage(ctx.chat.id, "❌ Could not transcribe voice message. The audio may be too long or unclear.");
+                }
                 return;
             }
             // 4. Show the user what was transcribed

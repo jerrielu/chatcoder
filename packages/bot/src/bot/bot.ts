@@ -30,7 +30,7 @@ import {
   parseWorkDirCallback
 } from "./menus.js";
 import { sendTelegramWithRetry } from "./telegramSend.js";
-import { transcribeAudio } from "./transcription.js";
+import { transcribeAudio, isTranscriptionAvailable } from "./transcription.js";
 
 export interface CreateBotOptions extends HandlerDeps {
   // telegramBotToken is inherited from HandlerDeps
@@ -181,10 +181,18 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
       // 3. Transcribe
       const text = await transcribeAudio(audioBuffer);
       if (!text) {
-        await ctx.api.sendMessage(
-          ctx.chat.id,
-          "❌ Could not transcribe voice message. The audio may be too long or unclear."
-        );
+        if (!isTranscriptionAvailable()) {
+          await ctx.api.sendMessage(
+            ctx.chat.id,
+            "🎤 Voice transcription is not available on this server (whisper not installed). " +
+              "Please type your instruction instead."
+          );
+        } else {
+          await ctx.api.sendMessage(
+            ctx.chat.id,
+            "❌ Could not transcribe voice message. The audio may be too long or unclear."
+          );
+        }
         return;
       }
 

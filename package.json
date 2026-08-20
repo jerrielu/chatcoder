@@ -1,8 +1,9 @@
 {
   "name": "chatcoder",
   "private": true,
-  "version": "0.12.4",
+  "version": "0.12.5",
   "description": "Remote codex control via Telegram — monorepo root",
+  "type": "module",
   "repository": "github:jerrielu/chatcoder",
   "bin": {
     "chatcoder": "bin/chatcoder.js"

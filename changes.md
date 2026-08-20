@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.12.5 (2026-08-20)
+
+- **Fix: bot no longer crashes on startup when `whisper-node` is not installed**
+  — `packages/bot/src/bot/transcription.ts` resolved the whisper.cpp path
+  eagerly at module top-level via `realpathSync`. Because the bot imports that
+  module unconditionally, a missing (or not-yet-built) `whisper-node`
+  dependency threw `ENOENT` and took down the entire `chatcoder-chat` process
+  — breaking text commands, the menu, etc., not just voice transcription.
+  Resolution is now lazy and non-fatal: a new `isTranscriptionAvailable()`
+  guard lets import succeed, and `transcribeAudio()` warns and returns `""`
+  when the optional dependency is absent. The voice handler now tells the user
+  transcription is unavailable instead of a misleading "could not transcribe"
+  message. (packages/bot/src/bot/transcription.ts, packages/bot/src/bot/bot.ts)
+- **Fix: removed `MODULE_TYPELESS_PACKAGE_JSON` reparse warning for
+  `bin/chatcoder.js`** — The root `package.json` had no `"type"` field, so Node
+  reparsed the ESM CLI entry point as a module with a performance overhead
+  warning. Added `"type": "module"` (all root `.js` files are already ESM and
+  none use `require()`). (package.json)
+
 ## 0.12.4 (2026-08-20)
 
 - **Fix: `npm install` (and `build:runtime`/`typecheck`) no longer fails with

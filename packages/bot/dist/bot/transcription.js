@@ -6,23 +6,31 @@
  * English and Chinese (auto-detected).
  */
 import { spawnSync } from "node:child_process";
-import { writeFileSync, unlinkSync, realpathSync } from "node:fs";
+import { writeFileSync, unlinkSync, existsSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 // ── Paths into the whisper-node installation ──────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-/** Resolve a path relative to this module, walking up to node_modules. */
-function whisperCppPath(...segments) {
-    // At runtime we are in packages/bot/dist/bot/transcription.js
-    // Walk: dist/bot/ → dist/ → bot/ → packages/ → repo-root/
-    const root = join(__dirname, "..", "..", "..", "..");
-    return realpathSync(join(root, "node_modules", "whisper-node", "lib", "whisper.cpp", ...segments));
+// At runtime we are in packages/bot/dist/bot/transcription.js
+// Walk: dist/bot/ → dist/ → bot/ → packages/ → repo-root/
+const REPO_ROOT = join(__dirname, "..", "..", "..", "..");
+const WHISPER_NODE_LIB = join(REPO_ROOT, "node_modules", "whisper-node", "lib", "whisper.cpp");
+/**
+ * Whether local voice transcription is usable: the optional `whisper-node`
+ * dependency (and its bundled whisper.cpp build) must be installed.
+ *
+ * Resolved lazily and non-fatally so that importing this module never crashes
+ * the bot when the optional dependency is absent.
+ */
+export function isTranscriptionAvailable() {
+    return existsSync(WHISPER_NODE_LIB);
 }
-const WHISPER_CPP_DIR = whisperCppPath();
-const MAIN_BIN = join(WHISPER_CPP_DIR, "build", "bin", "main");
-const MODEL_PATH = join(WHISPER_CPP_DIR, "models", "ggml-base.bin");
+/** Resolve a path relative to the whisper.cpp installation. */
+function whisperCppPath(...segments) {
+    return realpathSync(join(WHISPER_NODE_LIB, ...segments));
+}
 /**
  * Transcribe an OGG Opus audio buffer (as downloaded from Telegram) to text.
  *
@@ -31,6 +39,15 @@ const MODEL_PATH = join(WHISPER_CPP_DIR, "models", "ggml-base.bin");
  * @returns            The transcribed text, or an empty string on failure.
  */
 export async function transcribeAudio(audioBuffer, opts = {}) {
+    if (!isTranscriptionAvailable()) {
+        console.warn("[transcription] whisper-node is not installed; skipping voice transcription.");
+        return "";
+    }
+    // Resolve the whisper.cpp binary and model lazily — only once we know the
+    // optional dependency is present, so a missing install never crashes import.
+    const WHISPER_CPP_DIR = whisperCppPath();
+    const MAIN_BIN = join(WHISPER_CPP_DIR, "build", "bin", "main");
+    const MODEL_PATH = join(WHISPER_CPP_DIR, "models", "ggml-base.bin");
     const tmpId = `chatcoder-voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const oggPath = join(tmpdir(), `${tmpId}.ogg`);
     const wavPath = join(tmpdir(), `${tmpId}.wav`);
