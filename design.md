@@ -740,12 +740,20 @@ These are all manually bumped together when the version changes. The
 | D | **Build-time generation** (chosen)              | Single source of truth (root package.json); generated file is gitignored, never drifts | One small prebuild script to maintain |
 
 **Chosen: D — build-time generation from root `package.json`.** The root
-package.json is the single source of truth. Before `tsc -b` for the shared
-package, `scripts/generate-version.mjs` reads the root `package.json` version
-and writes `packages/shared/src/generated-version.ts`. This file is gitignored
-so it never pollutes the working tree. Step 1 of the Post-Change Automation in
-AGENTS.md lists every file that carries the version (now only package.json
-files; the constants.ts entry was removed since it is auto-generated).
+package.json is the single source of truth. `scripts/generate-version.mjs` reads
+the root `package.json` version and writes
+`packages/shared/src/generated-version.ts`. This file is gitignored so it never
+pollutes the working tree. Generation is wired into two places so the file
+always exists before `tsc` resolves the import: (1) the `shared` package's npm
+`prebuild` hook, and (2) the root `generate-version` script, which the root
+`build:runtime` and `typecheck` scripts run explicitly **before** their direct
+`tsc -b` invocations. The root scripts call `tsc -b` directly (to drive the
+project references) rather than `npm run build`, so they must generate the file
+themselves — relying solely on the `shared` `prebuild` hook would skip it and
+break compilation (and thus `npm install` → `prepare` → `build:runtime`). Step 1
+of the Post-Change Automation in AGENTS.md lists every file that carries the
+version (now only package.json files; the constants.ts entry was removed since
+it is auto-generated).
 
 ### 15.1 Changelog (`changes.md`)
 

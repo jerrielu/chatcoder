@@ -1,7 +1,7 @@
 {
   "name": "chatcoder",
   "private": true,
-  "version": "0.12.3",
+  "version": "0.12.4",
   "description": "Remote codex control via Telegram — monorepo root",
   "repository": "github:jerrielu/chatcoder",
   "bin": {
@@ -18,11 +18,12 @@
   },
   "scripts": {
     "build": "npm run build -ws --if-present",
-    "build:runtime": "tsc -b packages/shared packages/bot packages/daemon --pretty",
+    "generate-version": "node scripts/generate-version.mjs",
+    "build:runtime": "npm run generate-version && tsc -b packages/shared packages/bot packages/daemon --pretty",
     "clean": "rm -rf packages/*/dist coverage",
     "lint": "eslint \"packages/*/src/**/*.ts\" \"packages/*/test/**/*.ts\"",
     "prepare": "node scripts/prepare.mjs",
-    "typecheck": "tsc -b packages/shared packages/bot packages/daemon packages/dashboard --pretty",
+    "typecheck": "npm run generate-version && tsc -b packages/shared packages/bot packages/daemon packages/dashboard --pretty",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "dev:chat": "npm run dev -w @chatcoder/bot",

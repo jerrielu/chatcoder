@@ -17,12 +17,14 @@ export class ApiClient {
     fetchImpl;
     retries;
     backoffMs;
+    timeout;
     constructor(opts) {
         this.baseUrl = opts.apiUrl.replace(/\/$/, "");
         this.apiKey = opts.apiKey;
         this.fetchImpl = opts.fetchImpl ?? fetch;
         this.retries = opts.retries ?? 3;
         this.backoffMs = opts.backoffMs ?? 500;
+        this.timeout = opts.timeout ?? 30_000;
     }
     async register(body) {
         const res = await this.request("POST", API_PATHS.daemonRegister, body);
@@ -45,31 +47,39 @@ export class ApiClient {
         const url = this.baseUrl + path;
         let lastErr;
         for (let attempt = 0; attempt <= this.retries; attempt++) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(new Error("Request timeout")), this.timeout);
             try {
-                const res = await this.fetchImpl(url, {
-                    method,
-                    headers: {
-                        authorization: `Bearer ${this.apiKey}`,
-                        "content-type": "application/json",
-                        accept: "application/json"
-                    },
-                    body: body === undefined ? undefined : JSON.stringify(body)
-                });
-                if (res.status === 401)
-                    throw new UnauthorizedError();
-                if (res.status === 410)
-                    throw new SessionRevokedError();
-                if (res.status >= 500) {
-                    lastErr = new Error(`server ${res.status}`);
+                try {
+                    const res = await this.fetchImpl(url, {
+                        method,
+                        headers: {
+                            authorization: `Bearer ${this.apiKey}`,
+                            "content-type": "application/json",
+                            accept: "application/json"
+                        },
+                        body: body === undefined ? undefined : JSON.stringify(body),
+                        signal: controller.signal
+                    });
+                    if (res.status === 401)
+                        throw new UnauthorizedError();
+                    if (res.status === 410)
+                        throw new SessionRevokedError();
+                    if (res.status >= 500) {
+                        lastErr = new Error(`server ${res.status}`);
+                    }
+                    else if (!res.ok) {
+                        const envelope = (await res.json().catch(() => null));
+                        const msg = envelope?.error?.message ?? `HTTP ${res.status}`;
+                        const code = envelope?.error?.code ?? ERROR_CODES.INTERNAL;
+                        throw new ApiClientError(code, `${code}: ${msg}`);
+                    }
+                    else {
+                        return (await res.json());
+                    }
                 }
-                else if (!res.ok) {
-                    const envelope = (await res.json().catch(() => null));
-                    const msg = envelope?.error?.message ?? `HTTP ${res.status}`;
-                    const code = envelope?.error?.code ?? ERROR_CODES.INTERNAL;
-                    throw new ApiClientError(code, `${code}: ${msg}`);
-                }
-                else {
-                    return (await res.json());
+                finally {
+                    clearTimeout(timer);
                 }
             }
             catch (e) {

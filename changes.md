@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.12.4 (2026-08-20)
+
+- **Fix: `npm install` (and `build:runtime`/`typecheck`) no longer fails with
+  `TS2307: Cannot find module './generated-version.js'`** — The shared package's
+  `APP_VERSION` is generated at build time into the gitignored
+  `packages/shared/src/generated-version.ts`, but generation only ran via the
+  `shared` npm `prebuild` hook. The root `build:runtime` and `typecheck` scripts
+  called `tsc -b` directly, bypassing that hook, so the file was never created
+  and `tsc` could not resolve the import. Since `npm install` → `prepare` →
+  `build:runtime` uses the same direct `tsc -b`, the install itself broke. Added
+  an explicit `generate-version` root script and run it before both `tsc -b`
+  invocations so the generated file always exists before compilation.
+  (package.json)
+
 ## 0.12.3 (2026-08-19)
 
 - **Feature: `npm run pm2:start` runs both services under PM2 with one
