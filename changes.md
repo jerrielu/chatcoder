@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.6 (2026-08-20)
+
+- **Fix: bot fails to start on Node ≥24 with `Could not locate the bindings
+  file` (better-sqlite3)** — The pinned `better-sqlite3@^11.0.0` / `^11.10.0`
+  does not ship a prebuilt native binary for Node 24, and the host has no C/C++
+  compiler to build from source, so `openDb()` threw at startup and crashed the
+  `chatcoder-chat` process. Bumped to `better-sqlite3@^13.0.0` (engines
+  `>=22`, prebuilt available for Node 24). The bot only uses the standard
+  constructor + `pragma` API, which is unchanged in v13. Verified the native
+  binding loads and the bot reaches "bot long-polling started".
+  (packages/bot/package.json, packages/daemon/package.json)
+
 ## 0.12.5 (2026-08-20)
 
 - **Fix: bot no longer crashes on startup when `whisper-node` is not installed**
