@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.12.4 (2026-08-20)
+
+- **Fix: `npm install -g .` produced a broken CLI (no runtime deps, no
+  `@chatcoder/shared`)** — `npm install -g .` performs a *linked* install that
+  symlinks the package to the source checkout and installs **none** of the
+  workspace runtime dependencies, so the globally installed `chatcoder` could
+  not resolve `fastify`, `grammy`, `better-sqlite3`, `@chatcoder/shared`, etc.
+  Replaced the documented install path with a self-contained tarball flow:
+  the root `package.json` now declares the union of `bot`+`daemon` runtime
+  dependencies plus `@chatcoder/shared` via `file:packages/shared`, a `files`
+  allowlist ships `bin/chatcoder.js`, `packages/{bot,daemon}/dist`, and
+  `packages/shared` (dist + package.json), `.gitignore` no longer excludes the
+  committed `dist`, and `scripts/prepare.mjs` skips the `tsc` build during
+  `npm pack` when prebuilt `dist` already exists. `npm install -g
+  /tmp/chatcoder-<version>.tgz` now installs all 200+ deps and links
+  `@chatcoder/shared` to the bundled package. Added `npm run pack:release`
+  (build then pack) and pointed `npm run local` at it. Native addon
+  `better-sqlite3` compiles at install time, so the host needs `make` + a
+  C/C++ toolchain (documented in README).
+  (package.json, .gitignore, scripts/prepare.mjs, README.md, design.md)
+
 ## 0.12.3 (2026-08-19)
 
 - **Feature: `npm run pm2:start` runs both services under PM2 with one

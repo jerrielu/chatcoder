@@ -49,6 +49,30 @@ https://registry.npmjs.org/@chatcoder%2fshared`. **Every version bump must
 therefore keep the `@chatcoder/shared` reference in `packages/{bot,daemon,dashboard}/package.json`
 in sync with the workspace version.**
 
+**Release / distribution packaging:** the global install is distributed as a
+self-contained npm tarball, **not** via `npm install -g .`. Two facts drove
+this:
+
+- `npm install -g .` does a *linked* install: it symlinks the package back to
+  the source checkout and installs **none** of the workspace runtime
+  dependencies, so the resulting CLI cannot resolve `fastify`, `grammy`,
+  `better-sqlite3`, `@chatcoder/shared`, etc.
+- `npm pack` honours `.gitignore`, which (until 0.12.4) excluded `dist/`, so
+  the tarball shipped raw `.ts` sources that Node cannot execute.
+
+The fix (0.12.4): the root `package.json` declares the union of `bot`+`daemon`
+runtime dependencies plus `"@chatcoder/shared": "file:packages/shared"`, and a
+`files` allowlist ships `bin/chatcoder.js`, `packages/{bot,daemon}/dist`, and
+`packages/shared` (its `dist` + `package.json`). `.gitignore` no longer ignores
+the committed `dist`, and `scripts/prepare.mjs` skips the `tsc` build during
+`npm pack` when the prebuilt `dist` is already present (the build toolchain is
+a devDependency, so a clean checkout must not require it). The
+`pack:release` script builds `dist` and packs in one step; `npm install -g
+/tmp/chatcoder-<version>.tgz` then installs all 200+ deps and symlinks
+`@chatcoder/shared` to the bundled `packages/shared`. Native addon
+`better-sqlite3` compiles at install time, so the host needs `make` + a C/C++
+toolchain.
+
 **`npm start`:** the root `start` script runs `npm run build` and then launches
 the release build of both services (`chat` bot service and `coder --daemon`)
 from their compiled `dist` artifacts concurrently, forwarding SIGINT/SIGTERM
