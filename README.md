@@ -12,22 +12,54 @@ for the build history.
 
 Requires Node 20+ and npm.
 
+### Global install (`npm install -g .`)
+
+`npm install -g .` is a **linked install**: npm symlinks the package to your
+source checkout and installs **none** of its dependencies into the global
+location. For the global `chatcoder` CLI to find its runtime dependencies
+(`fastify`, `grammy`, `better-sqlite3`, the private `@chatcoder/shared`
+workspace package, etc.), those must already be linked into the **repo's own
+`node_modules`**. So the reliable sequence is two steps, run **at the repo
+root**:
+
 ```bash
-# From local source (most reliable)
 git clone https://github.com/jerrielu/chatcoder.git
 cd chatcoder
-npm install -g .
 
-# Or from the packed tarball
-npm pack --pack-destination /tmp
-npm install -g /tmp/chatcoder-0.1.0.tgz
+# 1. Install workspace deps + link @chatcoder/shared locally (run at repo root)
+npm install
+
+# 2. Link the CLI globally (resolves deps from the repo's node_modules above)
+npm install -g .
 ```
 
-> **Note:** `npm install -g github:jerrielu/chatcoder` does not work due to
-> a bug in npm's git dependency handling (npm 10.x/11.x pacote extracts
-> empty directories). Install from local source or tarball instead.
+> **Why step 1 is required:** without it there is no `node_modules`, and the
+> globally linked CLI cannot resolve `@chatcoder/shared` (or any other dep).
+> The private `@chatcoder/shared` package is **never** published to npm, so it
+> must be linked from the local workspace.
 
-Or from source:
+> **`npm install -g github:jerrielu/chatcoder` is not supported** — npm
+> 10.x/11.x pacote extracts empty directories for git deps. Clone + the two
+> steps above instead.
+
+### Troubleshooting: `404 Not Found - GET https://registry.npmjs.org/@chatcoder%2fshared`
+
+This means npm gave up on the local workspace link and tried to fetch the
+private `@chatcoder/shared` from the public registry (where it does not
+exist). It is **not** a packaging bug — it is stale lockfile/state. Fix:
+
+```bash
+# From the repo root, discard stale state and regenerate a clean lockfile
+rm -rf node_modules package-lock.json
+npm install          # links @chatcoder/shared to ./packages/shared
+```
+
+This happens if `package-lock.json` predates a version bump (the
+`@chatcoder/shared` reference must match the local workspace `version`), or
+was left over from a different branch/state. **Do not** run `npm install`
+from inside `packages/*` — workspaces only resolve from the repo root.
+
+### Development only (run from source)
 
 ```bash
 git clone <this repo> && cd chatcoder
@@ -43,6 +75,7 @@ npm run build
 > The first time a voice message is received, whisper.cpp will be compiled and
 > the multilingual `base` model (~142 MB) will be downloaded automatically
 > via the `whisper-node` npm dependency.
+>
 
 ---
 
