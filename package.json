@@ -1,7 +1,7 @@
 {
   "name": "chatcoder",
   "private": true,
-  "version": "0.12.4",
+  "version": "0.12.3",
   "description": "Remote codex control via Telegram — monorepo root",
   "repository": "github:jerrielu/chatcoder",
   "bin": {
@@ -12,14 +12,6 @@
     "packages/bot",
     "packages/daemon",
     "packages/dashboard"
-  ],
-  "files": [
-    "bin/chatcoder.js",
-    "packages/shared/package.json",
-    "packages/shared/dist",
-    "packages/bot/dist",
-    "packages/daemon/dist",
-    "scripts/start.mjs"
   ],
   "engines": {
     "node": ">=20.18.0"
@@ -35,26 +27,10 @@
     "test:watch": "vitest",
     "dev:chat": "npm run dev -w @chatcoder/bot",
     "dev:coder": "node bin/chatcoder.js",
-    "pack:release": "npm run build:runtime && npm pack --pack-destination /tmp",
-    "local": "npm run pack:release && npm install -g /tmp/chatcoder-0.12.4.tgz && pm2 restart chatcoder-coder chatcoder-chat",
+    "local": "npm run build && npm install -g . && pm2 restart chatcoder-coder chatcoder-chat",
     "pm2:start": "npm run build && node scripts/pm2-start.mjs",
     "start": "npm run build && node scripts/start.mjs",
     "dev:dashboard": "npm run dev -w @chatcoder/dashboard"
-  },
-  "dependencies": {
-    "@chatcoder/shared": "file:packages/shared",
-    "@fastify/cors": "^9.0.1",
-    "better-sqlite3": "^11.10.0",
-    "fastify": "^4.28.0",
-    "grammy": "^1.24.1",
-    "kysely": "^0.27.3",
-    "pg": "^8.11.5",
-    "pino": "^9.1.0",
-    "pino-pretty": "^11.1.0",
-    "prompts": "^2.4.2",
-    "telegram-markdown-v2": "^0.0.5",
-    "yaml": "^2.4.2",
-    "zod": "^3.23.4"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",

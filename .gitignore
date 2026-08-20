@@ -5,11 +5,17 @@ packages/shared/src/generated-version.ts
 node_modules/
 
 # Build output
-# NOTE: packages/*/dist and bin/chatcoder.js are committed release artifacts
-# and must ship in the npm tarball, so they are intentionally NOT ignored.
+dist/
+build/
 bin/
 !bin/chatcoder.js
 *.tsbuildinfo
+packages/shared/dist/
+packages/shared/dist/**
+packages/bot/dist/
+packages/bot/dist/**
+packages/daemon/dist/
+packages/daemon/dist/**
 
 # TypeScript declaration files (generated)
 *.d.ts

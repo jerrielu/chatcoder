@@ -10,29 +10,22 @@ for the build history.
 
 ## Install
 
-Requires Node 20+ and npm. The release is distributed as a self-contained npm
-tarball that bundles the compiled `dist` artifacts and ships all runtime
-dependencies (including the private `@chatcoder/shared` package), so a global
-install needs no build step and no access to the monorepo workspaces.
+Requires Node 20+ and npm.
 
 ```bash
-# 1. Clone and build the release tarball (builds dist, then packs it)
+# From local source (most reliable)
 git clone https://github.com/jerrielu/chatcoder.git
 cd chatcoder
-npm run pack:release          # -> /tmp/chatcoder-<version>.tgz
+npm install -g .
 
-# 2. Install the tarball globally
-npm install -g /tmp/chatcoder-0.12.4.tgz
+# Or from the packed tarball
+npm pack --pack-destination /tmp
+npm install -g /tmp/chatcoder-0.1.0.tgz
 ```
 
-> **Why the tarball, not `npm install -g .`?** `npm install -g .` performs a
-> *linked* install that symlinks the package back to your source checkout and
-> installs **none** of its workspace runtime dependencies — the resulting CLI
-> cannot resolve `fastify`, `grammy`, `better-sqlite3`, `@chatcoder/shared`,
-> etc. The `pack:release` flow produces a real, self-contained tarball that
-> installs correctly. (Installing straight from `github:jerrielu/chatcoder`
-> is also broken — npm 10.x/11.x pacote extracts empty directories for git
-> deps — so use the tarball.)
+> **Note:** `npm install -g github:jerrielu/chatcoder` does not work due to
+> a bug in npm's git dependency handling (npm 10.x/11.x pacote extracts
+> empty directories). Install from local source or tarball instead.
 
 Or from source:
 
@@ -43,15 +36,6 @@ npm install
 npm run build
 ```
 
-> **Native build toolchain:** `better-sqlite3` compiles a native addon during
-> install, so the global install needs `make` + a C/C++ compiler
-> (`build-essential` on Debian/Ubuntu, or Xcode CLT on macOS). The optional
-> voice-transcription path (`whisper-node`) additionally compiles C++ on first
-> use.
-> ```bash
-> sudo apt-get install -y build-essential ffmpeg
-> ```
->
 > **Voice transcription** (optional): to use voice messages, install `ffmpeg`:
 > ```bash
 > sudo apt-get install ffmpeg
