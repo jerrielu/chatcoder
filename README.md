@@ -168,6 +168,16 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 > writer fallbacks while still asking for genuinely risky operations. This
 > cannot be overridden per profile. See [design.md §7.5](./design.md).
 
+> **Command Code profiles:** profiles with tool kind `COMMAND_CODE` run the
+> `cmd` CLI headless and always non-interactively
+> (`cmd -p --yolo -c --model <id> [--effort <level>] "<instruction>"`) —
+> `--yolo` (permission bypass) is forced and cannot be disabled. On every
+> daemon start the daemon runs `cmd --list-models` and auto-creates one
+> profile per available model named `cmd+<modelname>`; they appear in the
+> Telegram Profile menu automatically and refresh on each restart. The
+> Telegram effort picker applies to these profiles too. See
+> [design.md §7.6](./design.md).
+
 **Stale-process recovery (automatic):** the daemon keeps a single-instance
 registry at `~/.chatcoder/daemon-state.json`. On startup it kills any daemon
 from a previous run and its leftover tool processes, then claims sole

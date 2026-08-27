@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(npm:*)",
+      "Shell(ls node_modules/typescript/bin 2>/dev/null; echo \"---\"; ls node_modules/.bin 2>/dev/null | wc -l; ls node_modules/devDependencies 2>/dev/null; grep -A5 '\"devDependencies\"' package.json | head -10)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

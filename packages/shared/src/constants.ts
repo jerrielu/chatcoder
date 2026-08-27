@@ -15,8 +15,8 @@ export const MAX_INSTRUCTION_BYTES = 4 * 1024;
 /** Max bytes for a single response (daemon → user). */
 export const MAX_RESPONSE_BYTES = 512 * 1024;
 
-/** Max profile names a single daemon can register. */
-export const MAX_PROFILES_PER_DAEMON = 32;
+/** Max profiles a single daemon can register (incl. auto-generated `cmd+*` profiles). */
+export const MAX_PROFILES_PER_DAEMON = 96;
 
 /** Max work dirs a single daemon can register. */
 export const MAX_WORK_DIRS = 32;
@@ -67,12 +67,25 @@ export const API_KEY_RAND_BYTES = 36;
 export const MIN_API_KEY_LENGTH = 16;
 
 /** Tool kinds supported by a profile. */
-export const TOOL_KINDS = ["CLAUDE_CODE", "OPENAI", "REASONIX", "CUSTOM"] as const;
+export const TOOL_KINDS = [
+  "CLAUDE_CODE",
+  "OPENAI",
+  "REASONIX",
+  "CUSTOM",
+  "COMMAND_CODE"
+] as const;
 export type ToolKind = (typeof TOOL_KINDS)[number];
 
 /** Codex reasoning effort levels supported by the Telegram bot menu. */
 export const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
 export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
+
+/**
+ * Command Code reasoning-effort presets (superset of CODEX_REASONING_EFFORTS —
+ * `max` is only reachable via a manual wizard profile).
+ */
+export const COMMAND_CODE_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+export type CommandCodeEffort = (typeof COMMAND_CODE_EFFORTS)[number];
 
 /** Codex slash command used to request token totals. */
 export const CODEX_TOKEN_USAGE_COMMAND = "/token";

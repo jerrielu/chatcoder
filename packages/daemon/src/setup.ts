@@ -1,9 +1,13 @@
 import { createInterface } from "node:readline/promises";
 import prompts from "prompts";
-import { MAX_PROFILES_PER_DAEMON } from "@chatcoder/shared";
+import { COMMAND_CODE_EFFORTS, MAX_PROFILES_PER_DAEMON } from "@chatcoder/shared";
 import { DaemonConfig, writeConfig, defaultConfigPath } from "./config.js";
 import { generateApiKey } from "./crypto.js";
 import { ensureCodexHome } from "./codexHome.js";
+import {
+  discoverCommandCodeModels,
+  getCachedModels
+} from "./commandCodeModels.js";
 import { Profile as ProfileSchema } from "./profile.js";
 import type { Profile } from "./profile.js";
 
@@ -26,9 +30,9 @@ export const validators = {
   apiKey: (v: string): true | string =>
     v.length >= 16 ? true : "Key must be ≥16 chars",
   profileName: (v: string): true | string =>
-    /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(v)
+    /^[A-Za-z0-9][A-Za-z0-9_.+-]*$/.test(v)
       ? true
-      : "Name must be slug-like (letters, digits, _, -, .)",
+      : "Name must be slug-like (letters, digits, _, +, -, .)",
   nonEmpty: (v: string): true | string => (v && v.length > 0 ? true : "Required")
 };
 
@@ -42,13 +46,16 @@ export function toolLabel(tool: Profile["tool"]): string {
       return "Reasonix";
     case "CUSTOM":
       return "Custom Tool";
+    case "COMMAND_CODE":
+      return "Command Code (cmd)";
   }
 }
 
 export function toolChoiceIndex(tool: Profile["tool"] | undefined): number {
   if (tool === "OPENAI") return 1;
   if (tool === "REASONIX") return 2;
-  if (tool === "CUSTOM") return 3;
+  if (tool === "COMMAND_CODE") return 3;
+  if (tool === "CUSTOM") return 4;
   return 0;
 }
 
@@ -407,6 +414,7 @@ async function pickTool(ui: CoderUi, initialTool: Profile["tool"] | undefined): 
     { label: "Claude Code", value: "CLAUDE_CODE" },
     { label: "OpenAI Codex / OpenAI API", value: "OPENAI" },
     { label: "Reasonix", value: "REASONIX" },
+    { label: "Command Code (cmd)", value: "COMMAND_CODE" },
     { label: "Custom Tool", value: "CUSTOM" },
     { label: "Back", value: "__BACK__" }
   ];
@@ -424,6 +432,7 @@ async function pickTool(ui: CoderUi, initialTool: Profile["tool"] | undefined): 
 type ClaudeCfg = Extract<Profile, { tool: "CLAUDE_CODE" }>["claudeCode"];
 type OpenAiCfg = Extract<Profile, { tool: "OPENAI" }>["codex"];
 type ReasonixCfg = Extract<Profile, { tool: "REASONIX" }>["reasonix"];
+type CommandCodeCfg = Extract<Profile, { tool: "COMMAND_CODE" }>["commandCode"];
 type CustomCfg = Extract<Profile, { tool: "CUSTOM" }>["custom"];
 
 async function promptClaude(ui: CoderUi, prev?: ClaudeCfg): Promise<ClaudeCfg | null> {
@@ -604,6 +613,83 @@ async function promptReasonix(ui: CoderUi, prev?: ReasonixCfg): Promise<Reasonix
   };
 }
 
+/** Model ids available for the Command Code picker (cache first, then fresh discovery). */
+function commandCodeModelChoices(): string[] {
+  const cached = getCachedModels();
+  if (cached !== null) return cached;
+  return discoverCommandCodeModels() ?? [];
+}
+
+async function promptCommandCode(
+  ui: CoderUi,
+  prev?: CommandCodeCfg
+): Promise<CommandCodeCfg | null> {
+  const models = commandCodeModelChoices();
+
+  let model: string;
+  if (models.length > 0) {
+    // Paginate through discovered models with a free-text escape hatch.
+    const picked = await pickWithArrows<string | "__TYPED__" | "__BACK__">(
+      ui,
+      "Command Code Model",
+      "Select a model (discovered via cmd --list-models).",
+      [
+        ...models.map((m) => ({ label: m, value: m })),
+        { label: "Type a model id manually…", value: "__TYPED__" },
+        { label: "Back", value: "__BACK__" }
+      ] as Array<PickerOption<string | "__TYPED__" | "__BACK__">>,
+      prev?.model ? Math.max(0, models.indexOf(prev.model)) : 0
+    );
+    if (picked === null || picked === "__BACK__") return null;
+    model =
+      picked === "__TYPED__"
+        ? await askValidated(
+            ui,
+            "Model id (as printed by cmd --list-models): ",
+            prev?.model ?? "",
+            validators.nonEmpty
+          ).then((v) => v ?? "")
+        : picked;
+    if (!model) return null;
+  } else {
+    printWarning(
+      ui,
+      "Could not list models (cmd not found or not logged in). Enter the id manually."
+    );
+    const typed = await askValidated(
+      ui,
+      "Model id (blank to leave unset): ",
+      prev?.model ?? "",
+      validators.nonEmpty
+    );
+    if (typed === null) return null;
+    model = typed;
+  }
+
+  const effort = await pickWithArrows<(typeof COMMAND_CODE_EFFORTS)[number] | "__BACK__">(
+    ui,
+    "Reasoning Effort",
+    "Select the effort preset passed via --effort.",
+    [
+      ...COMMAND_CODE_EFFORTS.map((e) => ({
+        label: e,
+        value: e
+      })),
+      { label: "Back", value: "__BACK__" as const }
+    ],
+    prev?.effort
+      ? Math.max(0, COMMAND_CODE_EFFORTS.indexOf(prev.effort as never))
+      : 2
+  );
+  if (effort === null || effort === "__BACK__") return null;
+
+  return {
+    model: model || undefined,
+    effort,
+    extraArgs: prev?.extraArgs ?? []
+  };
+}
+
 async function promptCustom(ui: CoderUi, prev?: CustomCfg): Promise<CustomCfg | null> {
   const launchBin = await askValidated(
     ui,
@@ -714,6 +800,18 @@ export async function promptProfileEditor(
       tool: "REASONIX",
       metadata: metadata || undefined,
       reasonix
+    };
+  }
+
+  if (tool === "COMMAND_CODE") {
+    const prev = existing?.tool === "COMMAND_CODE" ? existing.commandCode : undefined;
+    const commandCode = await promptCommandCode(ui, prev);
+    if (commandCode === null) return null;
+    return {
+      name,
+      tool: "COMMAND_CODE",
+      metadata: metadata || undefined,
+      commandCode
     };
   }
 
@@ -1064,6 +1162,7 @@ async function promptOneProfilePromptWizard(
         { title: "Claude Code (claude)", value: "CLAUDE_CODE" },
         { title: "OpenAI Codex (codex)", value: "OPENAI" },
         { title: "Reasonix (reasonix)", value: "REASONIX" },
+        { title: "Command Code (cmd)", value: "COMMAND_CODE" },
         { title: "Custom binary", value: "CUSTOM" }
       ],
       initial: toolChoiceIndex(existingTool)
@@ -1302,6 +1401,35 @@ async function promptOneProfilePromptWizard(
       metadata: base.metadata || undefined,
       reasonix: {
         model: c.model || undefined,
+        extraArgs: prev?.extraArgs ?? []
+      }
+    };
+  }
+
+  if (base.tool === "COMMAND_CODE") {
+    const prev = existing?.tool === "COMMAND_CODE" ? existing.commandCode : undefined;
+    // Non-TTY fallback: free-text model + effort (no pickers available).
+    const c = await io.prompt([
+      {
+        type: "text",
+        name: "model",
+        message: "Model id (blank to leave unset; see cmd --list-models)",
+        initial: prev?.model ?? ""
+      },
+      {
+        type: "text",
+        name: "effort",
+        message: `Effort preset (${COMMAND_CODE_EFFORTS.join("/")} or blank)`,
+        initial: prev?.effort ?? ""
+      }
+    ]);
+    return {
+      name: base.name,
+      tool: "COMMAND_CODE",
+      metadata: base.metadata || undefined,
+      commandCode: {
+        model: c.model || undefined,
+        effort: c.effort || undefined,
         extraArgs: prev?.extraArgs ?? []
       }
     };

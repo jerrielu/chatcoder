@@ -56,7 +56,10 @@ const ProfileName = z
   .string()
   .min(1)
   .max(MAX_PROFILE_NAME_LENGTH)
-  .regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*$/, "Profile name must be slug-like");
+  .regex(
+    /^[A-Za-z0-9][A-Za-z0-9_.+-]*$/,
+    "Profile name must be slug-like (+ allowed for auto-generated cmd+<model> profiles)"
+  );
 
 export const RegisteredProfile = z.object({
   name: ProfileName,

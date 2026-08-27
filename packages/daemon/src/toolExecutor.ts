@@ -188,6 +188,31 @@ export function buildLaunch(
     };
   }
 
+  if (profile.tool === "COMMAND_CODE") {
+    const c = profile.commandCode;
+    const args: string[] = ["-p"];
+    // Forced: cmd always runs headless with bypassed permission prompts
+    // (cannot be overridden by profile extraArgs).
+    args.push("--yolo");
+    if (resumeLastSession) args.push("-c");
+    if (c.model) args.push("--model", c.model);
+    if (codexReasoningEffort) {
+      args.push("--effort", codexReasoningEffort);
+    } else if (c.effort) {
+      args.push("--effort", c.effort);
+    }
+    args.push(...c.extraArgs);
+    args.push(message);
+    return {
+      cmd: "cmd",
+      args,
+      env,
+      cwd: workDir ?? process.cwd(),
+      stdinText: null,
+      finalOutputPath: null
+    };
+  }
+
   // CUSTOM
   const c = profile.custom;
   for (const [k, v] of Object.entries(c.env)) {

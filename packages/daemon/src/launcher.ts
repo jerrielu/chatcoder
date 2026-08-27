@@ -64,6 +64,15 @@ export async function launchProfile(profile: Profile, cwd?: string): Promise<num
     // overridden by profile extraArgs). See design.md §reasonix-auto-mode.
     args.push("--permission-mode", "auto");
     cmd = "reasonix";
+  } else if (profile.tool === "COMMAND_CODE") {
+    const c = profile.commandCode;
+    // Forced: cmd always runs headless with bypassed permission prompts
+    // (cannot be overridden by profile extraArgs).
+    args = ["-p", "--yolo"];
+    if (c.model) args.push("--model", c.model);
+    if (c.effort) args.push("--effort", c.effort);
+    args.push(...c.extraArgs);
+    cmd = "cmd";
   } else {
     const c = profile.custom;
     for (const [k, v] of Object.entries(c.env)) {

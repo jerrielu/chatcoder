@@ -736,7 +736,10 @@ export async function handleInstructionSubmission(
     }
 
     const profile = await deps.profiles.getById(session.profileId);
-    const appliedEffort = profile?.tool === "OPENAI" ? codexReasoningEffort : undefined;
+    const appliedEffort =
+      profile?.tool === "OPENAI" || profile?.tool === "COMMAND_CODE"
+        ? codexReasoningEffort
+        : undefined;
 
     // 1. Queue user instruction as a fresh run
     await deps.messages.enqueue({
@@ -823,7 +826,9 @@ export async function handleCode(
   }
   const profile = await deps.profiles.getById(session.profileId);
   const appliedEffort =
-    profile?.tool === "OPENAI" ? codexReasoningEffort : undefined;
+    profile?.tool === "OPENAI" || profile?.tool === "COMMAND_CODE"
+      ? codexReasoningEffort
+      : undefined;
   await deps.messages.enqueue({
     sessionId: session.id,
     content: instruction,

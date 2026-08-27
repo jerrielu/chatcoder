@@ -92,4 +92,38 @@ describe("Profile zod schema", () => {
       })
     ).toThrow();
   });
+
+  it("parses a COMMAND_CODE profile with model + effort", () => {
+    const p = Profile.parse({
+      name: "cmd+gpt-5.6-terra",
+      tool: "COMMAND_CODE",
+      commandCode: { model: "gpt-5.6-terra", effort: "xhigh" }
+    });
+    if (p.tool === "COMMAND_CODE") {
+      expect(p.commandCode.model).toBe("gpt-5.6-terra");
+      expect(p.commandCode.effort).toBe("xhigh");
+      expect(p.commandCode.extraArgs).toEqual([]);
+    } else {
+      throw new Error("expected COMMAND_CODE");
+    }
+  });
+
+  it("accepts + in auto-generated cmd+<model> profile names", () => {
+    const p = Profile.parse({
+      name: "cmd+Qwen_Qwen3.8-Max",
+      tool: "COMMAND_CODE",
+      commandCode: {}
+    });
+    expect(p.name).toBe("cmd+Qwen_Qwen3.8-Max");
+  });
+
+  it("still rejects names with spaces despite + being allowed", () => {
+    expect(() =>
+      Profile.parse({
+        name: "cmd foo",
+        tool: "COMMAND_CODE",
+        commandCode: {}
+      })
+    ).toThrow();
+  });
 });

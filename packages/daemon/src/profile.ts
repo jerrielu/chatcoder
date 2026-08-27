@@ -5,7 +5,10 @@ const ProfileName = z
   .string()
   .min(1)
   .max(MAX_PROFILE_NAME_LENGTH)
-  .regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*$/, "Profile name must be slug-like");
+  .regex(
+    /^[A-Za-z0-9][A-Za-z0-9_.+-]*$/,
+    "Profile name must be slug-like (+ allowed for auto-generated cmd+<model> profiles)"
+  );
 
 const BaseProfile = {
   name: ProfileName,
@@ -49,6 +52,13 @@ export const ReasonixConfig = z.object({
 });
 export type ReasonixConfig = z.infer<typeof ReasonixConfig>;
 
+export const CommandCodeConfig = z.object({
+  model: z.string().optional(),
+  effort: z.string().optional(),
+  extraArgs: z.array(z.string()).default([])
+});
+export type CommandCodeConfig = z.infer<typeof CommandCodeConfig>;
+
 const EnvKey = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
 
 export const CustomConfig = z.object({
@@ -89,10 +99,18 @@ export const ReasonixProfile = z.object({
 });
 export type ReasonixProfile = z.infer<typeof ReasonixProfile>;
 
+export const CommandCodeProfile = z.object({
+  ...BaseProfile,
+  tool: z.literal("COMMAND_CODE"),
+  commandCode: CommandCodeConfig
+});
+export type CommandCodeProfile = z.infer<typeof CommandCodeProfile>;
+
 export const Profile = z.discriminatedUnion("tool", [
   ClaudeCodeProfile,
   OpenAIProfile,
   ReasonixProfile,
+  CommandCodeProfile,
   CustomProfile
 ]);
 export type Profile = z.infer<typeof Profile>;

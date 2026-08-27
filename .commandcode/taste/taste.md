@@ -1,0 +1,8 @@
+- Wants an implementation plan or approach outlined before diving into coding. Confidence: 0.75
+- Wants non-interactive operation capability in tools (i.e., tools should work without interactive user input). Confidence: 0.7
+- Prefers preset/configurable effort levels when selecting/changing LLM models (e.g., "high", "xhigh") rather than free-form effort specification. Confidence: 0.65
+- Wants tools/options to auto-discover and auto-list available models or sub-options when a tool is selected (rather than requiring the user to know all available options). Confidence: 0.7
+- Wants auto-discovered model/option lists to dynamically refresh every time the service runs (not cached or static). Confidence: 0.8
+- Wants tools to always operate in "yolo mode" (non-interactive/auto-approval by default). Confidence: 0.8
+- Approves plans/revisions with terse one-word go-aheads ("continue") and expects the agent to proceed straight into implementation without re-presenting the plan or asking for extra confirmation. Confidence: 0.65
+- Wants zero-manual-step provisioning: once a tool/provider is added, every discovered model should automatically become a ready-to-use profile/entry (e.g. auto-generated `<provider>+<model>` profiles refreshed on service restart) rather than options the user must configure one by one. Confidence: 0.7

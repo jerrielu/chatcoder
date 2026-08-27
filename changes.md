@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.13.0 (2026-08-23)
+
+- **Feature: Command Code (`cmd`) is now a supported tool provider with
+  auto-generated `cmd+<model>` profiles** — On every daemon start the daemon
+  runs `cmd --list-models`, and every discovered model automatically becomes a
+  selectable profile named `cmd+<modelname>` (e.g. `cmd+gpt-5.6-terra`,
+  `cmd+Qwen_Qwen3.8-Max`), refreshed on each restart: models added upstream
+  appear, removed ones disappear. User-authored profiles are never touched.
+  Auto profiles live in memory only — `config.yml` keeps just the manual ones.
+  Launches run headless and always non-interactive:
+  `cmd -p --yolo -c --model <m> [--effort <e>] "<instruction>"`; `--yolo` is
+  forced (mirrors the REASONIX forced `--permission-mode auto`).
+  (packages/daemon/src/commandCodeModels.ts, main.ts, toolExecutor.ts,
+  launcher.ts)
+- **Feature: reasoning-effort presets for Command Code** — The Telegram
+  effort picker now also applies to COMMAND_CODE profiles (per-instruction
+  override, reusing the existing `codexReasoningEffort` wire field — no new
+  protocol). Manual wizard profiles can bake a fixed preset
+  (`low/medium/high/xhigh/max`, incl. `max` which the Telegram picker doesn't
+  expose) via "Command Code (cmd)" → model picker (from the discovered list)
+  + effort picker.
+  (packages/bot/src/bot/handlers.ts, packages/daemon/src/setup.ts,
+  packages/shared/src/constants.ts)
+- **Profile names now allow `+`** — required by the `cmd+<model>` naming;
+  slug rules otherwise unchanged (spaces still rejected).
+  (packages/shared/src/protocol.ts, packages/daemon/src/profile.ts,
+  packages/daemon/src/setup.ts)
+- **`MAX_PROFILES_PER_DAEMON` raised 32 → 96** — the Command Code catalog
+  (~50 models) plus manual profiles would exceed the old cap.
+  (packages/shared/src/constants.ts)
+
 ## 0.12.6 (2026-08-20)
 
 - **Fix: bot fails to start on Node ≥24 with `Could not locate the bindings

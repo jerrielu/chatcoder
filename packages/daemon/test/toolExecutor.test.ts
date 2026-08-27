@@ -267,6 +267,72 @@ describe("buildLaunch", () => {
     ]);
   });
 
+  it("runs cmd headless with yolo, model and effort preset", () => {
+    const profile: Profile = {
+      name: "cmd+gpt-5.6-terra",
+      tool: "COMMAND_CODE",
+      commandCode: {
+        model: "gpt-5.6-terra",
+        effort: "xhigh",
+        extraArgs: []
+      }
+    };
+    const launch = buildLaunch(profile, "fix the bug");
+    expect(launch.cmd).toBe("cmd");
+    expect(launch.args).toEqual([
+      "-p",
+      "--yolo",
+      "-c",
+      "--model",
+      "gpt-5.6-terra",
+      "--effort",
+      "xhigh",
+      "fix the bug"
+    ]);
+    expect(launch.stdinText).toBeNull();
+  });
+
+  it("per-instruction effort override wins over the profile preset for cmd", () => {
+    const profile: Profile = {
+      name: "cmd+gpt-5.6-terra",
+      tool: "COMMAND_CODE",
+      commandCode: {
+        model: "gpt-5.6-terra",
+        effort: "low",
+        extraArgs: []
+      }
+    };
+    const fresh = buildLaunch(profile, "go", false, "high");
+    expect(fresh.args).toEqual([
+      "-p",
+      "--yolo",
+      "--model",
+      "gpt-5.6-terra",
+      "--effort",
+      "high",
+      "go"
+    ]);
+  });
+
+  it("omits cmd flags that are unset and passes extraArgs before the message", () => {
+    const profile: Profile = {
+      name: "cmd+bare",
+      tool: "COMMAND_CODE",
+      commandCode: {
+        extraArgs: ["--max-turns", "50"]
+      }
+    };
+    const launch = buildLaunch(profile, "hello");
+    expect(launch.args).toEqual([
+      "-p",
+      "--yolo",
+      "-c",
+      "--max-turns",
+      "50",
+      "hello"
+    ]);
+  });
+
   it("CUSTOM appended placement adds message as last arg", () => {
     const profile: Profile = {
       name: "c",
