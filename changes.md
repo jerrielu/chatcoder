@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.15.1 (2026-08-28)
+
+- **`response.txt` now includes the in-progress stream alongside the final
+  answer** — The bot's `sendProcessed` (`packages/bot/src/main.ts`) concatenates
+  the live `state.progress` (the text that was edited into the "🔄 processing"
+  message during the run) with the final `state.response` before writing the
+  `response.txt` document. Previously the document only contained the final
+  text, so users running a streaming provider like Command Code (`cmd`) saw the
+  same final text twice — once in the new Telegram message and once in the
+  document's caption. Now the document is a consolidated record of the whole
+  turn (progress notes + final answer) and the visible Telegram surface for one
+  run is just: the live "🔄 processing" message (edited as progress streams in)
+  + the new final-response message + the single `response.txt` document. No
+  daemon or wire-protocol changes were required. (packages/bot/src/main.ts —
+  see design.md §3)
+
 ## 0.15.0 (2026-08-28)
 
 - **Typing `resume` (or `continue` / `cont` / `res`) in the Telegram chat now

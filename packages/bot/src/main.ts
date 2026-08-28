@@ -148,13 +148,22 @@ async function main(): Promise<void> {
     },
 
     async sendProcessed(chatId, sessionId) {
-      // Build the response.txt with only the final response content,
-      // stripping MarkdownV2 escapes so the file is clean readable text.
+      // Build the response.txt with the full session log (in-progress
+      // stream + final response), stripping MarkdownV2 escapes so the file
+      // is clean readable text. The user already sees the final text in
+      // its own sendMessage — this document is the consolidated record.
       const state = processingStates.get(sessionId);
       if (state) {
-        const mdContent = state.response
-          ? stripMarkdownV2(state.response)
-          : "";
+        const progressText = stripMarkdownV2(state.progress);
+        const responseText = stripMarkdownV2(state.response);
+        const sections: string[] = [];
+        if (progressText.trim().length > 0) {
+          sections.push(progressText);
+        }
+        if (responseText.trim().length > 0) {
+          sections.push(responseText);
+        }
+        const mdContent = sections.join("\n\n");
         if (mdContent) {
           try {
             // Prepend UTF-8 BOM so viewers detect the encoding correctly

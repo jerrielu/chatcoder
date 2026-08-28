@@ -222,6 +222,14 @@ capped at Telegram's 4096-character hard limit; if the response exceeds it,
 "— Truncated — full response in response.txt". The processing message remains
 intact, showing the live progress updates that were streamed during execution.
 
+`sendProcessed` builds `response.txt` by concatenating the in-progress
+`state.progress` stream (the same text that was edited into the "🔄 processing"
+message) with the final `state.response` so the downloadable record contains the
+full session log rather than duplicating only the final answer. The visible
+Telegram surface for one turn is therefore: the live "🔄 processing" message
+(edited in place as progress streams in), the new final-response message, and
+the consolidated `response.txt` document.
+
 `resume_last_session` controls whether a message continues the current tool
 context. Normal `/code` messages default to `true` and run FIFO. New Code
 messages set it to `false`.
