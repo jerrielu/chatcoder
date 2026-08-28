@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.15.0 (2026-08-28)
+
+- **Typing `resume` (or `continue` / `cont` / `res`) in the Telegram chat now
+  behaves like tapping the 💻 Code menu button** — The `message:text` handler
+  gains a new `isResumeKeyword()` predicate that matches a bare resume
+  keyword while the user is idle. When matched, the bot sets the flow to
+  `awaiting_instruction` with `resumeLastSession: true` and replies with
+  the same force-reply `Code (resume)` prompt the menu button sends. The
+  user's next message is then launched by the daemon with resume-mode
+  enabled, which means the `cmd` binary receives `-c` (and the other tool
+  backends receive their equivalent continue flag). This avoids forcing
+  users to scroll up to the menu when they want to continue a session —
+  they can just type `resume` and hit enter. No daemon or wire-protocol
+  changes were required. (packages/bot/src/bot/bot.ts;
+  packages/bot/test/bot.edgecases.test.ts — see design.md §5)
+
 ## 0.14.0 (2026-08-28)
 
 - **Command Code (`cmd`) now streams live progress to Telegram and resolves

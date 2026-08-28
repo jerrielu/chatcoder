@@ -243,3 +243,9 @@ The bot presents an inline keyboard with these actions:
 | 📡 Status | Show daemon heartbeat and queue status |
 | 📦 vX.Y.Z | Show version and changelog |
 
+> **Keyboard-free shortcut:** typing the bare word `resume` (or `continue`,
+> `cont`, `res` — case-insensitive) while the bot is idle behaves exactly
+> like tapping 💻 Code: the bot enters resume mode and prompts you for the
+> next instruction, which is then launched with `-c` for the `cmd` binary
+> (and the equivalent continue flag for the other tool backends).
+

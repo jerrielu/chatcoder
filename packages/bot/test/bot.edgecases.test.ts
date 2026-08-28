@@ -110,6 +110,65 @@ describe("bot edge cases", () => {
     expect(sends).toEqual([]);
   });
 
+  it("typed 'resume' in idle flow enters resume-mode instruction prompt", async () => {
+    // A bare "resume" keyword should mirror the 💻 Code menu button: put the
+    // chat into awaiting_instruction with resumeLastSession=true, and send
+    // the same force-reply prompt the button sends. The follow-up message
+    // is what eventually makes the daemon pass `-c` to the `cmd` binary.
+    await bot.handleUpdate({
+      update_id: 4,
+      message: {
+        message_id: 1,
+        date: 0,
+        chat: { id: 1, type: "private", first_name: "u" },
+        from: { id: 1, is_bot: false, first_name: "u" },
+        text: "resume"
+      }
+    });
+    const state = flows.get(1, 1);
+    expect(state.kind).toBe("awaiting_instruction");
+    expect(state.kind === "awaiting_instruction" ? state.resumeLastSession : false).toBe(true);
+    const sends = out.filter((o) => o.method === "sendMessage");
+    expect(sends).toHaveLength(1);
+    const text = (sends[0]!.payload as { text?: string }).text ?? "";
+    expect(text).toMatch(/resume/i);
+  });
+
+  it("typed 'CONTINUE' (case-insensitive) also enters resume-mode", async () => {
+    await bot.handleUpdate({
+      update_id: 5,
+      message: {
+        message_id: 1,
+        date: 0,
+        chat: { id: 1, type: "private", first_name: "u" },
+        from: { id: 1, is_bot: false, first_name: "u" },
+        text: "CONTINUE"
+      }
+    });
+    const state = flows.get(1, 1);
+    expect(state.kind).toBe("awaiting_instruction");
+    expect(state.kind === "awaiting_instruction" ? state.resumeLastSession : false).toBe(true);
+  });
+
+  it("non-resume plain text still falls through to handlePlainText", async () => {
+    await bot.handleUpdate({
+      update_id: 6,
+      message: {
+        message_id: 1,
+        date: 0,
+        chat: { id: 1, type: "private", first_name: "u" },
+        from: { id: 1, is_bot: false, first_name: "u" },
+        text: "what is the weather"
+      }
+    });
+    // Should not have entered an instruction flow.
+    expect(flows.get(1, 1).kind).toBe("idle");
+    const sends = out.filter((o) => o.method === "sendMessage");
+    expect(sends).toHaveLength(1);
+    const text = (sends[0]!.payload as { text?: string }).text ?? "";
+    expect(text).toMatch(/menu/);
+  });
+
   it("formatUnexpectedError converts errors to chat-safe strings", async () => {
     const { formatUnexpectedError } = await import("../src/bot/bot.js");
     expect(formatUnexpectedError(new Error("x"))).toBe("❌ x");

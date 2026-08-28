@@ -235,6 +235,18 @@ export function wireBot(bot: Bot, deps: HandlerDeps): void {
           kind: "awaiting_instruction",
           resumeLastSession: recoveredResume
         });
+      } else if (isResumeKeyword(text)) {
+        // Plain-text "resume"/"continue" mirrors the 💻 Code button: enter
+        // resume mode and prompt the user for the instruction. The follow-up
+        // message is routed as a resume, which makes the daemon pass `-c`
+        // to the `cmd` binary (and the equivalent continue flag to the other
+        // tool backends).
+        deps.flows.set(ctx.chat.id, ctx.from.id, {
+          kind: "awaiting_instruction",
+          resumeLastSession: true
+        });
+        await send(ctx, handleCodeRequest(deps, ctx.chat.id, ctx.from.id));
+        return;
       }
     }
 
@@ -284,6 +296,14 @@ function recoverInstructionMode(ctx: Context): boolean | null {
   if (prompt.text.includes("New Code (fresh)")) return false;
   if (prompt.text.includes("New Code (with Review)")) return false;
   return null;
+}
+
+/** Returns true when the typed message is a bare "resume" / "continue" intent. */
+function isResumeKeyword(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length > 32) return false;
+  if (trimmed.startsWith("/")) return false;
+  return /^(resume|continue|cont|res)$/i.test(trimmed);
 }
 
 async function runUserAction<T>(

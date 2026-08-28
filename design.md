@@ -326,6 +326,35 @@ the review prompt template to the user's instruction before passing it to
 `handleCode`. The daemon and CLI tools receive a plain instruction string —
 no schema or daemon changes are needed.
 
+### Decision: Plain-text `resume` / `continue` keyword enters resume-mode
+
+**Options considered**
+
+| # | Option | Pros | Cons |
+|---|--------|------|------|
+| A | Reject plain text in idle, keep menu-only | Zero ambiguity, single source of truth | Users have to tap a button even when they're already typing |
+| B | **Bot-side text intent detector (chosen)** | Low friction — typing "resume" is the natural way to say "continue from where we left off" | Tiny risk of false positives on edge cases like "please resume your normal tone" |
+| C | New `/resume` slash command | Explicit | Already-discarded by the existing slash-command early return when the user is idle |
+
+**Chosen: B.** The `message:text` handler already has a recovery path for
+bot-restart continuity (`recoverInstructionMode`, which sniffs the
+*reply-to* prompt text to recover resume vs. fresh mode). We extend the same
+block with a new `isResumeKeyword(text)` predicate that matches a bare
+`resume` / `continue` / `cont` / `res` token (case-insensitive, ≤32 chars,
+not a slash command, not part of a longer sentence). When matched, the bot
+sets the flow to `awaiting_instruction` with `resumeLastSession: true` and
+replies with the same `Code (resume)` force-reply prompt that the 💻 Code
+button sends — so the user's *next* message is what the daemon will launch
+in resume mode, and the daemon in turn emits `-c` for the `cmd` binary (and
+the equivalent continue flag for the other tool backends — see §7.6).
+
+The bot's first outbound `sendMessage` to the user is the `Code (resume)`
+prompt, so the existing `recoverInstructionMode` recovery path keeps working
+across bot restarts for free: if the bot restarts after the keyword but
+before the user types the instruction, their next message (which Telegram
+re-delivers as a reply-to the bot's prompt) still gets routed as
+`resumeLastSession: true`.
+
 **Options considered**
 
 | # | Option | Pros | Cons |
