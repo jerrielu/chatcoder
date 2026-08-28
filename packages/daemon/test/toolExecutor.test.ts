@@ -267,7 +267,7 @@ describe("buildLaunch", () => {
     ]);
   });
 
-  it("runs cmd headless with yolo and model (no --effort flag)", () => {
+  it("runs cmd headless with yolo, json output and model (no --effort flag)", () => {
     const profile: Profile = {
       name: "cmd-terra",
       tool: "COMMAND_CODE",
@@ -281,6 +281,8 @@ describe("buildLaunch", () => {
     expect(launch.args).toEqual([
       "-p",
       "--yolo",
+      "--output-format",
+      "json",
       "-c",
       "--model",
       "gpt-5.6-terra",
@@ -303,6 +305,8 @@ describe("buildLaunch", () => {
     expect(fresh.args).toEqual([
       "-p",
       "--yolo",
+      "--output-format",
+      "json",
       "--model",
       "gpt-5.6-terra",
       "go"
@@ -322,6 +326,8 @@ describe("buildLaunch", () => {
     expect(launch.args).toEqual([
       "-p",
       "--yolo",
+      "--output-format",
+      "json",
       "-c",
       "--max-turns",
       "50",
@@ -606,5 +612,59 @@ describe("ToolExecutor", () => {
 
     const output = await executor.execute(profile, "go");
     expect(output).toContain("tick 19");
+  });
+
+  it("Command Code NDJSON: streams parsed progress to onOutput and resolves with finalText", async () => {
+    // Fake `cmd` binary that emits a representative NDJSON event stream
+    // followed by the terminal `result` line, then exits 0.
+    const fakeCmd = path.join(tmpRoot, "cmd");
+    fs.writeFileSync(
+      fakeCmd,
+      [
+        "#!/bin/sh",
+        // Verify the daemon really did pass --output-format json and the
+        // headless flags, so a future regression that drops --output-format
+        // would surface here as a failing test instead of a silent
+        // regression in production.
+        "found_json=0",
+        "for arg in \"$@\"; do",
+        "  if [ \"$arg\" = '--output-format' ]; then found_json=1; fi",
+        "done",
+        "if [ \"$found_json\" != '1' ]; then echo 'missing --output-format' >&2; exit 2; fi",
+        "printf '%s\\n' '{\"type\":\"event\",\"event\":{\"type\":\"text_delta\",\"delta\":\"Hi\"}}'",
+        "printf '%s\\n' '{\"type\":\"event\",\"event\":{\"type\":\"text_delta\",\"delta\":\" there\"}}'",
+        "printf '%s\\n' '{\"type\":\"event\",\"event\":{\"type\":\"tool_queued\",\"toolName\":\"shell_command\",\"description\":\"List files\"}}'",
+        "printf '%s\\n' '{\"type\":\"event\",\"event\":{\"type\":\"message_update\",\"content\":[{\"type\":\"text\",\"text\":\"Hi there\"}]}}'",
+        "printf '%s\\n' '{\"type\":\"result\",\"subtype\":\"success\",\"sessionId\":\"abc\",\"finalText\":\"Hi there\"}'",
+        "exit 0"
+      ].join("\n"),
+      { mode: 0o755 }
+    );
+    const originalPath = process.env.PATH;
+    process.env.PATH = `${tmpRoot}${path.delimiter}${originalPath ?? ""}`;
+    const profile: Profile = {
+      name: "cmd-test",
+      tool: "COMMAND_CODE",
+      commandCode: { model: "m", extraArgs: [] }
+    };
+    const executor = new ToolExecutor();
+    const received: string[] = [];
+    try {
+      const output = await executor.execute(profile, "ping", {
+        onOutput: (chunk) => received.push(chunk)
+      });
+      // The final response is the `result.finalText`, NOT the raw NDJSON.
+      expect(output).toBe("Hi there");
+      // The onOutput stream should have received the human-readable text
+      // deltas (and a tool note), not the JSON envelopes.
+      const joined = received.join("");
+      expect(joined).toContain("Hi");
+      expect(joined).toContain(" there");
+      expect(joined).toContain("[tool: List files]");
+      // Crucially: no raw JSON braces in the user-visible progress.
+      expect(joined).not.toContain("\"type\":\"event\"");
+    } finally {
+      process.env.PATH = originalPath;
+    }
   });
 });

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.14.0 (2026-08-28)
+
+- **Command Code (`cmd`) now streams live progress to Telegram and resolves
+  with a clean final answer** — The `COMMAND_CODE` provider launches
+  `cmd -p --yolo --output-format json …` and a new
+  `packages/daemon/src/commandCodeStream.ts` translator parses the NDJSON
+  event stream: `text_delta` / `message_update` events become live progress
+  forwarded to `onOutput` (so the bot's "🔄 processing…" message keeps
+  ticking like Reasonix does), `tool_queued` / `tool_completed` events become
+  short `[tool: <name>]` notes, and the terminal
+  `{"type":"result",…,"finalText":"…"}` line becomes the resolved output.
+  Before this, the daemon saw no stdout until cmd was done, so users got a
+  frozen "🔄" message and `response.txt` ended up with whatever leaked
+  through — behaviour now matches the Reasonix provider. The interactive
+  `chatcoder coder` TUI launcher is unchanged (still plain text).
+  (packages/daemon/src/commandCodeStream.ts, toolExecutor.ts;
+  packages/daemon/test/commandCodeStream.test.ts, toolExecutor.test.ts —
+  see design.md §7.6)
+
 ## 0.13.2 (2026-08-28)
 
 - **Remove effort adjustment from the Command Code (`cmd`) provider** — The

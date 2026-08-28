@@ -8,6 +8,7 @@ import { ensureCodexHome } from "./codexHome.js";
 import type { Profile } from "./profile.js";
 import { stripAnsi } from "./ansi.js";
 import { registerToolPid, unregisterToolPid } from "./daemonState.js";
+import { createCommandCodeStreamTranslator } from "./commandCodeStream.js";
 
 export interface ExecuteOptions {
   onOutput?: (chunk: string) => void;
@@ -194,6 +195,13 @@ export function buildLaunch(
     // Forced: cmd always runs headless with bypassed permission prompts
     // (cannot be overridden by profile extraArgs).
     args.push("--yolo");
+    // Forced: always run with NDJSON event stream output so the daemon can
+    // surface live progress (assistant text deltas + tool notes) and pull
+    // the final `result.finalText` on close. Without this cmd emits the
+    // final answer only after a long silence, so the Telegram "🔄
+    // processing…" message looks frozen and `response.txt` is just whatever
+    // leaked onto stdout/stderr.
+    args.push("--output-format", "json");
     if (resumeLastSession) args.push("-c");
     if (c.model) args.push("--model", c.model);
     args.push(...c.extraArgs);
@@ -305,6 +313,22 @@ export class ToolExecutor {
     stallTimeoutMs: number
   ): Promise<string> {
     return new Promise<string>((resolve, reject) => {
+      // Command Code runs in JSON mode: the daemon translates the NDJSON
+      // stream into incremental progress for `onOutput` and captures the
+      // terminal `result.finalText` for the close handler. Other tools pass
+      // raw chunks straight through.
+      const isCommandCode = profile.tool === "COMMAND_CODE";
+      const commandCodeStream = isCommandCode
+        ? createCommandCodeStreamTranslator()
+        : null;
+      const callerOnOutput = execOpts.onOutput;
+      const onOutput: ExecuteOptions["onOutput"] = commandCodeStream
+        ? (chunk) => {
+            const delta = commandCodeStream.ingest(chunk);
+            if (delta.length > 0) callerOnOutput?.(delta);
+          }
+        : callerOnOutput;
+
       let child: ChildProcessWithoutNullStreams;
       try {
         // detached: true gives the tool its own process group (PGID = child
@@ -419,7 +443,7 @@ export class ToolExecutor {
 
       const emitOutput = (chunk: string): void => {
         try {
-          execOpts.onOutput?.(chunk);
+          onOutput?.(chunk);
         } catch (err) {
           this.log("output callback failed", { profile: profile.name, err });
         }
@@ -468,6 +492,15 @@ export class ToolExecutor {
 
       child.on("close", (code) => {
         if (stallRejectPending) return; // the stall rejection owns the outcome
+        // For Command Code we always prefer the `result.finalText` we parsed
+        // out of the NDJSON stream — that's the assistant's real final
+        // answer. The raw JSON in `stdout` would otherwise leak into the
+        // response (and into response.txt).
+        const commandCodeResult = commandCodeStream?.finalize();
+        if (commandCodeResult?.hasResult) {
+          settleResolve(commandCodeResult.finalText);
+          return;
+        }
         const output = stripAnsi(stdout + stderr).trim();
         const finalOutput = launch.finalOutputPath
           ? readAndRemoveFinalOutput(launch.finalOutputPath)

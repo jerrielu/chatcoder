@@ -501,13 +501,30 @@ Command Code is a fifth tool kind (`COMMAND_CODE`). It runs **headless and
 non-interactive** on every launch:
 
 ```
-cmd -p --yolo [-c] [--model <id>] [extraArgs…] "<instruction>"
+cmd -p --yolo --output-format json [-c] [--model <id>] [extraArgs…] "<instruction>"
 ```
 
 - `-p` headless print mode; `-c` resumes the last headless session when the
   instruction has `resumeLastSession=true`.
 - `--yolo` (bypass permission prompts) is forced in code — it is simply never
   omitted; `extraArgs` cannot turn it off. Same guarantee shape as §7.5.
+- `--output-format json` is forced in code so the daemon can surface live
+  progress to the bot and pull the assistant's final answer on close. The
+  raw NDJSON event stream is parsed by
+  `packages/daemon/src/commandCodeStream.ts`:
+  - `text_delta` / `message_update` / `message_end` events become the
+    progress string the bot's "🔄 processing…" message keeps editing (same
+    5-second flush cadence as Reasonix).
+  - `tool_queued` / `tool_running` / `tool_completed` events become a short
+    suffix like `\n\n[tool: shell_command]` so the user sees what cmd is
+    doing.
+  - The terminal `{"type":"result",…,"finalText":"…"}` line becomes the
+    resolved output — `response.txt` (built on the bot side from
+    `state.response`) therefore contains the assistant's final answer, not
+    the raw JSON envelope.
+  If the binary ever stops emitting the `result` line (e.g. cmd crash before
+  flushing), the executor falls back to the raw stdout/stderr so the user
+  still sees something.
 - `--model` comes from the profile. The daemon does **not** pass `--effort`
   (the per-instruction `codexReasoningEffort` wire field is OPENAI-only and is
   ignored for `COMMAND_CODE`); reasoning effort is set by the upstream
