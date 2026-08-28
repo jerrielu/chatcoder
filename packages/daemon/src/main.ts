@@ -8,12 +8,6 @@ import { Orchestrator } from "./orchestrator.js";
 import { SessionManager } from "./sessionManager.js";
 import { ToolExecutor } from "./toolExecutor.js";
 import {
-  buildAutoProfiles,
-  CMD_PROFILE_PREFIX,
-  refreshModelCache
-} from "./commandCodeModels.js";
-import type { Profile } from "./profile.js";
-import {
   clearState,
   isProcessAlive,
   killProcess,
@@ -51,31 +45,6 @@ function normalizeCommand(raw: string | undefined): string {
   return raw;
 }
 
-/**
- * Refresh the Command Code model cache and merge the auto-generated
- * `cmd+<model>` profiles into the configured set. User-authored profiles are
- * kept as-is; stale `cmd+*` entries from config are dropped in favour of the
- * fresh discovery. Auto profiles live only in memory — config.yml is never
- * rewritten, so a restart re-derives them cleanly.
- */
-function mergeCommandCodeProfiles(profiles: Profile[], log: (m: string, extra?: unknown) => void): Profile[] {
-  const models = refreshModelCache(log);
-  if (models === null) {
-    log("no Command Code models discovered — skipping cmd+ profile generation");
-    return profiles;
-  }
-  const auto = buildAutoProfiles(models);
-  const manual = profiles.filter((p) => !p.name.startsWith(CMD_PROFILE_PREFIX));
-  const merged = [...manual, ...auto];
-  log("command code models refreshed", {
-    models: models.length,
-    autoProfiles: auto.length,
-    totalProfiles: merged.length
-  });
-  return merged;
-}
-
-
 async function runDaemon(): Promise<void> {
   if (!fs.existsSync(defaultConfigPath())) {
     console.log(`[daemon] No configuration found at ${defaultConfigPath()}`);
@@ -93,10 +62,6 @@ async function runDaemon(): Promise<void> {
     // eslint-disable-next-line no-console
     console.log(`[daemon] ${m}`, extra ?? "");
   };
-
-  // Refresh the Command Code model list and merge auto-generated cmd+<model>
-  // profiles on every start (best-effort — never blocks startup).
-  const mergedProfiles = mergeCommandCodeProfiles(cfg.profiles, log);
 
   // "If something is stale, kill it": clean up previous runs before doing
   // anything else so we are guaranteed to be the only daemon instance.
@@ -120,12 +85,12 @@ async function runDaemon(): Promise<void> {
   const client = new ApiClient({ apiUrl: cfg.apiUrl, apiKey: cfg.apiKey });
 
   log("registering profiles with bot", {
-    count: mergedProfiles.length,
-    names: mergedProfiles.map((p) => p.name)
+    count: cfg.profiles.length,
+    names: cfg.profiles.map((p) => p.name)
   });
   try {
     await client.register({
-      profiles: mergedProfiles.map((p) => ({
+      profiles: cfg.profiles.map((p) => ({
         name: p.name,
         tool: p.tool,
         ...(p.metadata !== undefined ? { metadata: p.metadata } : {})
@@ -151,7 +116,7 @@ async function runDaemon(): Promise<void> {
     maxConcurrency: cfg.maxConcurrency
   });
   const orch = new Orchestrator({
-    config: { ...cfg, profiles: mergedProfiles },
+    config: cfg,
     client,
     sessionManager,
     log

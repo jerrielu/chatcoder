@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.13.1 (2026-08-28)
+
+- **Revert: Command Code auto-discovery and `cmd+<model>` profile generation**
+  — The 0.13.0 behaviour of running `cmd --list-models` on every daemon start
+  and materialising one auto-profile per discovered model is removed. Profiles
+  are now a static, user-authored set: the setup wizard asks for the model id
+  as free text (with a hint to consult `cmd --list-models`) and an effort
+  preset, and that's what gets saved to `config.yml`. No `commandCodeModels`
+  cache file is read or written any more.
+  (packages/daemon/src/commandCodeModels.ts deleted,
+  packages/daemon/src/main.ts, setup.ts; packages/shared/src/protocol.ts)
+- **Profile names no longer allow `+`** — The `+` exception existed only to
+  support the now-removed `cmd+<model>` auto-naming. Slug rules revert to
+  letters / digits / `_` / `.` / `-`.
+  (packages/shared/src/protocol.ts, packages/daemon/src/profile.ts, setup.ts)
+- **`MAX_PROFILES_PER_DAEMON` lowered 96 → 32** — the headroom was only
+  needed for the auto-generated `cmd+` set; 32 is plenty for user-authored
+  profiles.
+  (packages/shared/src/constants.ts)
+
 ## 0.13.0 (2026-08-23)
 
 - **Feature: Command Code (`cmd`) is now a supported tool provider with

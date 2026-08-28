@@ -4,10 +4,6 @@ import { COMMAND_CODE_EFFORTS, MAX_PROFILES_PER_DAEMON } from "@chatcoder/shared
 import { DaemonConfig, writeConfig, defaultConfigPath } from "./config.js";
 import { generateApiKey } from "./crypto.js";
 import { ensureCodexHome } from "./codexHome.js";
-import {
-  discoverCommandCodeModels,
-  getCachedModels
-} from "./commandCodeModels.js";
 import { Profile as ProfileSchema } from "./profile.js";
 import type { Profile } from "./profile.js";
 
@@ -30,9 +26,9 @@ export const validators = {
   apiKey: (v: string): true | string =>
     v.length >= 16 ? true : "Key must be ≥16 chars",
   profileName: (v: string): true | string =>
-    /^[A-Za-z0-9][A-Za-z0-9_.+-]*$/.test(v)
+    /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(v)
       ? true
-      : "Name must be slug-like (letters, digits, _, +, -, .)",
+      : "Name must be slug-like (letters, digits, _, ., -)",
   nonEmpty: (v: string): true | string => (v && v.length > 0 ? true : "Required")
 };
 
@@ -614,57 +610,17 @@ async function promptReasonix(ui: CoderUi, prev?: ReasonixCfg): Promise<Reasonix
 }
 
 /** Model ids available for the Command Code picker (cache first, then fresh discovery). */
-function commandCodeModelChoices(): string[] {
-  const cached = getCachedModels();
-  if (cached !== null) return cached;
-  return discoverCommandCodeModels() ?? [];
-}
-
 async function promptCommandCode(
   ui: CoderUi,
   prev?: CommandCodeCfg
 ): Promise<CommandCodeCfg | null> {
-  const models = commandCodeModelChoices();
-
-  let model: string;
-  if (models.length > 0) {
-    // Paginate through discovered models with a free-text escape hatch.
-    const picked = await pickWithArrows<string | "__TYPED__" | "__BACK__">(
-      ui,
-      "Command Code Model",
-      "Select a model (discovered via cmd --list-models).",
-      [
-        ...models.map((m) => ({ label: m, value: m })),
-        { label: "Type a model id manually…", value: "__TYPED__" },
-        { label: "Back", value: "__BACK__" }
-      ] as Array<PickerOption<string | "__TYPED__" | "__BACK__">>,
-      prev?.model ? Math.max(0, models.indexOf(prev.model)) : 0
-    );
-    if (picked === null || picked === "__BACK__") return null;
-    model =
-      picked === "__TYPED__"
-        ? await askValidated(
-            ui,
-            "Model id (as printed by cmd --list-models): ",
-            prev?.model ?? "",
-            validators.nonEmpty
-          ).then((v) => v ?? "")
-        : picked;
-    if (!model) return null;
-  } else {
-    printWarning(
-      ui,
-      "Could not list models (cmd not found or not logged in). Enter the id manually."
-    );
-    const typed = await askValidated(
-      ui,
-      "Model id (blank to leave unset): ",
-      prev?.model ?? "",
-      validators.nonEmpty
-    );
-    if (typed === null) return null;
-    model = typed;
-  }
+  const model = await askValidated(
+    ui,
+    "Model id (blank to leave unset; see cmd --list-models): ",
+    prev?.model ?? "",
+    validators.nonEmpty
+  );
+  if (model === null) return null;
 
   const effort = await pickWithArrows<(typeof COMMAND_CODE_EFFORTS)[number] | "__BACK__">(
     ui,

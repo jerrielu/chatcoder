@@ -95,7 +95,7 @@ describe("Profile zod schema", () => {
 
   it("parses a COMMAND_CODE profile with model + effort", () => {
     const p = Profile.parse({
-      name: "cmd+gpt-5.6-terra",
+      name: "cmd-terra",
       tool: "COMMAND_CODE",
       commandCode: { model: "gpt-5.6-terra", effort: "xhigh" }
     });
@@ -108,16 +108,17 @@ describe("Profile zod schema", () => {
     }
   });
 
-  it("accepts + in auto-generated cmd+<model> profile names", () => {
-    const p = Profile.parse({
-      name: "cmd+Qwen_Qwen3.8-Max",
-      tool: "COMMAND_CODE",
-      commandCode: {}
-    });
-    expect(p.name).toBe("cmd+Qwen_Qwen3.8-Max");
+  it("rejects + in profile names (no longer auto-generated)", () => {
+    expect(() =>
+      Profile.parse({
+        name: "cmd+Qwen_Qwen3.8-Max",
+        tool: "COMMAND_CODE",
+        commandCode: {}
+      })
+    ).toThrow();
   });
 
-  it("still rejects names with spaces despite + being allowed", () => {
+  it("rejects names with spaces", () => {
     expect(() =>
       Profile.parse({
         name: "cmd foo",

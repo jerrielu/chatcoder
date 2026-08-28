@@ -269,7 +269,7 @@ describe("buildLaunch", () => {
 
   it("runs cmd headless with yolo, model and effort preset", () => {
     const profile: Profile = {
-      name: "cmd+gpt-5.6-terra",
+      name: "cmd-terra",
       tool: "COMMAND_CODE",
       commandCode: {
         model: "gpt-5.6-terra",
@@ -294,7 +294,7 @@ describe("buildLaunch", () => {
 
   it("per-instruction effort override wins over the profile preset for cmd", () => {
     const profile: Profile = {
-      name: "cmd+gpt-5.6-terra",
+      name: "cmd-terra",
       tool: "COMMAND_CODE",
       commandCode: {
         model: "gpt-5.6-terra",
@@ -316,7 +316,7 @@ describe("buildLaunch", () => {
 
   it("omits cmd flags that are unset and passes extraArgs before the message", () => {
     const profile: Profile = {
-      name: "cmd+bare",
+      name: "cmd-bare",
       tool: "COMMAND_CODE",
       commandCode: {
         extraArgs: ["--max-turns", "50"]

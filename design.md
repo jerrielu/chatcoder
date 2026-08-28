@@ -495,7 +495,7 @@ launched in both `packages/daemon/src/launcher.ts` (TUI) and
 opt-out is ever needed, the flag would move back into the profile config
 (option A).
 
-### 7.6 Command Code (`cmd`) provider with auto-generated profiles
+### 7.6 Command Code (`cmd`) provider
 
 Command Code is a fifth tool kind (`COMMAND_CODE`). It runs **headless and
 non-interactive** on every launch:
@@ -506,41 +506,38 @@ cmd -p --yolo [-c] [--model <id>] [--effort <level>] [extraArgs…] "<instructio
 
 - `-p` headless print mode; `-c` resumes the last headless session when the
   instruction has `resumeLastSession=true`.
-- `--yolo` (bypass permission prompts) is forced in code after nothing — it is
-  simply never omitted; `extraArgs` cannot turn it off. Same guarantee shape as
-  §7.5.
+- `--yolo` (bypass permission prompts) is forced in code — it is simply never
+  omitted; `extraArgs` cannot turn it off. Same guarantee shape as §7.5.
 - `--model` comes from the profile; `--effort` from the per-instruction
   Telegram effort override first, else the profile's preset.
 
-**Model discovery → auto profiles.** On every daemon start,
-`commandCodeModels.ts` runs `cmd --list-models` (15 s timeout), parses the ids,
-and generates one profile per model named `cmd+<sanitized model id>` (e.g.
-`Qwen/Qwen3.8-Max` → `cmd+Qwen_Qwen3.8-Max`). The set replaces any previous
-`cmd+*` profiles each start; user-authored profiles are preserved untouched.
-The merged list exists only in memory: `config.yml` keeps manual profiles only,
-so restarts re-derive the auto set cleanly and removed upstream models vanish.
+**Profiles are user-authored.** The setup wizard prompts for a model id (free
+text — the user is told to consult `cmd --list-models` themselves) and an
+effort preset. The same profile is saved to `config.yml` and registered as-is;
+the daemon does not run `cmd --list-models`, does not auto-generate profiles,
+and does not maintain any on-disk model cache. Adding a new Command Code
+model is a deliberate `coder menu` → Add Profile action.
 
 **Options considered**
 
 | # | Option | Pros | Cons |
 |---|--------|------|------|
-| A | Manual per-model profiles created in the setup wizard | Explicit config; no hidden state | ~50 models = tedious one-by-one setup; stale entries after catalog changes |
-| B | Persist generated profiles into `config.yml` on each start | Visible/editable in config | Config churn every restart; deleted models leave debris unless scrubbed |
-| C | In-memory merge at startup, cache file only as fallback (chosen) | Zero-touch: new models appear on restart; config stays user-owned; discovery failure falls back to `~/.chatcoder/command-code-models.json` | Auto profiles not visible in `config.yml` (they are visible in the Telegram picker + daemon log) |
+| A | Manual per-model profiles created in the setup wizard (chosen) | Explicit config; no hidden state; what you see is what runs | Operators repeat the wizard per model |
+| B | Auto-discover via `cmd --list-models` and materialise `cmd+<model>` profiles in memory on every start | Zero-touch: new models appear on restart | Hidden state invisible in `config.yml`; drift between runs if `cmd` is missing; re-derives a transient cache file |
+| C | Persist generated profiles into `config.yml` on each start | Visible/editable in config | Config churn every restart; deleted models leave debris unless scrubbed |
 
-**Chosen: C.** The requirement is "pick Command Code and get all its models
-automatically, refreshed every service start". An in-memory merge satisfies
-that with no config churn; the cache file covers the transient case where
-`cmd` is missing/unauthenticated at start but worked previously.
+**Chosen: A.** Operators want to see and control which Command Code models
+the daemon can pick. The catalog can grow one wizard entry at a time, and
+removing a model is a one-line `config.yml` change. The auto-discovery path
+was tried in 0.13.0 and reverted in 0.13.1.
 
-**Supporting changes:** profile names allow `+`
-(`^[A-Za-z0-9][A-Za-z0-9_.+-]*$` across shared protocol / daemon schema /
-wizard validator) and `MAX_PROFILES_PER_DAEMON` rose 32 → 96 so the ~50-model
-catalog plus manual profiles fit. Effort presets reuse the existing
-`codexReasoningEffort` wire field end-to-end — the Telegram gate widened from
-`OPENAI` to `OPENAI | COMMAND_CODE`; the wizard offers all five levels
-(`low…max`) for fixed-preset manual profiles. No DB migration: the `tool`
-column is TEXT.
+**Supporting changes:** profile names are slug-only
+(`^[A-Za-z0-9][A-Za-z0-9_.-]*$` across shared protocol / daemon schema /
+wizard validator) and `MAX_PROFILES_PER_DAEMON` is back at its prior 32.
+Effort presets reuse the existing `codexReasoningEffort` wire field
+end-to-end — the Telegram gate widened from `OPENAI` to
+`OPENAI | COMMAND_CODE`; the wizard offers all five levels (`low…max`) for
+fixed-preset profiles. No DB migration: the `tool` column is TEXT.
 
 ---
 
