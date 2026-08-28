@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.13.2 (2026-08-28)
+
+- **Remove effort adjustment from the Command Code (`cmd`) provider** — The
+  per-instruction `codexReasoningEffort` override is now ignored for
+  `COMMAND_CODE` profiles, the profile-level `effort` field is gone, and
+  `cmd --effort <level>` is never emitted on launch. The setup wizard (both
+  Coder-style and prompt-wizard paths) no longer asks for an effort preset for
+  `COMMAND_CODE` profiles — only the model id. Existing `config.yml` profiles
+  keep their `effort` value in the file (the schema stops reading it on parse),
+  so no manual migration is required. The unused `COMMAND_CODE_EFFORTS` and
+  `CommandCodeEffort` exports were also dropped from `@chatcoder/shared`. This
+  reflects that Command Code's per-request effort knob is set by the upstream
+  provider and not something the daemon should be overwriting.
+  (packages/daemon/src/profile.ts, setup.ts, toolExecutor.ts, launcher.ts;
+  packages/daemon/test/profile.test.ts, toolExecutor.test.ts;
+  packages/shared/src/constants.ts — see design.md §7.6)
+
 ## 0.13.1 (2026-08-28)
 
 - **Revert: Command Code auto-discovery and `cmd+<model>` profile generation**

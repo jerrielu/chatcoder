@@ -267,13 +267,12 @@ describe("buildLaunch", () => {
     ]);
   });
 
-  it("runs cmd headless with yolo, model and effort preset", () => {
+  it("runs cmd headless with yolo and model (no --effort flag)", () => {
     const profile: Profile = {
       name: "cmd-terra",
       tool: "COMMAND_CODE",
       commandCode: {
         model: "gpt-5.6-terra",
-        effort: "xhigh",
         extraArgs: []
       }
     };
@@ -285,20 +284,18 @@ describe("buildLaunch", () => {
       "-c",
       "--model",
       "gpt-5.6-terra",
-      "--effort",
-      "xhigh",
       "fix the bug"
     ]);
     expect(launch.stdinText).toBeNull();
+    expect(launch.args).not.toContain("--effort");
   });
 
-  it("per-instruction effort override wins over the profile preset for cmd", () => {
+  it("ignores per-instruction codexReasoningEffort when launching cmd", () => {
     const profile: Profile = {
       name: "cmd-terra",
       tool: "COMMAND_CODE",
       commandCode: {
         model: "gpt-5.6-terra",
-        effort: "low",
         extraArgs: []
       }
     };
@@ -308,10 +305,9 @@ describe("buildLaunch", () => {
       "--yolo",
       "--model",
       "gpt-5.6-terra",
-      "--effort",
-      "high",
       "go"
     ]);
+    expect(fresh.args).not.toContain("--effort");
   });
 
   it("omits cmd flags that are unset and passes extraArgs before the message", () => {

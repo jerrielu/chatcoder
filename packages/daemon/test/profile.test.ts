@@ -93,15 +93,14 @@ describe("Profile zod schema", () => {
     ).toThrow();
   });
 
-  it("parses a COMMAND_CODE profile with model + effort", () => {
+  it("parses a COMMAND_CODE profile with model", () => {
     const p = Profile.parse({
       name: "cmd-terra",
       tool: "COMMAND_CODE",
-      commandCode: { model: "gpt-5.6-terra", effort: "xhigh" }
+      commandCode: { model: "gpt-5.6-terra" }
     });
     if (p.tool === "COMMAND_CODE") {
       expect(p.commandCode.model).toBe("gpt-5.6-terra");
-      expect(p.commandCode.effort).toBe("xhigh");
       expect(p.commandCode.extraArgs).toEqual([]);
     } else {
       throw new Error("expected COMMAND_CODE");

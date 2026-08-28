@@ -170,12 +170,12 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 
 > **Command Code profiles:** profiles with tool kind `COMMAND_CODE` run the
 > `cmd` CLI headless and always non-interactively
-> (`cmd -p --yolo -c --model <id> [--effort <level>] "<instruction>"`) —
-> `--yolo` (permission bypass) is forced and cannot be disabled. Each
-> Command Code profile is created manually in the setup wizard: you type
-> the model id (consult `cmd --list-models` to find it) and pick an effort
-> preset. The daemon does not auto-discover or auto-generate Command Code
-> profiles. The Telegram effort picker applies to these profiles too. See
+> (`cmd -p --yolo -c --model <id> "<instruction>"`) — `--yolo` (permission
+> bypass) is forced and cannot be disabled. Each Command Code profile is
+> created manually in the setup wizard: you type the model id (consult
+> `cmd --list-models` to find it). The daemon does not auto-discover or
+> auto-generate Command Code profiles, and does not adjust reasoning effort
+> for them (effort is set by the upstream provider). See
 > [design.md §7.6](./design.md).
 
 **Stale-process recovery (automatic):** the daemon keeps a single-instance

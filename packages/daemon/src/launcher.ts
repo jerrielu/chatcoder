@@ -70,7 +70,6 @@ export async function launchProfile(profile: Profile, cwd?: string): Promise<num
     // (cannot be overridden by profile extraArgs).
     args = ["-p", "--yolo"];
     if (c.model) args.push("--model", c.model);
-    if (c.effort) args.push("--effort", c.effort);
     args.push(...c.extraArgs);
     cmd = "cmd";
   } else {

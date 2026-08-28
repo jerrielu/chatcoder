@@ -196,11 +196,6 @@ export function buildLaunch(
     args.push("--yolo");
     if (resumeLastSession) args.push("-c");
     if (c.model) args.push("--model", c.model);
-    if (codexReasoningEffort) {
-      args.push("--effort", codexReasoningEffort);
-    } else if (c.effort) {
-      args.push("--effort", c.effort);
-    }
     args.push(...c.extraArgs);
     args.push(message);
     return {

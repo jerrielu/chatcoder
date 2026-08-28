@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import prompts from "prompts";
-import { COMMAND_CODE_EFFORTS, MAX_PROFILES_PER_DAEMON } from "@chatcoder/shared";
+import { MAX_PROFILES_PER_DAEMON } from "@chatcoder/shared";
 import { DaemonConfig, writeConfig, defaultConfigPath } from "./config.js";
 import { generateApiKey } from "./crypto.js";
 import { ensureCodexHome } from "./codexHome.js";
@@ -622,26 +622,8 @@ async function promptCommandCode(
   );
   if (model === null) return null;
 
-  const effort = await pickWithArrows<(typeof COMMAND_CODE_EFFORTS)[number] | "__BACK__">(
-    ui,
-    "Reasoning Effort",
-    "Select the effort preset passed via --effort.",
-    [
-      ...COMMAND_CODE_EFFORTS.map((e) => ({
-        label: e,
-        value: e
-      })),
-      { label: "Back", value: "__BACK__" as const }
-    ],
-    prev?.effort
-      ? Math.max(0, COMMAND_CODE_EFFORTS.indexOf(prev.effort as never))
-      : 2
-  );
-  if (effort === null || effort === "__BACK__") return null;
-
   return {
     model: model || undefined,
-    effort,
     extraArgs: prev?.extraArgs ?? []
   };
 }
@@ -1364,19 +1346,13 @@ async function promptOneProfilePromptWizard(
 
   if (base.tool === "COMMAND_CODE") {
     const prev = existing?.tool === "COMMAND_CODE" ? existing.commandCode : undefined;
-    // Non-TTY fallback: free-text model + effort (no pickers available).
+    // Non-TTY fallback: free-text model only (no pickers available).
     const c = await io.prompt([
       {
         type: "text",
         name: "model",
         message: "Model id (blank to leave unset; see cmd --list-models)",
         initial: prev?.model ?? ""
-      },
-      {
-        type: "text",
-        name: "effort",
-        message: `Effort preset (${COMMAND_CODE_EFFORTS.join("/")} or blank)`,
-        initial: prev?.effort ?? ""
       }
     ]);
     return {
@@ -1385,7 +1361,6 @@ async function promptOneProfilePromptWizard(
       metadata: base.metadata || undefined,
       commandCode: {
         model: c.model || undefined,
-        effort: c.effort || undefined,
         extraArgs: prev?.extraArgs ?? []
       }
     };

@@ -501,22 +501,24 @@ Command Code is a fifth tool kind (`COMMAND_CODE`). It runs **headless and
 non-interactive** on every launch:
 
 ```
-cmd -p --yolo [-c] [--model <id>] [--effort <level>] [extraArgs…] "<instruction>"
+cmd -p --yolo [-c] [--model <id>] [extraArgs…] "<instruction>"
 ```
 
 - `-p` headless print mode; `-c` resumes the last headless session when the
   instruction has `resumeLastSession=true`.
 - `--yolo` (bypass permission prompts) is forced in code — it is simply never
   omitted; `extraArgs` cannot turn it off. Same guarantee shape as §7.5.
-- `--model` comes from the profile; `--effort` from the per-instruction
-  Telegram effort override first, else the profile's preset.
+- `--model` comes from the profile. The daemon does **not** pass `--effort`
+  (the per-instruction `codexReasoningEffort` wire field is OPENAI-only and is
+  ignored for `COMMAND_CODE`); reasoning effort is set by the upstream
+  provider, not by the daemon.
 
 **Profiles are user-authored.** The setup wizard prompts for a model id (free
-text — the user is told to consult `cmd --list-models` themselves) and an
-effort preset. The same profile is saved to `config.yml` and registered as-is;
-the daemon does not run `cmd --list-models`, does not auto-generate profiles,
-and does not maintain any on-disk model cache. Adding a new Command Code
-model is a deliberate `coder menu` → Add Profile action.
+text — the user is told to consult `cmd --list-models` themselves). The same
+profile is saved to `config.yml` and registered as-is; the daemon does not run
+`cmd --list-models`, does not auto-generate profiles, and does not maintain any
+on-disk model cache. Adding a new Command Code model is a deliberate
+`coder menu` → Add Profile action.
 
 **Options considered**
 

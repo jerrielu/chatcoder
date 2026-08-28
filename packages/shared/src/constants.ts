@@ -80,13 +80,6 @@ export type ToolKind = (typeof TOOL_KINDS)[number];
 export const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
 export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
 
-/**
- * Command Code reasoning-effort presets (superset of CODEX_REASONING_EFFORTS —
- * `max` is only reachable via a manual wizard profile).
- */
-export const COMMAND_CODE_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
-export type CommandCodeEffort = (typeof COMMAND_CODE_EFFORTS)[number];
-
 /** Codex slash command used to request token totals. */
 export const CODEX_TOKEN_USAGE_COMMAND = "/token";
 

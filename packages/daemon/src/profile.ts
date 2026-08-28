@@ -54,7 +54,6 @@ export type ReasonixConfig = z.infer<typeof ReasonixConfig>;
 
 export const CommandCodeConfig = z.object({
   model: z.string().optional(),
-  effort: z.string().optional(),
   extraArgs: z.array(z.string()).default([])
 });
 export type CommandCodeConfig = z.infer<typeof CommandCodeConfig>;
