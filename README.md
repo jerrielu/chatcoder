@@ -170,11 +170,12 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 
 > **Command Code profiles:** profiles with tool kind `COMMAND_CODE` run the
 > `cmd` CLI headless and always non-interactively
-> (`cmd -p --yolo --output-format json -c --model <id> "<instruction>"`) —
-> `--yolo` (permission bypass) and `--output-format json` (NDJSON event
+> (`cmd -p --yolo --output-format json -c --model <id> --max-turns 999999999 "<instruction>"`) —
+> `--yolo` (permission bypass), `--output-format json` (NDJSON event
 > stream so the daemon can stream live progress to the bot and pull the
-> final `result.finalText` on close) are forced and cannot be disabled.
-> Each Command Code profile is created manually in the setup wizard: you
+> final `result.finalText` on close), and `--max-turns 999999999` (effectively-unlimited
+> agent turns so long-running tasks aren't cut off mid-turn) are forced and
+> cannot be disabled. Each Command Code profile is created manually in the setup wizard: you
 > type the model id (consult `cmd --list-models` to find it). The daemon
 > does not auto-discover or auto-generate Command Code profiles, and does
 > not adjust reasoning effort for them (effort is set by the upstream

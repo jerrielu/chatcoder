@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.15.2 (2026-08-30)
+
+- **Force `--max-turns 999999999` on every Command Code (`cmd`) tool launch** —
+  Every daemon tool invocation for a `COMMAND_CODE` profile now appends
+  `--max-turns 999999999` after the profile's `extraArgs`, so long-running
+  tasks are never cut off mid-turn by Command Code's default agent-turn cap.
+  The flag is forced (mirroring the Reasonix `--permission-mode auto` and the
+  `--yolo` / `--output-format json` "always-on" patterns in the same branch),
+  so a profile's own `extraArgs` cannot override it. The interactive
+  `chatcoder coder` TUI launcher is unchanged. (packages/daemon/src/toolExecutor.ts;
+  packages/daemon/test/toolExecutor.test.ts — see design.md §7.6)
+
 ## 0.15.1 (2026-08-28)
 
 - **`response.txt` now includes the in-progress stream alongside the final

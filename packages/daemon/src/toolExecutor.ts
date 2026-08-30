@@ -205,6 +205,10 @@ export function buildLaunch(
     if (resumeLastSession) args.push("-c");
     if (c.model) args.push("--model", c.model);
     args.push(...c.extraArgs);
+    // Forced: cap agent turns at an effectively-unlimited number so long-running
+    // daemon tool invocations aren't cut off mid-task (cannot be overridden by
+    // profile extraArgs).
+    args.push("--max-turns", "999999999");
     args.push(message);
     return {
       cmd: "cmd",

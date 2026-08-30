@@ -286,6 +286,8 @@ describe("buildLaunch", () => {
       "-c",
       "--model",
       "gpt-5.6-terra",
+      "--max-turns",
+      "999999999",
       "fix the bug"
     ]);
     expect(launch.stdinText).toBeNull();
@@ -309,6 +311,8 @@ describe("buildLaunch", () => {
       "json",
       "--model",
       "gpt-5.6-terra",
+      "--max-turns",
+      "999999999",
       "go"
     ]);
     expect(fresh.args).not.toContain("--effort");
@@ -331,6 +335,8 @@ describe("buildLaunch", () => {
       "-c",
       "--max-turns",
       "50",
+      "--max-turns",
+      "999999999",
       "hello"
     ]);
   });

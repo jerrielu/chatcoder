@@ -538,7 +538,7 @@ Command Code is a fifth tool kind (`COMMAND_CODE`). It runs **headless and
 non-interactive** on every launch:
 
 ```
-cmd -p --yolo --output-format json [-c] [--model <id>] [extraArgs…] "<instruction>"
+cmd -p --yolo --output-format json [-c] [--model <id>] [extraArgs…] --max-turns 999999999 "<instruction>"
 ```
 
 - `-p` headless print mode; `-c` resumes the last headless session when the
@@ -566,6 +566,10 @@ cmd -p --yolo --output-format json [-c] [--model <id>] [extraArgs…] "<instruct
   (the per-instruction `codexReasoningEffort` wire field is OPENAI-only and is
   ignored for `COMMAND_CODE`); reasoning effort is set by the upstream
   provider, not by the daemon.
+- `--max-turns 999999999` is forced in code (placed after `extraArgs` so a
+  profile cannot override it) so long-running daemon tool invocations are
+  never cut off mid-task by Command Code's default agent-turn cap. Same
+  guarantee shape as `--yolo` / `--output-format json`.
 
 **Profiles are user-authored.** The setup wizard prompts for a model id (free
 text — the user is told to consult `cmd --list-models` themselves). The same
