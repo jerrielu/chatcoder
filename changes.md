@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.15.3 (2026-08-30)
+
+- **Fix: Command Code (`cmd`) "🔄 processing…" message no longer freezes during
+  model thinking** — `packages/daemon/src/commandCodeStream.ts` was silently
+  dropping every NDJSON event type other than `text_delta` / `message_update` /
+  `tool_*` / `run_end`, so during the model-thinking phase (between
+  `model_request_start` and the first `text_delta`, sometimes 30+ seconds for
+  long tool calls or model retries) the Telegram "🔄 processing…" message
+  stayed at whatever was last emitted. The translator now surfaces all event
+  types as progress: known content events still drive `currentText` /
+  `toolSuffix` exactly as before; the meta events `run_start`, `turn_start`,
+  `turn_end`, `message_start`, `model_request_start`, `model_request_end`,
+  `model_trace`, `api_retry`, `thinking` (and any future event type via the
+  `default:` branch) are surfaced as a deduplicated heartbeat suffix like
+  `\n[model_trace]` so the user sees cmd is alive while it is thinking. The
+  `tool_update` event is mapped to a `[tool: <name> running]` note, matching
+  the existing tool-running format. The heartbeat suffix is automatically
+  cleared the moment a real `text_delta` or `message_update` arrives so it
+  does not linger once real content starts flowing. Internally the
+  single-suffix state was split into independent `heartbeatSuffix` and
+  `toolSuffix` slots so changing one no longer clobbers the other. End-to-end
+  test mirrors the real `cmd` event sequence observed in the wild.
+  (packages/daemon/src/commandCodeStream.ts,
+  packages/daemon/test/commandCodeStream.test.ts — see design.md §7.6)
+
 ## 0.15.2 (2026-08-30)
 
 - **Force `--max-turns 999999999` on every Command Code (`cmd`) tool launch** —

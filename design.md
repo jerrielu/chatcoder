@@ -552,9 +552,20 @@ cmd -p --yolo --output-format json [-c] [--model <id>] [extraArgs…] --max-turn
   - `text_delta` / `message_update` / `message_end` events become the
     progress string the bot's "🔄 processing…" message keeps editing (same
     5-second flush cadence as Reasonix).
-  - `tool_queued` / `tool_running` / `tool_completed` events become a short
-    suffix like `\n\n[tool: shell_command]` so the user sees what cmd is
-    doing.
+  - `tool_queued` / `tool_running` / `tool_completed` / `tool_update` events
+    become a short suffix like `\n\n[tool: shell_command]` (or
+    `\n\n[tool: shell_command running]` for `tool_update`) so the user sees
+    what cmd is doing.
+  - The remaining event types (`run_start`, `turn_start`, `message_start`,
+    `model_request_start`, `model_request_end`, `turn_end`, `model_trace`,
+    `api_retry`, `thinking`, and any future unknown event) are surfaced as a
+    deduplicated heartbeat suffix like `\n[model_trace]` so the Telegram
+    "🔄 processing…" message never appears frozen during the
+    model-thinking phase between events. The heartbeat is automatically
+    cleared the moment a real `text_delta` or `message_update` arrives, so
+    it only shows when cmd is alive but not producing content. Heartbeat
+    and tool suffixes are tracked independently so changing one does not
+    clobber the other.
   - The terminal `{"type":"result",…,"finalText":"…"}` line becomes the
     resolved output — `response.txt` (built on the bot side from
     `state.response`) therefore contains the assistant's final answer, not

@@ -95,4 +95,101 @@ describe("createCommandCodeStreamTranslator", () => {
     expect(out).toContain("Command Code v1.37.0");
     expect(t.snapshot()).toContain("Command Code v1.37.0");
   });
+
+  it("surfaces meta events as a heartbeat suffix", () => {
+    const t = createCommandCodeStreamTranslator();
+    const events = [
+      "run_start",
+      "turn_start",
+      "message_start",
+      "model_request_start",
+      "model_trace",
+      "api_retry"
+    ] as const;
+    for (const evType of events) {
+      const out = t.ingest(line({ type: "event", event: { type: evType } }) + "\n");
+      expect(out).toContain(`[${evType}]`);
+      expect(t.snapshot()).toContain(`[${evType}]`);
+    }
+  });
+
+  it("deduplicates repeating heartbeat events", () => {
+    const t = createCommandCodeStreamTranslator();
+    // First model_trace → emits a delta
+    const first = t.ingest(line({ type: "event", event: { type: "model_trace" } }) + "\n");
+    expect(first).toContain("[model_trace]");
+    // Same model_trace again — no new delta should be emitted (snapshot unchanged)
+    const second = t.ingest(line({ type: "event", event: { type: "model_trace" } }) + "\n");
+    expect(second).toBe("");
+  });
+
+  it("clears the heartbeat suffix when real text_delta arrives", () => {
+    const t = createCommandCodeStreamTranslator();
+    t.ingest(line({ type: "event", event: { type: "model_trace" } }) + "\n");
+    expect(t.snapshot()).toContain("[model_trace]");
+    t.ingest(line({ type: "event", event: { type: "text_delta", delta: "Hi" } }) + "\n");
+    expect(t.snapshot()).not.toContain("[model_trace]");
+    expect(t.snapshot()).toBe("Hi");
+  });
+
+  it("does not clear a tool-running suffix when text_delta arrives", () => {
+    const t = createCommandCodeStreamTranslator();
+    t.ingest(
+      line({
+        type: "event",
+        event: { type: "tool_running", toolName: "shell_command", description: "ls" }
+      }) + "\n"
+    );
+    t.ingest(line({ type: "event", event: { type: "text_delta", delta: "Running" } }) + "\n");
+    const snap = t.snapshot();
+    expect(snap).toContain("[tool: ls]");
+    expect(snap).toContain("Running");
+  });
+
+  it("surfaces tool_update as a 'tool: X running' suffix", () => {
+    const t = createCommandCodeStreamTranslator();
+    const out = t.ingest(
+      line({
+        type: "event",
+        event: { type: "tool_update", toolName: "shell_command", description: "ls" }
+      }) + "\n"
+    );
+    expect(out).toContain("[tool: ls running]");
+    expect(t.snapshot()).toContain("[tool: ls running]");
+  });
+
+  it("handles a full cmd run sequence end-to-end with progress", () => {
+    // Mirrors the real output we observed: run_start / turn_start / model_trace /
+    // api_retry / text_delta / message_update / tool_queued / tool_running /
+    // tool_update / tool_completed / turn_end / run_end / result.
+    const t = createCommandCodeStreamTranslator();
+    const feed = (evType: string, extra: Record<string, unknown> = {}): string =>
+      t.ingest(line({ type: "event", event: { type: evType, ...extra } }) + "\n");
+
+    feed("run_start");
+    feed("turn_start", { turnNumber: 1 });
+    feed("message_start");
+    feed("model_request_start", { model: "x" });
+    feed("model_trace");
+    feed("model_trace");
+    feed("api_retry", { attempt: 1 });
+    feed("text_delta", { delta: "I'll list" });
+    feed("message_update", { content: [{ type: "text", text: "I'll list" }] });
+    feed("text_delta", { delta: " files" });
+    feed("tool_queued", { toolName: "shell_command" });
+    feed("tool_running", { toolName: "shell_command", description: "ls" });
+    feed("tool_update", { toolName: "shell_command", description: "ls" });
+    feed("tool_completed", { toolName: "shell_command" });
+    feed("turn_end", { turnNumber: 1, hadToolCalls: true });
+    feed("run_end", { result: { finalText: "I'll list files" } });
+
+    const snap = t.snapshot();
+    expect(snap).toContain("I'll list files");
+    expect(snap).toContain("[tool: shell_command done]");
+
+    t.ingest(line({ type: "result", subtype: "success", finalText: "I'll list files" }) + "\n");
+    const finalised = t.finalize();
+    expect(finalised.hasResult).toBe(true);
+    expect(finalised.finalText).toBe("I'll list files");
+  });
 });

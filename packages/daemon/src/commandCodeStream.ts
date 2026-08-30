@@ -44,28 +44,80 @@ const TOOL_COMPLETED_NOTE = (name: string): string => `\n\n[tool: ${name} done]`
 /**
  * Build a translator for one `cmd --output-format json` run.
  *
- * The progress string is the latest assistant `text` we've seen, optionally
- * suffixed with a one-line note when a tool starts/finishes. We emit only the
- * delta (new characters since the last call) so the runner's 5-second flush
- * loop shows just the new text instead of the whole accumulated log every tick.
+ * The progress string is the latest assistant `text` we've seen, suffixed by
+ * (a) an optional tool-running/completed note and/or (b) a heartbeat note from
+ * meta events (model_trace, turn_start, api_retry, …) that cmd emits during the
+ * model-thinking phase. Both suffixes are independent: changing one does not
+ * clobber the other. We emit only the delta (new characters since the last
+ * call) so the runner's 5-second flush loop shows just the new text instead of
+ * the whole accumulated log every tick.
  */
 export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator {
   let buffer = "";
   let currentText = "";
   let emittedTextLen = 0;
-  let lastSuffix = "";
+  let heartbeatSuffix = "";
+  let toolSuffix = "";
   let result: CommandCodeStreamResult = { finalText: "", hasResult: false };
 
-  const snapshot = (): string => `${currentText}${lastSuffix}`;
+  const snapshot = (): string => `${currentText}${heartbeatSuffix}${toolSuffix}`;
 
   const finalize = (): CommandCodeStreamResult => result;
 
+  /**
+   * Emit the delta since the last emission. When text_delta extends
+   * `currentText`, the common-prefix slice works naturally. When a suffix
+   * changes shape, the caller should use `emitSuffixFromCurrentText`
+   * instead so the prefix-change characters are not dropped.
+   */
   const emitDelta = (): string => {
     const fullSnapshot = snapshot();
-    if (fullSnapshot.length <= emittedTextLen) return "";
+    const visibleSuffix = fullSnapshot.slice(currentText.length);
+    const prevSuffixLen = emittedTextLen - currentText.length;
+    if (prevSuffixLen < 0) {
+      // currentText grew past emittedTextLen (typical for text_delta).
+      // Emit the new text + any suffix, then resync.
+      const newTextPortion = currentText.slice(emittedTextLen);
+      emittedTextLen = fullSnapshot.length;
+      return newTextPortion + visibleSuffix;
+    }
+    if (visibleSuffix === "" && emittedTextLen >= currentText.length) {
+      return "";
+    }
+    if (fullSnapshot.length <= emittedTextLen) {
+      // Snapshot didn't grow — suffix unchanged and nothing to add.
+      return "";
+    }
     const delta = fullSnapshot.slice(emittedTextLen);
     emittedTextLen = fullSnapshot.length;
     return delta;
+  };
+
+  /**
+   * Force-emit the full visible suffix (heartbeat + tool) starting from
+   * `currentText`. Used when a suffix changes shape (e.g. `[model_trace]`
+   * → `[api_retry]`) where the simple slice-emit would drop the prefix-
+   * change characters. At worst we re-send ~30 chars; correctness wins
+   * over micro-optimisation here.
+   */
+  const emitSuffixFromCurrentText = (): string => {
+    const fullSnapshot = snapshot();
+    const tail = fullSnapshot.slice(currentText.length);
+    if (tail.length === 0) return "";
+    emittedTextLen = fullSnapshot.length;
+    return tail;
+  };
+
+  const setHeartbeatSuffix = (next: string): string => {
+    if (heartbeatSuffix === next) return "";
+    heartbeatSuffix = next;
+    return emitSuffixFromCurrentText();
+  };
+
+  const setToolSuffix = (next: string): string => {
+    if (toolSuffix === next) return "";
+    toolSuffix = next;
+    return emitSuffixFromCurrentText();
   };
 
   const ingest = (chunk: string): string => {
@@ -98,10 +150,7 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
       // Non-JSON line (e.g. cmd boot banner before it switches to NDJSON).
       // Surface it as a small note so the user sees the binary responded.
       const note = line.length > 0 ? `\n${line}` : "";
-      if (note.length > 0) {
-        lastSuffix = note;
-        return emitDelta();
-      }
+      if (note.length > 0) return setHeartbeatSuffix(note);
       return "";
     }
     if (!parsed || typeof parsed !== "object") return "";
@@ -121,6 +170,9 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
       case "text_delta": {
         if (typeof ev["delta"] === "string") {
           currentText += ev["delta"] as string;
+          // Real assistant text is flowing — clear any stale heartbeat so
+          // the user only sees the heartbeat during silence.
+          if (heartbeatSuffix !== "") heartbeatSuffix = "";
           return emitDelta();
         }
         return "";
@@ -134,6 +186,8 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
           const joined = extractAssistantText(content);
           if (joined !== null) {
             currentText = joined;
+            // Authoritative text snapshot — clear any stale heartbeat.
+            if (heartbeatSuffix !== "") heartbeatSuffix = "";
             return emitDelta();
           }
         }
@@ -146,13 +200,23 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
           ev["description"] !== undefined && ev["description"] !== null
             ? (ev["description"] as string)
             : null;
-        lastSuffix = TOOL_RUNNING_NOTE(name, description);
-        return emitDelta();
+        return setToolSuffix(TOOL_RUNNING_NOTE(name, description));
       }
       case "tool_completed": {
         const name = typeof ev["toolName"] === "string" ? (ev["toolName"] as string) : "tool";
-        lastSuffix = TOOL_COMPLETED_NOTE(name);
-        return emitDelta();
+        return setToolSuffix(TOOL_COMPLETED_NOTE(name));
+      }
+      case "tool_update": {
+        // Mid-tool progress from cmd — shows the tool is alive but has not
+        // finished yet. Uses the same shape as tool_running so the user
+        // sees a consistent "[tool: … running]" note.
+        const name = typeof ev["toolName"] === "string" ? (ev["toolName"] as string) : "tool";
+        const description =
+          ev["description"] !== undefined && ev["description"] !== null
+            ? (ev["description"] as string)
+            : null;
+        const what = description && description.trim().length > 0 ? description.trim() : name;
+        return setToolSuffix(`\n\n[tool: ${what} running]`);
       }
       case "message_end": {
         // Authoritative final text for the current assistant message.
@@ -178,8 +242,27 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
         }
         return "";
       }
-      default:
-        return "";
+      case "turn_start":
+      case "turn_end":
+      case "message_start":
+      case "model_request_start":
+      case "model_request_end":
+      case "run_start":
+      case "api_retry":
+      case "model_trace":
+      case "thinking": {
+        // Heartbeat events: cmd emits these throughout the agent loop
+        // (every 1-2 s during model inference, on retry, on turn boundaries).
+        // Without them the Telegram "🔄 processing…" message appears frozen
+        // for the whole model-thinking phase. setHeartbeatSuffix() dedupes
+        // so a repeating model_trace doesn't spam a delta every second.
+        return setHeartbeatSuffix(`\n[${String(evType)}]`);
+      }
+      default: {
+        // Any future event type from cmd — surface as a heartbeat so the
+        // user is never left staring at a frozen "🔄" while cmd is healthy.
+        return setHeartbeatSuffix(`\n[${String(evType)}]`);
+      }
     }
   };
 
