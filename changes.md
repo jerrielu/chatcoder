@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.15.5 (2026-08-31)
+
+- **Fix: pendingFinalAck no longer triggers spurious "continue" resume floods on
+  the happy path** — The 0.15.4 self-heal mechanism (`pendingFinalAck` set at
+  the start of every non-stop task, cleared when the final POST succeeds)
+  accidentally turned the orchestrator's `resumeInProgress=1` gate on for the
+  ENTIRE duration of a normal task. With the daemon polling every few seconds
+  while the user is waiting on cmd to finish a long task, every poll saw
+  `pendingFinalAck=true`, asked the bot to resume the in-progress row, the bot
+  handed back a synthetic `continue` task, and the daemon enqueued it. After
+  the original task completed, the runner FIFO-drained the queued "continue"
+  tasks — each one ran `cmd -c "continue"` and posted its output back to the
+  user, producing a flood of spurious "continuing the conversation" replies.
+  Fix: `pendingFinalAck` is now set to `true` ONLY when a final POST actually
+  fails (the rare wedge-recovery case), and cleared when the next final POST
+  succeeds. The happy path leaves the flag at `false`, so the orchestrator
+  stops sending `resumeInProgress=1` and the bot's normal FIFO claim flow
+  takes over. Stop tasks remain unaffected (the abort path is its own
+  confirmation). 5/5 sessionRunner tests pass; full daemon suite 131/131;
+  full repo suite 358/360 (the 2 pre-existing bot/api failures are unrelated
+  to this change, confirmed by stashing and re-running on the base branch).
+  (packages/daemon/src/sessionRunner.ts, packages/daemon/test/sessionRunner.test.ts)
+
 ## 0.15.4 (2026-08-30)
 
 - **Fix: stuck "🔄 processing…" no longer blocks subsequent messages for the

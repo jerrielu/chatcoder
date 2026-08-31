@@ -264,16 +264,22 @@ session, so a bot restart doesn't leave progress invisible, and a
 daemon-only restart doesn't produce a duplicate message.
 
 The same `resumeInProgress=1` flag is also re-sent on every subsequent poll
-while any `SessionRunner` has a `pendingFinalAck` set. A runner sets this
-flag at the start of every non-stop task and clears it the moment the final
-response POST to the bot succeeds. If the final POST fails (timeout, 5xx,
-network), `tryPostChunked` swallows the error and the flag stays set — the
-next poll asks the bot to hand back the same in-progress row, the daemon
-re-runs the task, and the loop repeats until the final delivery succeeds
-and the bot's `completeProcessing` clears the row. This auto-recovers
-"stuck 🔄 blocks every following message" wedges that previously required a
-PM2 restart, without changing the bot's poll handler (which already does
-the right thing for `resumeInProgress=1`).
+while any `SessionRunner` has a `pendingFinalAck` set. The flag is flipped on
+ONLY when a final-response POST actually fails (timeout, 5xx, network) and
+stays set until the next successful final POST clears it — setting it
+eagerly at the start of `runOne` (the 0.15.4 mistake) made the orchestrator
+poll the bot with `resumeInProgress=1` for the entire duration of a normal
+task, so every poll while the user was waiting on a long `cmd` run queued
+a synthetic "continue" resume task that the runner FIFO-drained as soon as
+the original task completed, producing a flood of spurious
+"continuing the conversation" replies. The flag now stays at `false` on the
+happy path; it is only set when a final POST actually fails. When that
+happens, the next poll asks the bot to hand back the same in-progress row,
+the daemon re-runs the task, and the loop repeats until the final delivery
+succeeds and the bot's `completeProcessing` clears the row. This auto-
+recovers "stuck 🔄 blocks every following message" wedges that previously
+required a PM2 restart, without changing the bot's poll handler (which
+already does the right thing for `resumeInProgress=1`).
 
 ---
 

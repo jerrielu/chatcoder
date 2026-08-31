@@ -57,12 +57,28 @@ describe("SessionRunner pendingFinalAck", () => {
     expect(runner.hasPendingFinalAck).toBe(false);
   });
 
-  it("becomes true while a non-stop task is executing and clears after a successful final POST", async () => {
+  it("stays false throughout a normal task (the happy-path bug fix)", async () => {
+    // Regression guard for the c48e53e follow-up: setting pendingFinalAck
+    // eagerly at the start of runOne made the orchestrator poll the bot
+    // with resumeInProgress=1 for the entire duration of a normal task,
+    // which caused the bot to hand back a "continue" resume task per
+    // poll while the task was still running. The runner then drained a
+    // flood of spurious "continue" turns after the original task
+    // completed. The flag must only flip on when the final POST
+    // actually fails.
     let postedFinal = 0;
+    let observedWhileRunning: boolean | null = null;
+    const tool = {
+      execute: async () => {
+        // Sample the flag mid-execution — it must still be false.
+        observedWhileRunning = runner.hasPendingFinalAck;
+        return "ok";
+      }
+    };
     const runner = new SessionRunner("s1", {
       sessionId: "s1",
       profile: sampleProfile(),
-      tool: new FakeToolExecutor() as unknown as ToolExecutor,
+      tool: tool as unknown as ToolExecutor,
       postResponse: async (_sessionId, _content, opts) => {
         if (opts?.final) postedFinal += 1;
       }
@@ -74,9 +90,8 @@ describe("SessionRunner pendingFinalAck", () => {
       content: "hi"
     });
     await flushMicrotasks();
-    // The post happened and the runner drained, so pendingFinalAck should
-    // be back to false.
     expect(postedFinal).toBe(1);
+    expect(observedWhileRunning).toBe(false);
     expect(runner.hasPendingFinalAck).toBe(false);
   });
 

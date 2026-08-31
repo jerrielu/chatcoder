@@ -189,7 +189,13 @@ export class SessionRunner {
     this.activeTaskId = task.messageId;
     // Stops don't need a final ack — the abort path is its own confirmation
     // (the bot's "⏹ Stopped" message completes the row when it lands).
-    if (task.kind !== "stop") this.pendingFinalAck = true;
+    // pendingFinalAck is flipped on only when a final POST actually fails
+    // (see tryPostChunked callers below): setting it eagerly here would
+    // make the orchestrator poll the bot with resumeInProgress=1 for the
+    // entire duration of a normal task, which causes the bot to hand back
+    // a "continue" resume task per poll while the task is still running —
+    // the runner then drains a flood of spurious "continue" turns after
+    // the original task completes.
     try {
       release = this.deps.acquireSlot ? await this.deps.acquireSlot() : null;
       this.log("<<< instruction", { session: this.sessionId, profile: this.deps.profile.name, content: task.content });
@@ -201,7 +207,13 @@ export class SessionRunner {
         if (abort.signal.aborted) return;
         this.log("execution failed", { session: this.sessionId, err });
         const ok = await this.tryPostChunked(task.sessionId, `Error: ${err instanceof Error ? err.message : String(err)}`, { final: true });
+        // The flag is sticky on failure (orchestrator keeps asking the bot
+        // to resume the in-progress row until the next successful final
+        // POST clears it). Successful POSTs leave the flag at whatever it
+        // was before — typically false, but possibly true if a previous
+        // task's final POST failed and we are now finally clearing it.
         if (ok) this.pendingFinalAck = false;
+        else this.pendingFinalAck = true;
       } finally {
         if (this.currentAbort === abort) this.currentAbort = null;
       }
@@ -293,6 +305,7 @@ export class SessionRunner {
         // up and the next queued instruction can be claimed.
         const ok = await this.tryPostChunked(task.sessionId, "(no output)", { final: true });
         if (ok) this.pendingFinalAck = false;
+        else this.pendingFinalAck = true;
         return;
       }
 
@@ -302,6 +315,7 @@ export class SessionRunner {
       const formatted = convert(finalContent).trim();
       const ok = await this.tryPostChunked(task.sessionId, formatted, { final: true });
       if (ok) this.pendingFinalAck = false;
+      else this.pendingFinalAck = true;
     } finally {
       finished = true;
       if (updateTimer) {
