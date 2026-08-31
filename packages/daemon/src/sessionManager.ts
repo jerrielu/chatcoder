@@ -66,6 +66,21 @@ export class SessionManager {
     return [...this.runners.keys()];
   }
 
+  /**
+   * True when at least one runner has a non-stop task in flight whose final
+   * response POST to the bot has not yet succeeded. The Orchestrator uses
+   * this to gate `resumeInProgress=true` on polls so a swallowed final-POST
+   * failure auto-recovers instead of wedging the session (the bot would
+   * otherwise refuse to surface any new work for the session because its
+   * in-progress DB row never got `completeProcessing`'d).
+   */
+  hasPendingFinalAcks(): boolean {
+    for (const runner of this.runners.values()) {
+      if (runner.hasPendingFinalAck) return true;
+    }
+    return false;
+  }
+
   async drainAll(): Promise<void> {
     await Promise.all([...this.runners.values()].map((r) => r.whenIdle()));
   }

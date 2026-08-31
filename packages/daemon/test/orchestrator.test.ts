@@ -284,6 +284,123 @@ describe("Orchestrator", () => {
     await orch.stop();
   });
 
+  it("re-asks the API to resume in-progress work while a runner's final ack is still pending", async () => {
+    // Models the wedge-recovery flow: a runner's final-POST failed (the
+    // runner still has pendingFinalAck=true), so subsequent polls must
+    // continue sending resumeInProgress=1 so the bot hands back the same
+    // in-progress row and the daemon re-runs the task until the final
+    // delivery succeeds. This is the fix for the "stuck 🔄 blocks every
+    // following message" bug.
+    const tool = new FakeToolExecutor();
+    const { fn, calls } = makeFetch({
+      poll: [
+        { sessions: [] },
+        { sessions: [] },
+        { sessions: [] }
+      ]
+    });
+    const client = new ApiClient({
+      apiUrl: "https://x.example.com",
+      apiKey: "long-enough-api-key-abcdef",
+      fetchImpl: fn,
+      retries: 0
+    });
+    const c = cfg();
+    const sessionManager = new SessionManager({
+      config: c,
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async () => {
+        throw new Error("simulated final-POST failure");
+      }
+    });
+    // Inject a wedged runner directly. The real SessionRunner exposes the
+    // same shape via hasPendingFinalAck; we use a lightweight stand-in here
+    // to keep this test focused on the orchestrator's gating behaviour.
+    const fakeRunner = { hasPendingFinalAck: true, stop: async () => undefined } as {
+      hasPendingFinalAck: boolean;
+      stop: () => Promise<void>;
+    };
+    (sessionManager as unknown as { runners: Map<string, typeof fakeRunner> }).runners.set(
+      "wedged",
+      fakeRunner
+    );
+    const orch = new Orchestrator({ config: c, client, sessionManager });
+    orch.start();
+    // Each advanceTimersByTimeAsync fires one poll. With a fake runner
+    // that stays wedged forever, every poll must keep the
+    // resumeInProgress=1 flag set so the bot hands back the same row.
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(c.pollIntervalMs);
+    await vi.advanceTimersByTimeAsync(c.pollIntervalMs);
+    await flushMicrotasks();
+
+    const pollCalls = calls.filter((c) => c.includes("/v1/poll"));
+    expect(pollCalls.length).toBe(3);
+    for (const pc of pollCalls) {
+      expect(pc).toContain("resumeInProgress=1");
+    }
+    await orch.stop();
+  });
+
+  it("stops sending resumeInProgress once the wedged runner recovers (pendingFinalAck cleared)", async () => {
+    // Verifies the gate flips off automatically when the runner clears its
+    // pendingFinalAck — i.e. once a successful final POST lands, the
+    // orchestrator stops asking the bot to resume, and normal claimNext
+    // flow takes over.
+    const tool = new FakeToolExecutor();
+    const { fn, calls } = makeFetch({
+      poll: [
+        { sessions: [] },
+        { sessions: [] },
+        { sessions: [] },
+        { sessions: [] }
+      ]
+    });
+    const client = new ApiClient({
+      apiUrl: "https://x.example.com",
+      apiKey: "long-enough-api-key-abcdef",
+      fetchImpl: fn,
+      retries: 0
+    });
+    const c = cfg();
+    const sessionManager = new SessionManager({
+      config: c,
+      tool: tool as unknown as ToolExecutor,
+      postResponse: async () => undefined
+    });
+    const fakeRunner = { hasPendingFinalAck: true, stop: async () => undefined } as {
+      hasPendingFinalAck: boolean;
+      stop: () => Promise<void>;
+    };
+    (sessionManager as unknown as { runners: Map<string, typeof fakeRunner> }).runners.set(
+      "wedged",
+      fakeRunner
+    );
+    const orch = new Orchestrator({ config: c, client, sessionManager });
+    orch.start();
+    // 1st poll: shouldResumeInProgress=true → resumeInProgress=1.
+    await vi.advanceTimersByTimeAsync(0);
+    // 2nd poll: hasPendingFinalAcks()=true → resumeInProgress=1.
+    await vi.advanceTimersByTimeAsync(c.pollIntervalMs);
+    // Simulate the runner recovering: final POST succeeded.
+    fakeRunner.hasPendingFinalAck = false;
+    // 3rd poll: pendingFinalAck=false → resumeInProgress=0.
+    await vi.advanceTimersByTimeAsync(c.pollIntervalMs);
+    // 4th poll: still no pending → resumeInProgress=0.
+    await vi.advanceTimersByTimeAsync(c.pollIntervalMs);
+    await flushMicrotasks();
+
+    const pollCalls = calls.filter((c) => c.includes("/v1/poll"));
+    expect(pollCalls.length).toBe(4);
+    // First two polls: resumeInProgress=1.
+    expect(pollCalls[0]).toContain("resumeInProgress=1");
+    expect(pollCalls[1]).toContain("resumeInProgress=1");
+    // Third and fourth polls: pendingFinalAck cleared, no resume flag.
+    expect(pollCalls[2]).not.toContain("resumeInProgress=1");
+    expect(pollCalls[3]).not.toContain("resumeInProgress=1");
+    await orch.stop();
+  });
+
   it("skips messages for an unknown profile rather than crashing", async () => {
     const tool = new FakeToolExecutor();
     const { fn, postBodies } = makeFetch({

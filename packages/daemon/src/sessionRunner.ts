@@ -69,6 +69,17 @@ export class SessionRunner {
   private readonly chunkMax: number;
   private idlePromise: Promise<void> = Promise.resolve();
   private idleResolve: (() => void) | null = null;
+  /**
+   * Set to true when a non-stop task is executing and cleared once the final
+   * response POST to the bot has succeeded. The Orchestrator polls this
+   * (via SessionManager.hasPendingFinalAcks) and, if set, sends
+   * `resumeInProgress=true` on the next poll so the bot hands back the same
+   * in-progress row instead of wedging the session. This recovers from a
+   * swallowed final-POST failure: the bot's `completeProcessing` was never
+   * called, so without the resume poll every subsequent message for this
+   * session would be blocked behind the stuck row forever.
+   */
+  private pendingFinalAck = false;
 
   constructor(
     public readonly sessionId: string,
@@ -83,6 +94,16 @@ export class SessionRunner {
 
   get pending(): number {
     return this.queue.length + (this.running ? 1 : 0);
+  }
+
+  /**
+   * True when a non-stop task is in flight and the bot has not yet
+   * acknowledged the final response. Used by the Orchestrator to decide
+   * whether to send `resumeInProgress=true` on the next poll so the bot
+   * hands back the same in-progress row instead of wedging the session.
+   */
+  get hasPendingFinalAck(): boolean {
+    return this.pendingFinalAck;
   }
 
   /**
@@ -166,6 +187,9 @@ export class SessionRunner {
   private async runOne(task: SessionRunnerTask): Promise<void> {
     let release: (() => void) | null = null;
     this.activeTaskId = task.messageId;
+    // Stops don't need a final ack — the abort path is its own confirmation
+    // (the bot's "⏹ Stopped" message completes the row when it lands).
+    if (task.kind !== "stop") this.pendingFinalAck = true;
     try {
       release = this.deps.acquireSlot ? await this.deps.acquireSlot() : null;
       this.log("<<< instruction", { session: this.sessionId, profile: this.deps.profile.name, content: task.content });
@@ -176,7 +200,8 @@ export class SessionRunner {
       } catch (err) {
         if (abort.signal.aborted) return;
         this.log("execution failed", { session: this.sessionId, err });
-        await this.tryPostChunked(task.sessionId, `Error: ${err instanceof Error ? err.message : String(err)}`, { final: true });
+        const ok = await this.tryPostChunked(task.sessionId, `Error: ${err instanceof Error ? err.message : String(err)}`, { final: true });
+        if (ok) this.pendingFinalAck = false;
       } finally {
         if (this.currentAbort === abort) this.currentAbort = null;
       }
@@ -266,7 +291,8 @@ export class SessionRunner {
       if (rawText.length === 0) {
         // No output at all — still complete the task so the DB row is cleaned
         // up and the next queued instruction can be claimed.
-        await this.tryPostChunked(task.sessionId, "(no output)", { final: true });
+        const ok = await this.tryPostChunked(task.sessionId, "(no output)", { final: true });
+        if (ok) this.pendingFinalAck = false;
         return;
       }
 
@@ -274,7 +300,8 @@ export class SessionRunner {
       const responseText = extractResponseFromJSON(rawText);
       const finalContent = responseText ?? rawText;
       const formatted = convert(finalContent).trim();
-      await this.tryPostChunked(task.sessionId, formatted, { final: true });
+      const ok = await this.tryPostChunked(task.sessionId, formatted, { final: true });
+      if (ok) this.pendingFinalAck = false;
     } finally {
       finished = true;
       if (updateTimer) {
@@ -337,11 +364,13 @@ export class SessionRunner {
     sessionId: string,
     text: string,
     opts: { final?: boolean } = {}
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       await this.postChunked(sessionId, text, opts);
+      return true;
     } catch (err) {
       this.log("response post failed", { session: this.sessionId, err });
+      return false;
     }
   }
 }

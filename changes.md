@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.15.4 (2026-08-30)
+
+- **Fix: stuck "🔄 processing…" no longer blocks subsequent messages for the
+  session** — When the daemon's final POST to the bot fails (timeout, 5xx,
+  network) and `tryPostChunked` swallows the error, the daemon's
+  `SessionRunner` previously thought the task was done and returned to idle,
+  but the bot's `messages.processing_started_at` was never cleared (because
+  `completeProcessing` only runs on a successful POST). The bot's `GET
+  /v1/poll` handler then refused to surface any new work for the session as
+  long as the in-progress row remained (server.ts:135-159), and the daemon
+  never asked it to (the existing `shouldResumeInProgress` flag is only set
+  to `true` on the very first poll after startup, then permanently flipped
+  off — orchestrator.ts:109-112). Result: every subsequent user message
+  for that session sat in the DB queue and the user had to PM2-restart the
+  services to recover. The fix tracks a per-runner `pendingFinalAck` flag
+  in `SessionRunner` that is set when a non-stop task starts and cleared
+  the moment the final POST succeeds (returns from `tryPostChunked` without
+  throwing). `SessionManager.hasPendingFinalAcks()` exposes whether any
+  runner still has a pending ack, and the Orchestrator now sends
+  `resumeInProgress=true` on every poll while at least one runner's
+  `pendingFinalAck` is set. The bot hands back the same in-progress row
+  with `content: "continue"` and `resumeLastSession: true`; the daemon
+  re-runs the task; on the next successful final POST `pendingFinalAck`
+  clears, `completeProcessing` runs on the bot, the wedge is gone, and the
+  queue drains FIFO as normal. Stop tasks deliberately do not set the
+  flag (the abort path is its own confirmation). End-to-end unit tests
+  cover: pendingAck flips on at task start, flips off on successful
+  final, stays on when the final throws, stop tasks do not set it, and
+  recovery after a transient failure. 16/16 new + modified tests pass
+  (full suite: 358/360, the 2 pre-existing bot/api failures are
+  unrelated to this change).
+  (packages/daemon/src/sessionRunner.ts, sessionManager.ts, orchestrator.ts;
+  packages/daemon/test/sessionRunner.test.ts, orchestrator.test.ts)
+
 ## 0.15.3 (2026-08-30)
 
 - **Fix: Command Code (`cmd`) "🔄 processing…" message no longer freezes during
