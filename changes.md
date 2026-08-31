@@ -21,7 +21,8 @@
   confirmation). 5/5 sessionRunner tests pass; full daemon suite 131/131;
   full repo suite 358/360 (the 2 pre-existing bot/api failures are unrelated
   to this change, confirmed by stashing and re-running on the base branch).
-  (packages/daemon/src/sessionRunner.ts, packages/daemon/test/sessionRunner.test.ts)
+  (packages/daemon/src/sessionRunner.ts, packages/daemon/test/sessionRunner.test.ts,
+  packages/daemon/test/orchestrator.test.ts)
 
 ## 0.15.4 (2026-08-30)
 
