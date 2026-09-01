@@ -19,7 +19,8 @@ export async function runMigrations(db: Kysely<Database>, dialect: Dialect): Pro
     { v: 4, up: () => addProcessingStartedAtToMessages(db) },
     { v: 5, up: () => addCodexReasoningEffortToMessages(db) },
     { v: 6, up: () => addWorkDirs(db) },
-    { v: 7, up: () => addMessageKind(db) }
+    { v: 7, up: () => addMessageKind(db) },
+    { v: 8, up: () => addProcessingHeartbeatAtToMessages(db) }
   ];
 
   for (const step of steps) {
@@ -227,5 +228,28 @@ async function addMessageKind(db: Kysely<Database>): Promise<void> {
     const msg = e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();
     if (msg.includes("duplicate column") || msg.includes("already exists")) return;
     throw e;
+  }
+}
+
+async function addProcessingHeartbeatAtToMessages(db: Kysely<Database>): Promise<void> {
+  try {
+    await db.schema
+      .alterTable("messages")
+      .addColumn("processing_heartbeat_at", "bigint")
+      .execute();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();
+    if (msg.includes("duplicate column") || msg.includes("already exists")) return;
+    throw e;
+  }
+  try {
+    await db.schema
+      .createIndex("idx_messages_heartbeat")
+      .ifNotExists()
+      .on("messages")
+      .columns(["processing_heartbeat_at"])
+      .execute();
+  } catch {
+    // best-effort
   }
 }

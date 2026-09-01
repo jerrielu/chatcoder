@@ -24,12 +24,17 @@ export const MAX_WORK_DIRS = 32;
 /** Max length of a profile name. */
 export const MAX_PROFILE_NAME_LENGTH = 64;
 
+/** Per-task lease: daemon proves "still working" every 30s; bot releases after 60s. */
+export const TASK_HEARTBEAT_INTERVAL_MS = 30_000;
+export const TASK_LEASE_TTL_MS = 60_000;
+
 /** API path constants. Both bot and daemon import these. */
 export const API_PATHS = {
   heartbeat: "/v1/heartbeat",
   poll: "/v1/poll",
   responses: "/v1/responses",
-  daemonRegister: "/v1/daemon/register"
+  daemonRegister: "/v1/daemon/register",
+  taskHeartbeat: "/v1/task-heartbeat"
 } as const;
 
 /** Admin API path prefix (loopback-only, no auth). */

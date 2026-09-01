@@ -11,6 +11,7 @@ export interface SessionManagerDeps {
     content: string,
     opts?: { final?: boolean }
   ) => Promise<void>;
+  taskHeartbeat?: (sessionId: string, messageId: string) => Promise<void>;
   log?: (msg: string, extra?: unknown) => void;
   /** Max concurrent child processes across all sessions. */
   maxConcurrency?: number;
@@ -39,6 +40,7 @@ export class SessionManager {
         profile,
         tool: this.deps.tool,
         postResponse: this.deps.postResponse,
+        taskHeartbeat: this.deps.taskHeartbeat,
         log: this.deps.log,
         acquireSlot: () => this.acquire()
       });
@@ -64,21 +66,6 @@ export class SessionManager {
   /** List all active session ids. */
   activeSessionIds(): string[] {
     return [...this.runners.keys()];
-  }
-
-  /**
-   * True when at least one runner has a non-stop task in flight whose final
-   * response POST to the bot has not yet succeeded. The Orchestrator uses
-   * this to gate `resumeInProgress=true` on polls so a swallowed final-POST
-   * failure auto-recovers instead of wedging the session (the bot would
-   * otherwise refuse to surface any new work for the session because its
-   * in-progress DB row never got `completeProcessing`'d).
-   */
-  hasPendingFinalAcks(): boolean {
-    for (const runner of this.runners.values()) {
-      if (runner.hasPendingFinalAck) return true;
-    }
-    return false;
   }
 
   async drainAll(): Promise<void> {

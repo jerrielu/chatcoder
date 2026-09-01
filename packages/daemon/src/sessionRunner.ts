@@ -1,6 +1,6 @@
 import { stripAnsi } from "./ansi.js";
 import type { CodexReasoningEffort, MessageKind } from "@chatcoder/shared";
-import { MAX_RESPONSE_BYTES } from "@chatcoder/shared";
+import { MAX_RESPONSE_BYTES, TASK_HEARTBEAT_INTERVAL_MS } from "@chatcoder/shared";
 import type { Profile } from "./profile.js";
 import type { ToolExecutor } from "./toolExecutor.js";
 import { extractResponseFromJSON } from "./summary.js";
@@ -26,6 +26,8 @@ export interface SessionRunnerDeps {
     content: string,
     opts?: { final?: boolean }
   ) => Promise<void>;
+  /** Per-task lease heartbeat — proves "still working" every 30s. */
+  taskHeartbeat?: (sessionId: string, messageId: string) => Promise<void>;
   /** Logging. */
   log?: (msg: string, extra?: unknown) => void;
   /** Acquire a slot in the global concurrency pool; returns a release fn. */
@@ -35,6 +37,7 @@ export interface SessionRunnerDeps {
   clearTimer?: typeof clearTimeout;
   responseUpdateIntervalMs?: number;
   responseChunkMaxChars?: number;
+  taskHeartbeatIntervalMs?: number;
 }
 
 const DEFAULT_RESPONSE_UPDATE_INTERVAL_MS = 5_000;
@@ -69,17 +72,6 @@ export class SessionRunner {
   private readonly chunkMax: number;
   private idlePromise: Promise<void> = Promise.resolve();
   private idleResolve: (() => void) | null = null;
-  /**
-   * Set to true when a non-stop task is executing and cleared once the final
-   * response POST to the bot has succeeded. The Orchestrator polls this
-   * (via SessionManager.hasPendingFinalAcks) and, if set, sends
-   * `resumeInProgress=true` on the next poll so the bot hands back the same
-   * in-progress row instead of wedging the session. This recovers from a
-   * swallowed final-POST failure: the bot's `completeProcessing` was never
-   * called, so without the resume poll every subsequent message for this
-   * session would be blocked behind the stuck row forever.
-   */
-  private pendingFinalAck = false;
 
   constructor(
     public readonly sessionId: string,
@@ -94,16 +86,6 @@ export class SessionRunner {
 
   get pending(): number {
     return this.queue.length + (this.running ? 1 : 0);
-  }
-
-  /**
-   * True when a non-stop task is in flight and the bot has not yet
-   * acknowledged the final response. Used by the Orchestrator to decide
-   * whether to send `resumeInProgress=true` on the next poll so the bot
-   * hands back the same in-progress row instead of wedging the session.
-   */
-  get hasPendingFinalAck(): boolean {
-    return this.pendingFinalAck;
   }
 
   /**
@@ -187,15 +169,6 @@ export class SessionRunner {
   private async runOne(task: SessionRunnerTask): Promise<void> {
     let release: (() => void) | null = null;
     this.activeTaskId = task.messageId;
-    // Stops don't need a final ack — the abort path is its own confirmation
-    // (the bot's "⏹ Stopped" message completes the row when it lands).
-    // pendingFinalAck is flipped on only when a final POST actually fails
-    // (see tryPostChunked callers below): setting it eagerly here would
-    // make the orchestrator poll the bot with resumeInProgress=1 for the
-    // entire duration of a normal task, which causes the bot to hand back
-    // a "continue" resume task per poll while the task is still running —
-    // the runner then drains a flood of spurious "continue" turns after
-    // the original task completes.
     try {
       release = this.deps.acquireSlot ? await this.deps.acquireSlot() : null;
       this.log("<<< instruction", { session: this.sessionId, profile: this.deps.profile.name, content: task.content });
@@ -206,14 +179,7 @@ export class SessionRunner {
       } catch (err) {
         if (abort.signal.aborted) return;
         this.log("execution failed", { session: this.sessionId, err });
-        const ok = await this.tryPostChunked(task.sessionId, `Error: ${err instanceof Error ? err.message : String(err)}`, { final: true });
-        // The flag is sticky on failure (orchestrator keeps asking the bot
-        // to resume the in-progress row until the next successful final
-        // POST clears it). Successful POSTs leave the flag at whatever it
-        // was before — typically false, but possibly true if a previous
-        // task's final POST failed and we are now finally clearing it.
-        if (ok) this.pendingFinalAck = false;
-        else this.pendingFinalAck = true;
+        await this.tryPostChunked(task.sessionId, `Error: ${err instanceof Error ? err.message : String(err)}`, { final: true });
       } finally {
         if (this.currentAbort === abort) this.currentAbort = null;
       }
@@ -225,6 +191,7 @@ export class SessionRunner {
 
   private async executeWithOutputUpdates(task: SessionRunnerTask, signal: AbortSignal): Promise<void> {
     let updateTimer: ReturnType<typeof setTimeout> | null = null;
+    let leaseTimer: ReturnType<typeof setTimeout> | null = null;
     let finished = false;
     let flushInFlight = false;
     let rawOutput = "";
@@ -247,6 +214,19 @@ export class SessionRunner {
     const schedule = (): void => {
       if (finished || this.stopping || signal.aborted) return;
       updateTimer = this.setTimer(() => void tick(), this.updateMs);
+    };
+
+    const heartbeatInterval = this.deps.taskHeartbeatIntervalMs ?? TASK_HEARTBEAT_INTERVAL_MS;
+    const armLease = (): void => {
+      if (finished || this.stopping || signal.aborted || !this.deps.taskHeartbeat) return;
+      leaseTimer = this.setTimer(() => {
+        void this.deps
+          .taskHeartbeat!(task.sessionId, task.messageId)
+          .catch(() => {})
+          .finally(() => {
+            if (!finished && !this.stopping && !signal.aborted) armLease();
+          });
+      }, heartbeatInterval);
     };
 
     const tick = async (): Promise<void> => {
@@ -275,6 +255,7 @@ export class SessionRunner {
     };
 
     schedule();
+    armLease();
     try {
       const finalOutput = await this.deps.tool.execute(this.deps.profile, task.content, {
         onOutput: (chunk) => {
@@ -290,6 +271,10 @@ export class SessionRunner {
         this.clearTimer(updateTimer);
         updateTimer = null;
       }
+      if (leaseTimer) {
+        this.clearTimer(leaseTimer);
+        leaseTimer = null;
+      }
 
       const deadline = Date.now() + 5_000;
       while (flushInFlight && Date.now() < deadline) {
@@ -301,26 +286,23 @@ export class SessionRunner {
 
       const rawText = finalOutput.length > 0 ? finalOutput : stripAnsi(rawOutput).trim();
       if (rawText.length === 0) {
-        // No output at all — still complete the task so the DB row is cleaned
-        // up and the next queued instruction can be claimed.
-        const ok = await this.tryPostChunked(task.sessionId, "(no output)", { final: true });
-        if (ok) this.pendingFinalAck = false;
-        else this.pendingFinalAck = true;
+        await this.tryPostChunked(task.sessionId, "(no output)", { final: true });
         return;
       }
 
-      // Try to extract a JSON response, or fall back to the raw output
       const responseText = extractResponseFromJSON(rawText);
       const finalContent = responseText ?? rawText;
       const formatted = convert(finalContent).trim();
-      const ok = await this.tryPostChunked(task.sessionId, formatted, { final: true });
-      if (ok) this.pendingFinalAck = false;
-      else this.pendingFinalAck = true;
+      await this.tryPostChunked(task.sessionId, formatted, { final: true });
     } finally {
       finished = true;
       if (updateTimer) {
         this.clearTimer(updateTimer);
         updateTimer = null;
+      }
+      if (leaseTimer) {
+        this.clearTimer(leaseTimer);
+        leaseTimer = null;
       }
     }
   }

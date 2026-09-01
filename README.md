@@ -184,8 +184,12 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 **Stale-process recovery (automatic):** the daemon keeps a single-instance
 registry at `~/.chatcoder/daemon-state.json`. On startup it kills any daemon
 from a previous run and its leftover tool processes, then claims sole
-ownership; on shutdown it kills its own tool children. The bot additionally
-re-checks every 60 s: any in-progress task whose daemon stopped heartbeating
+ownership; on shutdown it kills its own tool children. Each claimed message
+is a leased lock: `processing_heartbeat_at` bumped every 30 s via
+`POST /v1/task-heartbeat` while the tool runs; if no heartbeat for 60 s the
+bot clears the in-progress row so queued messages can FIFO-drain (also swept
+every 30 s for sessions not polled). The bot additionally re-checks every
+30 s: any in-progress task whose daemon stopped heartbeating
 (`BOT_HEARTBEAT_STALE_MS`, default 60 s) is killed and re-queued so it reruns
 when a daemon reconnects — you get a Telegram notice when that happens. Restarts
 (PM2/systemd) now forward SIGINT/SIGTERM to the whole process tree, so orphaned

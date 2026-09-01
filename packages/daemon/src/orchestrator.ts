@@ -106,13 +106,7 @@ export class Orchestrator {
   private async tickPoll(): Promise<void> {
     if (this.stopping) return;
     try {
-      // Send resumeInProgress=true on the first poll after startup (to pick
-      // up an in-progress task that survived a bot restart) AND on any
-      // poll where a runner is still waiting for the bot to acknowledge a
-      // final response (so a swallowed final-POST failure auto-recovers
-      // instead of wedging the session for every subsequent message).
-      const resumeInProgress =
-        this.shouldResumeInProgress || this.deps.sessionManager.hasPendingFinalAcks();
+      const resumeInProgress = this.shouldResumeInProgress;
       const res = await this.deps.client.poll({ resumeInProgress });
       this.shouldResumeInProgress = false;
       for (const s of res.sessions) {

@@ -11,6 +11,7 @@ export interface QueuedMessage {
   codexReasoningEffort?: CodexReasoningEffort;
   kind: MessageKind;
   processingStartedAt: number | null;
+  processingHeartbeatAt: number | null;
   createdAt: number;
 }
 
@@ -29,15 +30,14 @@ function rowToMessage(row: {
   codex_reasoning_effort: CodexReasoningEffort | null;
   kind: string;
   processing_started_at: number | string | bigint | null;
+  processing_heartbeat_at: number | string | bigint | null;
   created_at: number | string | bigint;
 }): QueuedMessage {
   const raw = typeof row.created_at === "number" ? row.created_at : Number(row.created_at);
-  const processingStartedAt =
-    row.processing_started_at == null
-      ? null
-      : typeof row.processing_started_at === "number"
-        ? row.processing_started_at
-        : Number(row.processing_started_at);
+  const toMs = (v: number | string | bigint | null): number | null =>
+    v == null ? null : typeof v === "number" ? v : Number(v);
+  const processingStartedAt = toMs(row.processing_started_at);
+  const processingHeartbeatAt = toMs(row.processing_heartbeat_at);
   return {
     id: row.id,
     sessionId: row.session_id,
@@ -48,6 +48,7 @@ function rowToMessage(row: {
       ? { codexReasoningEffort: row.codex_reasoning_effort }
       : {}),
     processingStartedAt,
+    processingHeartbeatAt,
     // External callers see the millisecond timestamp; the sub-ms seq bits are
     // stripped so comparisons with Date.now()-based clocks stay sane.
     createdAt: Math.floor(raw / 1024)
@@ -180,11 +181,11 @@ export class MessagesRepo {
       const processingStartedAt = this.now();
       await tx
         .updateTable("messages")
-        .set({ processing_started_at: processingStartedAt })
+        .set({ processing_started_at: processingStartedAt, processing_heartbeat_at: processingStartedAt })
         .where("id", "=", row.id)
         .execute();
 
-      return rowToMessage({ ...row, processing_started_at: processingStartedAt });
+      return rowToMessage({ ...row, processing_started_at: processingStartedAt, processing_heartbeat_at: processingStartedAt });
     });
   }
 
@@ -209,11 +210,11 @@ export class MessagesRepo {
       const processingStartedAt = this.now();
       await tx
         .updateTable("messages")
-        .set({ processing_started_at: processingStartedAt })
+        .set({ processing_started_at: processingStartedAt, processing_heartbeat_at: processingStartedAt })
         .where("id", "=", row.id)
         .execute();
 
-      return rowToMessage({ ...row, processing_started_at: processingStartedAt });
+      return rowToMessage({ ...row, processing_started_at: processingStartedAt, processing_heartbeat_at: processingStartedAt });
     });
   }
 
@@ -247,6 +248,27 @@ export class MessagesRepo {
     if (!row) return false;
     const res = await this.db.deleteFrom("messages").where("id", "=", row.id).executeTakeFirst();
     return Number(res.numDeletedRows) > 0;
+  }
+
+  async heartbeatLease(sessionId: string, messageId: string): Promise<boolean> {
+    const res = await this.db
+      .updateTable("messages")
+      .set({ processing_heartbeat_at: this.now() })
+      .where("id", "=", messageId)
+      .where("session_id", "=", sessionId)
+      .where("processing_started_at", "is not", null)
+      .executeTakeFirst();
+    return Number(res.numUpdatedRows ?? 0) > 0;
+  }
+
+  async listExpired(cutoffMs: number): Promise<QueuedMessage[]> {
+    const rows = await this.db
+      .selectFrom("messages")
+      .selectAll()
+      .where("processing_started_at", "is not", null)
+      .where("processing_heartbeat_at", "<", cutoffMs)
+      .execute();
+    return rows.map(rowToMessage);
   }
 
   async count(sessionId: string): Promise<number> {

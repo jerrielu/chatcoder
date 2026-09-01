@@ -45,6 +45,8 @@ export interface MessagesTable {
   kind: string;
   /** Non-null while a daemon has claimed this instruction and is processing it. */
   processing_started_at: number | null;
+  /** Updated every 30s by the daemon while a task is in flight; expiry = now - this > 60s. */
+  processing_heartbeat_at: number | null;
   created_at: number;
 }
 

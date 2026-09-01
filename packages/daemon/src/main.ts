@@ -112,6 +112,8 @@ async function runDaemon(): Promise<void> {
     tool,
     postResponse: (sessionId, content, opts) =>
       client.postResponse({ sessionId, content, final: opts?.final ?? true }).then(() => undefined),
+    taskHeartbeat: (sessionId, messageId) =>
+      client.taskHeartbeat({ sessionId, messageId }).then(() => undefined),
     log,
     maxConcurrency: cfg.maxConcurrency
   });

@@ -7,6 +7,8 @@ import {
   DaemonRegisterBody,
   HeartbeatBody,
   PostResponseBody,
+  TaskHeartbeatBody,
+  TASK_LEASE_TTL_MS,
   MIN_API_KEY_LENGTH,
   type DaemonRegisterResponse,
   type HeartbeatResponse,
@@ -34,6 +36,7 @@ export interface BuildServerOptions {
   adminRepo: AdminRepo;
   telegram: TelegramSender;
   logger?: boolean | object;
+  now?: () => number;
 }
 
 const API_PREFIX = "/v1";
@@ -117,7 +120,18 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     return { ok: true, reset: false, serverTime: Date.now() };
   });
 
+  app.post(API_PATHS.taskHeartbeat, async (req): Promise<{ ok: true }> => {
+    const body = TaskHeartbeatBody.parse(req.body);
+    const session = await opts.sessionsRepo.getById(body.sessionId);
+    if (!session || session.apiKeyId !== req.apiKey.id) {
+      throw ApiError.validation("Unknown sessionId for this API key");
+    }
+    await opts.messagesRepo.heartbeatLease(body.sessionId, body.messageId);
+    return { ok: true };
+  });
+
   app.get(API_PATHS.poll, async (req): Promise<PollResponse> => {
+    const now = opts.now ?? Date.now;
     await opts.apiKeysRepo.updateHeartbeat(req.apiKey.id);
     const resumeInProgress = wantsResumeInProgress(req.query);
     const sessions = await opts.sessionsRepo.listActiveByApiKey(req.apiKey.id);
@@ -134,20 +148,18 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       } else {
         const inProgress = await opts.messagesRepo.getProcessing(s.id);
         if (inProgress) {
-          // A task is already processing — don't claim new work for this session.
-          // The daemon will claim the next item after the current one completes.
-          // Allow resume on daemon restart so the in-progress task can continue.
-          if (resumeInProgress) {
+          const hb = inProgress.processingHeartbeatAt ?? inProgress.processingStartedAt ?? 0;
+          if (now() - hb > TASK_LEASE_TTL_MS) {
+            await opts.messagesRepo.completeProcessing(s.id);
+            // Fall through to claim the next pending item FIFO.
+            msg = await opts.messagesRepo.claimNext(s.id);
+            notifyProcessing = msg !== null;
+          } else if (resumeInProgress) {
             msg = {
               ...inProgress,
               content: RESUME_IN_PROGRESS_CONTENT,
               resumeLastSession: true
             };
-            // The processing state (and the Telegram progress message) lives in
-            // the bot's memory, so after a bot restart it is gone. Re-create the
-            // "processing" notification with the ORIGINAL content so the user
-            // sees live progress again; the bot skips it if state already exists
-            // (daemon-only restart), avoiding a duplicate message.
             if (opts.telegram.sendProcessing) {
               try {
                 await opts.telegram.sendProcessing(s.chatId, inProgress.content, s.id);
@@ -155,10 +167,10 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
                 // Best-effort — the resumed task still runs either way.
               }
             }
+          } else {
+            // A task is already processing — don't claim new work for this session.
           }
-          // else: msg stays null → session omitted from poll response
         } else {
-          // Pure FIFO — claim the oldest pending message regardless of type.
           msg = await opts.messagesRepo.claimNext(s.id);
           notifyProcessing = msg !== null;
         }

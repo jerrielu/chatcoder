@@ -7,7 +7,8 @@ import {
   type DaemonRegisterBody,
   type HeartbeatBody,
   type HeartbeatResponse,
-  type PostResponseBody
+  type PostResponseBody,
+  type TaskHeartbeatBody
 } from "@chatcoder/shared";
 
 export class SessionRevokedError extends Error {
@@ -72,6 +73,10 @@ export class ApiClient {
 
   async postResponse(body: PostResponseBody): Promise<{ ok: true }> {
     return this.request<{ ok: true }>("POST", API_PATHS.responses, body);
+  }
+
+  async taskHeartbeat(body: TaskHeartbeatBody): Promise<{ ok: true }> {
+    return this.request<{ ok: true }>("POST", API_PATHS.taskHeartbeat, body);
   }
 
   private async request<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {

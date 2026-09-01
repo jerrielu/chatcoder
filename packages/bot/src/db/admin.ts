@@ -96,6 +96,7 @@ function rowToMessage(row: {
   codex_reasoning_effort: CodexReasoningEffort | null;
   kind: string;
   processing_started_at: NumLike | null;
+  processing_heartbeat_at: NumLike | null;
   created_at: NumLike;
 }): QueuedMessage {
   const raw = typeof row.created_at === "number" ? row.created_at : Number(row.created_at);
@@ -114,6 +115,7 @@ function rowToMessage(row: {
       ? { codexReasoningEffort: row.codex_reasoning_effort }
       : {}),
     processingStartedAt: toNum(row.processing_started_at),
+    processingHeartbeatAt: toNum(row.processing_heartbeat_at),
     createdAt: Math.floor(raw / 1024)
   };
 }

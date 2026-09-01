@@ -44,6 +44,21 @@ export interface StaleSweepDeps {
  *
  * Returns the number of tasks re-queued.
  */
+export async function sweepExpiredLeases(deps: StaleSweepDeps & { leaseTtlMs?: number }): Promise<number> {
+  const now = deps.now?.() ?? Date.now();
+  const leaseTtlMs = deps.leaseTtlMs ?? 60_000;
+  const cutoff = now - leaseTtlMs;
+  let cleared = 0;
+  const expired = (deps.messages as unknown as { listExpired?: (cutoff: number) => Promise<QueuedMessage[]> }).listExpired
+    ? await (deps.messages as unknown as { listExpired: (c: number) => Promise<QueuedMessage[]> }).listExpired(cutoff)
+    : [];
+  for (const m of expired) {
+    const ok = await deps.messages.completeProcessing(m.sessionId);
+    if (ok) cleared += 1;
+  }
+  return cleared;
+}
+
 export async function sweepStaleTasks(deps: StaleSweepDeps): Promise<number> {
   const now = deps.now?.() ?? Date.now();
   const log = deps.log ?? (() => void 0);

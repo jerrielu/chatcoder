@@ -19,10 +19,10 @@ import {
 } from "./bot/telegramSend.js";
 import { InputFile } from "grammy";
 import { mainMenu } from "./bot/menus.js";
-import { sweepStaleTasks } from "./staleSweep.js";
+import { sweepStaleTasks, sweepExpiredLeases } from "./staleSweep.js";
 
 /** How often the bot checks for tasks whose daemon stopped heartbeating. */
-const STALE_TASK_SWEEP_INTERVAL_MS = 60_000;
+const STALE_TASK_SWEEP_INTERVAL_MS = 30_000;
 
 async function main(): Promise<void> {
   const cfg = loadConfigFromEnv();
@@ -253,6 +253,9 @@ async function main(): Promise<void> {
       },
       log: (m, extra) => log.warn({ extra }, m)
     }).catch((err) => log.error({ err }, "stale task sweep failed"));
+    void sweepExpiredLeases({ apiKeys, sessions, messages, staleAfterMs: cfg.heartbeatStaleMs, leaseTtlMs: 60_000 }).catch((err) =>
+      log.error({ err }, "lease sweep failed")
+    );
   }, STALE_TASK_SWEEP_INTERVAL_MS);
   staleSweepTimer.unref?.();
 

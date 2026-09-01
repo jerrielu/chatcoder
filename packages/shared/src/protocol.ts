@@ -106,3 +106,12 @@ export const HeartbeatResponse = z.object({
   serverTime: z.number().int().nonnegative()
 });
 export type HeartbeatResponse = z.infer<typeof HeartbeatResponse>;
+
+export const TaskHeartbeatBody = z.object({
+  sessionId: z.string().min(1),
+  messageId: z.string().min(1)
+});
+export type TaskHeartbeatBody = z.infer<typeof TaskHeartbeatBody>;
+
+export const TaskHeartbeatResponse = z.object({ ok: z.literal(true) });
+export type TaskHeartbeatResponse = z.infer<typeof TaskHeartbeatResponse>;

@@ -107,8 +107,9 @@ messages (
   session_id             TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   content                TEXT NOT NULL,
   resume_last_session    INTEGER NOT NULL DEFAULT 1, -- 0 = New Code, interrupt/resume fresh
-  processing_started_at  BIGINT,                     -- null until claimed by a daemon
-  created_at             BIGINT NOT NULL             -- ms*1024 + per-instance seq counter
+  processing_started_at   BIGINT,                     -- null until claimed by a daemon
+  processing_heartbeat_at BIGINT,                     -- 30s heartbeat while tool.execute alive; expiry = now - this > 60s
+  created_at              BIGINT NOT NULL             -- ms*1024 + per-instance seq counter
 )
 ```
 
@@ -263,23 +264,18 @@ instruction content) — the bot posts it only when it has no state for the
 session, so a bot restart doesn't leave progress invisible, and a
 daemon-only restart doesn't produce a duplicate message.
 
-The same `resumeInProgress=1` flag is also re-sent on every subsequent poll
-while any `SessionRunner` has a `pendingFinalAck` set. The flag is flipped on
-ONLY when a final-response POST actually fails (timeout, 5xx, network) and
-stays set until the next successful final POST clears it — setting it
-eagerly at the start of `runOne` (the 0.15.4 mistake) made the orchestrator
-poll the bot with `resumeInProgress=1` for the entire duration of a normal
-task, so every poll while the user was waiting on a long `cmd` run queued
-a synthetic "continue" resume task that the runner FIFO-drained as soon as
-the original task completed, producing a flood of spurious
-"continuing the conversation" replies. The flag now stays at `false` on the
-happy path; it is only set when a final POST actually fails. When that
-happens, the next poll asks the bot to hand back the same in-progress row,
-the daemon re-runs the task, and the loop repeats until the final delivery
-succeeds and the bot's `completeProcessing` clears the row. This auto-
-recovers "stuck 🔄 blocks every following message" wedges that previously
-required a PM2 restart, without changing the bot's poll handler (which
-already does the right thing for `resumeInProgress=1`).
+If the daemon's per-task heartbeat stops (daemon crash or hung without
+heartbeating), the claimed row is a leased lock: `processing_heartbeat_at`
+is set on claim and bumped by `POST /v1/task-heartbeat` every 30s while
+`tool.execute` is alive (independent of stdout). The bot releases the lock
+when `now - processing_heartbeat_at > 60s`: inline in `GET /v1/poll` it
+calls `completeProcessing` so the next `claimNext` can FIFO-drain queued
+pending work, and every 30s via `sweepExpiredLeases` for sessions not polled.
+Only the first poll after a daemon startup still sends
+`resumeInProgress=1` (bot-restart bootstrap that re-creates the Telegram
+`🔄` state quickly); the every-poll `pendingFinalAck` flood (0.15.4/0.15.5)
+is removed — it queued a synthetic `continue` per poll and produced
+spurious `cmd -c "continue"` turns on the happy path and cross-session.
 
 ---
 
