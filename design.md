@@ -562,31 +562,22 @@ cmd -p --yolo --output-format json [-c] [--model <id>] [extraArgs…] --max-turn
 - `--output-format json` is forced in code so the daemon can surface live
   progress to the bot and pull the assistant's final answer on close. The
   raw NDJSON event stream is parsed by
-  `packages/daemon/src/commandCodeStream.ts`:
-  - `text_delta` / `message_update` / `message_end` events become the
-    progress string the bot's "🔄 processing…" message keeps editing (same
-    5-second flush cadence as Reasonix).
-  - `tool_queued` / `tool_running` / `tool_completed` / `tool_update` events
-    become a short suffix like `\n\n[tool: shell_command]` (or
-    `\n\n[tool: shell_command running]` for `tool_update`) so the user sees
-    what cmd is doing.
-  - The remaining event types (`run_start`, `turn_start`, `message_start`,
-    `model_request_start`, `model_request_end`, `turn_end`, `model_trace`,
-    `api_retry`, `thinking`, and any future unknown event) are surfaced as a
-    deduplicated heartbeat suffix like `\n[model_trace]` so the Telegram
-    "🔄 processing…" message never appears frozen during the
-    model-thinking phase between events. The heartbeat is automatically
-    cleared the moment a real `text_delta` or `message_update` arrives, so
-    it only shows when cmd is alive but not producing content. Heartbeat
-    and tool suffixes are tracked independently so changing one does not
-    clobber the other.
+  `packages/daemon/src/commandCodeStream.ts`: only the human-readable keys
+  are forwarded — `delta` from `text_delta` events and `text` from
+  `message_update`/`message_end` `content[].text` parts become the progress
+  string the bot's "🔄 processing…" message keeps editing (same 5-second
+  flush cadence as Reasonix) and the final `response.txt` content. All other
+  NDJSON lines — `tool_queued`/`tool_running`/`tool_update`/`tool_completed`,
+  `run_start`/`turn_*`/`message_start`/`model_*`/`api_retry`/`thinking`,
+  boot banners, raw JSON — are ignored so progress and the final file
+  contain only the assistant's words, not tool traces.
   - The terminal `{"type":"result",…,"finalText":"…"}` line becomes the
-    resolved output — `response.txt` (built on the bot side from
-    `state.response`) therefore contains the assistant's final answer, not
-    the raw JSON envelope.
-  If the binary ever stops emitting the `result` line (e.g. cmd crash before
-  flushing), the executor falls back to the raw stdout/stderr so the user
-  still sees something.
+    resolved output (falling back to the accumulated text when
+    `finalText` is absent/empty); `response.txt` therefore contains the
+    assistant's final answer, not the raw JSON envelope. If the binary
+    ever stops emitting the `result` line (e.g. cmd crash before
+    flushing), the executor falls back to the raw stdout/stderr so the
+    user still sees something.
 - `--model` comes from the profile. The daemon does **not** pass `--effort`
   (the per-instruction `codexReasoningEffort` wire field is OPENAI-only and is
   ignored for `COMMAND_CODE`); reasoning effort is set by the upstream

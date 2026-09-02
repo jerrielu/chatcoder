@@ -659,15 +659,11 @@ describe("ToolExecutor", () => {
       const output = await executor.execute(profile, "ping", {
         onOutput: (chunk) => received.push(chunk)
       });
-      // The final response is the `result.finalText`, NOT the raw NDJSON.
       expect(output).toBe("Hi there");
-      // The onOutput stream should have received the human-readable text
-      // deltas (and a tool note), not the JSON envelopes.
       const joined = received.join("");
       expect(joined).toContain("Hi");
       expect(joined).toContain(" there");
-      expect(joined).toContain("[tool: List files]");
-      // Crucially: no raw JSON braces in the user-visible progress.
+      expect(joined).not.toContain("[tool:");
       expect(joined).not.toContain("\"type\":\"event\"");
     } finally {
       process.env.PATH = originalPath;

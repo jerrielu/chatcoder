@@ -172,13 +172,14 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 > `cmd` CLI headless and always non-interactively
 > (`cmd -p --yolo --output-format json -c --model <id> --max-turns 999999999 "<instruction>"`) —
 > `--yolo` (permission bypass), `--output-format json` (NDJSON event
-> stream so the daemon can stream live progress to the bot and pull the
-> final `result.finalText` on close), and `--max-turns 999999999` (effectively-unlimited
-> agent turns so long-running tasks aren't cut off mid-turn) are forced and
-> cannot be disabled. Each Command Code profile is created manually in the setup wizard: you
-> type the model id (consult `cmd --list-models` to find it). The daemon
-> does not auto-discover or auto-generate Command Code profiles, and does
-> not adjust reasoning effort for them (effort is set by the upstream
+> stream; the daemon forwards only the human-readable `text`/`delta` keys to
+> Telegram progress and the final `response.txt`, ignoring tool/heartbeat
+> noise), and `--max-turns 999999999` (effectively-unlimited agent turns so
+> long-running tasks aren't cut off mid-turn) are forced and cannot be
+> disabled. Each Command Code profile is created manually in the setup
+> wizard: you type the model id (consult `cmd --list-models` to find it).
+> The daemon does not auto-discover or auto-generate Command Code profiles,
+> and does not adjust reasoning effort for them (effort is set by the upstream
 > provider). See [design.md §7.6](./design.md).
 
 > **Antigravity profiles:** profiles with tool kind `ANTIGRAVITY` run the
