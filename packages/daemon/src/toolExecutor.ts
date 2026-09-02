@@ -220,6 +220,26 @@ export function buildLaunch(
     };
   }
 
+  if (profile.tool === "ANTIGRAVITY") {
+    const c = profile.antigravity;
+    const args: string[] = ["--print"];
+    if (c.model) args.push("--model", c.model);
+    if (c.effortLevel) args.push("--effort", c.effortLevel);
+    args.push(...c.extraArgs);
+    // Forced: agy always runs in yolo mode (cannot be overridden by profile extraArgs).
+    args.push("--dangerously-skip-permissions");
+    if (resumeLastSession) args.push("-c");
+    args.push(message);
+    return {
+      cmd: "agy",
+      args,
+      env,
+      cwd: workDir ?? process.cwd(),
+      stdinText: null,
+      finalOutputPath: null
+    };
+  }
+
   // CUSTOM
   const c = profile.custom;
   for (const [k, v] of Object.entries(c.env)) {

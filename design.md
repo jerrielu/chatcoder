@@ -624,6 +624,36 @@ end-to-end — the Telegram gate widened from `OPENAI` to
 `OPENAI | COMMAND_CODE`; the wizard offers all five levels (`low…max`) for
 fixed-preset profiles. No DB migration: the `tool` column is TEXT.
 
+### 7.7 Antigravity (`agy`) provider
+
+Antigravity is a sixth tool kind (`ANTIGRAVITY`). Per `agy --help` the available
+top-level flags are `--print` (single-prompt non-interactive print mode),
+`--dangerously-skip-permissions` (auto-approve all tool permission requests
+without prompting), `--model`, `--effort` (`low|medium|high`), `-c`/`--continue`
+(continue most recent conversation), etc. Supported launches are:
+
+```
+agy --print --dangerously-skip-permissions [--model <id>] [--effort <e>] [extraArgs…] [-c] "<instruction>"
+```
+
+- `--print` runs a single prompt non-interactively and prints the response.
+- `--dangerously-skip-permissions` is **forced after** `extraArgs` (same guarantee
+  shape as `cmd --yolo` and `reasonix --permission-mode auto`) so it cannot be
+  disabled per profile — every Antigravity run is yolo. A duplicate flag is
+  harmless.
+- `--model` / `--effort` come from the profile. The daemon does not pass any
+  other per-instruction wire field for Antigravity; `-c` is appended when
+  `resumeLastSession=true` so resuming a session continues the last CLI
+  conversation (mirroring the other providers' continue gates).
+- Profile config is `{ model?: string, effortLevel?: string, extraArgs: string[] }`.
+  No DB migration is needed — the `tool` column is `TEXT` and the `profiles`
+  table accepts any `ToolKind` value.
+
+**Profiles are user-authored.** The setup wizard (`pickTool` + `promptAntigravity`
+and the non-TTY `promptOneProfilePromptWizard` path) now offer
+"Antigravity (agy)" alongside the other tools. The Telegram `toolIcon` for it
+is `🟠`.
+
 ---
 
 ## 8. Polling strategy

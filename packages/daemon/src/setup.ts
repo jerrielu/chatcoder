@@ -44,6 +44,8 @@ export function toolLabel(tool: Profile["tool"]): string {
       return "Custom Tool";
     case "COMMAND_CODE":
       return "Command Code (cmd)";
+    case "ANTIGRAVITY":
+      return "Antigravity (agy)";
   }
 }
 
@@ -51,7 +53,8 @@ export function toolChoiceIndex(tool: Profile["tool"] | undefined): number {
   if (tool === "OPENAI") return 1;
   if (tool === "REASONIX") return 2;
   if (tool === "COMMAND_CODE") return 3;
-  if (tool === "CUSTOM") return 4;
+  if (tool === "ANTIGRAVITY") return 4;
+  if (tool === "CUSTOM") return 5;
   return 0;
 }
 
@@ -411,6 +414,7 @@ async function pickTool(ui: CoderUi, initialTool: Profile["tool"] | undefined): 
     { label: "OpenAI Codex / OpenAI API", value: "OPENAI" },
     { label: "Reasonix", value: "REASONIX" },
     { label: "Command Code (cmd)", value: "COMMAND_CODE" },
+    { label: "Antigravity (agy)", value: "ANTIGRAVITY" },
     { label: "Custom Tool", value: "CUSTOM" },
     { label: "Back", value: "__BACK__" }
   ];
@@ -429,6 +433,7 @@ type ClaudeCfg = Extract<Profile, { tool: "CLAUDE_CODE" }>["claudeCode"];
 type OpenAiCfg = Extract<Profile, { tool: "OPENAI" }>["codex"];
 type ReasonixCfg = Extract<Profile, { tool: "REASONIX" }>["reasonix"];
 type CommandCodeCfg = Extract<Profile, { tool: "COMMAND_CODE" }>["commandCode"];
+type AntigravityCfg = Extract<Profile, { tool: "ANTIGRAVITY" }>["antigravity"];
 type CustomCfg = Extract<Profile, { tool: "CUSTOM" }>["custom"];
 
 async function promptClaude(ui: CoderUi, prev?: ClaudeCfg): Promise<ClaudeCfg | null> {
@@ -628,6 +633,25 @@ async function promptCommandCode(
   };
 }
 
+async function promptAntigravity(
+  ui: CoderUi,
+  prev?: AntigravityCfg
+): Promise<AntigravityCfg | null> {
+  const model = await askWithDefault(ui, "Model (blank = agy default): ", prev?.model ?? "");
+  if (model === null) return null;
+  const effortLevel = await askWithDefault(
+    ui,
+    "Effort level low/medium/high (blank = default): ",
+    prev?.effortLevel ?? ""
+  );
+  if (effortLevel === null) return null;
+  return {
+    model: model || undefined,
+    effortLevel: effortLevel || undefined,
+    extraArgs: prev?.extraArgs ?? []
+  };
+}
+
 async function promptCustom(ui: CoderUi, prev?: CustomCfg): Promise<CustomCfg | null> {
   const launchBin = await askValidated(
     ui,
@@ -750,6 +774,18 @@ export async function promptProfileEditor(
       tool: "COMMAND_CODE",
       metadata: metadata || undefined,
       commandCode
+    };
+  }
+
+  if (tool === "ANTIGRAVITY") {
+    const prev = existing?.tool === "ANTIGRAVITY" ? existing.antigravity : undefined;
+    const antigravity = await promptAntigravity(ui, prev);
+    if (antigravity === null) return null;
+    return {
+      name,
+      tool: "ANTIGRAVITY",
+      metadata: metadata || undefined,
+      antigravity
     };
   }
 
@@ -1101,6 +1137,7 @@ async function promptOneProfilePromptWizard(
         { title: "OpenAI Codex (codex)", value: "OPENAI" },
         { title: "Reasonix (reasonix)", value: "REASONIX" },
         { title: "Command Code (cmd)", value: "COMMAND_CODE" },
+        { title: "Antigravity (agy)", value: "ANTIGRAVITY" },
         { title: "Custom binary", value: "CUSTOM" }
       ],
       initial: toolChoiceIndex(existingTool)
@@ -1361,6 +1398,34 @@ async function promptOneProfilePromptWizard(
       metadata: base.metadata || undefined,
       commandCode: {
         model: c.model || undefined,
+        extraArgs: prev?.extraArgs ?? []
+      }
+    };
+  }
+
+  if (base.tool === "ANTIGRAVITY") {
+    const prev = existing?.tool === "ANTIGRAVITY" ? existing.antigravity : undefined;
+    const c = await io.prompt([
+      {
+        type: "text",
+        name: "model",
+        message: "Model id (blank = agy default)",
+        initial: prev?.model ?? ""
+      },
+      {
+        type: "text",
+        name: "effortLevel",
+        message: "Effort level low/medium/high (blank = default)",
+        initial: prev?.effortLevel ?? ""
+      }
+    ]);
+    return {
+      name: base.name,
+      tool: "ANTIGRAVITY",
+      metadata: base.metadata || undefined,
+      antigravity: {
+        model: c.model || undefined,
+        effortLevel: c.effortLevel || undefined,
         extraArgs: prev?.extraArgs ?? []
       }
     };

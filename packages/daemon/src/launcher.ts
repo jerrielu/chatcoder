@@ -72,6 +72,15 @@ export async function launchProfile(profile: Profile, cwd?: string): Promise<num
     if (c.model) args.push("--model", c.model);
     args.push(...c.extraArgs);
     cmd = "cmd";
+  } else if (profile.tool === "ANTIGRAVITY") {
+    const c = profile.antigravity;
+    args = [];
+    if (c.model) args.push("--model", c.model);
+    if (c.effortLevel) args.push("--effort", c.effortLevel);
+    args.push(...c.extraArgs);
+    // Forced: agy always runs in yolo mode (cannot be overridden by profile extraArgs).
+    args.push("--dangerously-skip-permissions");
+    cmd = "agy";
   } else {
     const c = profile.custom;
     for (const [k, v] of Object.entries(c.env)) {

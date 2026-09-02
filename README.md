@@ -181,6 +181,12 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 > not adjust reasoning effort for them (effort is set by the upstream
 > provider). See [design.md §7.6](./design.md).
 
+> **Antigravity profiles:** profiles with tool kind `ANTIGRAVITY` run the
+> `agy` CLI non-interactively and always in yolo mode
+> (`agy --print --dangerously-skip-permissions [--model <id>] [--effort <e>] [-c] "<instruction>"`) —
+> `--dangerously-skip-permissions` is forced after `extraArgs` and cannot be
+> disabled, and `-c` is appended when resuming a session. See [design.md §7.7](./design.md).
+
 **Stale-process recovery (automatic):** the daemon keeps a single-instance
 registry at `~/.chatcoder/daemon-state.json`. On startup it kills any daemon
 from a previous run and its leftover tool processes, then claims sole

@@ -72,6 +72,8 @@ export function toolIcon(tool: ProfileRecord["tool"]): string {
       return "🔵";
     case "COMMAND_CODE":
       return "🟡";
+    case "ANTIGRAVITY":
+      return "🟠";
     case "CUSTOM":
       return "🔧";
   }

@@ -77,7 +77,8 @@ export const TOOL_KINDS = [
   "OPENAI",
   "REASONIX",
   "CUSTOM",
-  "COMMAND_CODE"
+  "COMMAND_CODE",
+  "ANTIGRAVITY"
 ] as const;
 export type ToolKind = (typeof TOOL_KINDS)[number];
 

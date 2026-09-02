@@ -15,7 +15,7 @@ export interface ProfilesTable {
   id: string;
   api_key_id: string;
   name: string;
-  tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM" | "COMMAND_CODE";
+  tool: "CLAUDE_CODE" | "OPENAI" | "REASONIX" | "CUSTOM" | "COMMAND_CODE" | "ANTIGRAVITY";
   metadata: string | null;
   created_at: number;
 }

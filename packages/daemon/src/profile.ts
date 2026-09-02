@@ -58,6 +58,13 @@ export const CommandCodeConfig = z.object({
 });
 export type CommandCodeConfig = z.infer<typeof CommandCodeConfig>;
 
+export const AntigravityConfig = z.object({
+  model: z.string().optional(),
+  effortLevel: z.string().optional(),
+  extraArgs: z.array(z.string()).default([])
+});
+export type AntigravityConfig = z.infer<typeof AntigravityConfig>;
+
 const EnvKey = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
 
 export const CustomConfig = z.object({
@@ -105,11 +112,19 @@ export const CommandCodeProfile = z.object({
 });
 export type CommandCodeProfile = z.infer<typeof CommandCodeProfile>;
 
+export const AntigravityProfile = z.object({
+  ...BaseProfile,
+  tool: z.literal("ANTIGRAVITY"),
+  antigravity: AntigravityConfig
+});
+export type AntigravityProfile = z.infer<typeof AntigravityProfile>;
+
 export const Profile = z.discriminatedUnion("tool", [
   ClaudeCodeProfile,
   OpenAIProfile,
   ReasonixProfile,
   CommandCodeProfile,
+  AntigravityProfile,
   CustomProfile
 ]);
 export type Profile = z.infer<typeof Profile>;
