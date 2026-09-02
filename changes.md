@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.2 (2026-09-02)
+
+- **Fix: Antigravity (`agy`) prompt placed immediately after `--print`** — Per requested form `agy --print "<instruction>" --model <id> --dangerously-skip-permissions .`, the instruction is now the first positional after `--print` (previously trailing after `-c`). Launches are `agy --print "<instruction>" [--model <m>] [--effort <e>] [extraArgs…] --dangerously-skip-permissions [-c] .` with `.` as the working-directory positional. (`packages/daemon/src/toolExecutor.ts`; `design.md` §7.7, `README.md`)
+
 ## 0.16.1 (2026-09-02)
 
 - **Change: Command Code stream now returns only human-readable assistant text (`text`/`delta`)** — `packages/daemon/src/commandCodeStream.ts` previously forwarded tool lifecycle notes (`[tool: …]`), heartbeat markers (`[model_trace]`, `[api_retry]`, …), and non-JSON boot banners into both the live Telegram progress (via `onOutput`) and the in-memory snapshot that can influence the final result. The translator now only forwards the human-readable `text` (from `message_update`/`message_end` `content[].text`) and `delta` (from `text_delta`) keys — everything else (`tool_queued`/`tool_running`/`tool_update`/`tool_completed`, `run_start`/`turn_*`/`message_start`/`model_*`/`api_retry`/`thinking`, boot banners, raw JSON) is ignored. `finalize()` now falls back to the accumulated `currentText` when `result.finalText` is absent/empty so `finalText` is always the assistant text. Progress and `response.txt` now contain only the assistant's words.

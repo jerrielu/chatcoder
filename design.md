@@ -624,10 +624,13 @@ without prompting), `--model`, `--effort` (`low|medium|high`), `-c`/`--continue`
 (continue most recent conversation), etc. Supported launches are:
 
 ```
-agy --print --dangerously-skip-permissions [--model <id>] [--effort <e>] [extraArgs…] [-c] "<instruction>"
+agy --print "<instruction>" [--model <id>] [--effort <e>] [extraArgs…] --dangerously-skip-permissions [-c] .
 ```
 
-- `--print` runs a single prompt non-interactively and prints the response.
+- `--print` runs a single prompt non-interactively and prints the response. The
+  prompt is placed **immediately after `--print`** (e.g.
+  `agy --print "<instruction>" --model <id> --dangerously-skip-permissions .`),
+  with the working directory `.` as the final positional argument.
 - `--dangerously-skip-permissions` is **forced after** `extraArgs` (same guarantee
   shape as `cmd --yolo` and `reasonix --permission-mode auto`) so it cannot be
   disabled per profile — every Antigravity run is yolo. A duplicate flag is
