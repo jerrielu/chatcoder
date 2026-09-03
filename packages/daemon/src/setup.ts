@@ -1042,7 +1042,7 @@ async function runSetupCoderStyle(
     return null;
   }
 
-  const maxConcurrency = await promptMaxConcurrency(ui, existing?.maxConcurrency ?? 4);
+  const maxConcurrency = await promptMaxConcurrency(ui, existing?.maxConcurrency ?? 1);
   if (maxConcurrency === null) {
     clearScreen();
     printInfo(ui, "Aborted.");
@@ -1614,7 +1614,7 @@ async function runSetupPromptWizard(
     type: "number",
     name: "maxConcurrency",
     message: "Max concurrent child processes",
-    initial: existing?.maxConcurrency ?? 4,
+    initial: existing?.maxConcurrency ?? 1,
     min: 1,
     max: 32
   });
@@ -1626,7 +1626,7 @@ async function runSetupPromptWizard(
     pollJitterMs: existing?.pollJitterMs,
     heartbeatIntervalMs: existing?.heartbeatIntervalMs,
     idleShutdownMs: existing?.idleShutdownMs,
-    maxConcurrency: concurrency.maxConcurrency ?? 4,
+    maxConcurrency: concurrency.maxConcurrency ?? 1,
     profiles
   });
   writeConfig(cfg, targetPath);

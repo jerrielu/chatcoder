@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.5 (2026-09-03)
+
+- **Change: Stall watchdog timeout increased 15min → 60min** — The default `stallTimeoutMs` was too aggressive for slow providers or long-running tasks that produce no output for extended periods. Increased from 15 minutes to 60 minutes so commands are less likely to be killed prematurely. (`packages/daemon/src/toolExecutor.ts`, `packages/daemon/src/config.ts`)
+- **Change: Default max concurrency lowered 4 → 1** — Default `maxConcurrency` changed from 4 to 1 to prevent multiple concurrent tasks from stalling each other. Users who want parallel execution can still configure it in `config.yml`. (`packages/daemon/src/config.ts`, `packages/daemon/src/sessionManager.ts`, `packages/daemon/src/profilePool.ts`, `packages/daemon/src/menu.ts`, `packages/daemon/src/setup.ts`)
+
 ## 0.16.4 (2026-09-03)
 
 - **Test: Relax stall watchdog unit test timeouts to prevent flakes under CPU load** — In `packages/daemon/test/toolExecutor.test.ts`, the mock child process tests for stall relaunching (`custom-stall-once` and `custom-always-stall`) previously used 150ms–200ms watchdog timeouts. Under heavy CPU load, Node startup time (~215ms) exceeded the timeout window, tripping the watchdog before the child could write to its test counter file. Increased watchdog timeouts to 600ms–800ms and intervals to 2000ms–3000ms, making the test suite robust and consistent. (`packages/daemon/test/toolExecutor.test.ts`)

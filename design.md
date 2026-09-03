@@ -436,7 +436,7 @@ We solve it with an **idle-quiet heuristic**:
 
 `ToolExecutor.execute()` arms a watchdog timer that is **reset on every output
 chunk** (stdout/stderr). If the child process emits nothing for
-`stallTimeoutMs` (default 15 minutes, `0` disables), the process group is
+`stallTimeoutMs` (default 60 minutes, `0` disables), the process group is
 killed (SIGTERM → SIGKILL after a 2 s grace) and — since 0.12.0 — **the same
 task is automatically relaunched** (same message, same resume flags) so
 progress keeps updating under the same session, up to `stallRetries` times
@@ -703,7 +703,7 @@ apiKey: cc_xxxxxxxx…
 pollIntervalMs: 2000
 heartbeatIntervalMs: 15000
 idleShutdownMs: 3600000       # 1 hour
-stallTimeoutMs: 900000         # 15 min without tool output → kill + relaunch task (0 disables)
+stallTimeoutMs: 3600000        # 60 min without tool output → kill + relaunch task (0 disables)
 stallRetries: 3                # relaunch attempts after a stall before failing (0 disables relaunch)
 codexCommand: codex
 codexArgs: []

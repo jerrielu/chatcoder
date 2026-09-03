@@ -41,7 +41,7 @@ export interface ToolExecutorOptions {
   stallRetries?: number;
 }
 
-const DEFAULT_STALL_TIMEOUT_MS = 15 * 60_000;
+const DEFAULT_STALL_TIMEOUT_MS = 60 * 60_000;
 const DEFAULT_STALL_RETRIES = 3;
 
 /** Thrown when the stall watchdog kills a child that produced no output for too long. */

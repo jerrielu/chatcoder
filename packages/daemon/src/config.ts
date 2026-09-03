@@ -20,7 +20,7 @@ export const DaemonConfig = z.object({
    * task with an error) when it emits no output for this long. Prevents a hung
    * provider call from freezing the progress message forever. `0` disables.
    */
-  stallTimeoutMs: z.number().int().min(0).default(15 * 60_000),
+  stallTimeoutMs: z.number().int().min(0).default(60 * 60_000),
   /**
    * After a stall timeout the same task is killed and relaunched (so progress
    * keeps updating under the same session) up to this many times before the
@@ -28,7 +28,7 @@ export const DaemonConfig = z.object({
    */
   stallRetries: z.number().int().min(0).max(10).default(3),
   /** Global in-flight cap across profiles. */
-  maxConcurrency: z.number().int().min(1).max(32).default(4),
+  maxConcurrency: z.number().int().min(1).max(32).default(1),
   profiles: z.array(Profile).min(1).max(MAX_PROFILES_PER_DAEMON),
   workDirs: z.array(z.string()).default([])
 });

@@ -28,7 +28,7 @@ export class ProfilePool {
   private readonly waiters: Array<() => void> = [];
 
   constructor(deps: ProfilePoolDeps) {
-    this.maxConcurrency = Math.max(1, deps.maxConcurrency ?? 4);
+    this.maxConcurrency = Math.max(1, deps.maxConcurrency ?? 1);
     for (const p of deps.profiles) {
       const runner = new ProfileRunner({
         profile: p,

@@ -29,7 +29,7 @@ export class SessionManager {
   private readonly waiters: Array<() => void> = [];
 
   constructor(private readonly deps: SessionManagerDeps) {
-    this.maxConcurrency = Math.max(1, deps.maxConcurrency ?? 4);
+    this.maxConcurrency = Math.max(1, deps.maxConcurrency ?? 1);
   }
 
   private getOrCreateRunner(sessionId: string, profile: Profile): SessionRunner {

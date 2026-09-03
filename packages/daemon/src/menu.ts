@@ -44,7 +44,7 @@ function defaultConfig(): Partial<DaemonConfig> {
   return {
     apiUrl: "http://localhost:8080",
     apiKey: "",
-    maxConcurrency: 4,
+    maxConcurrency: 1,
     pollIntervalMs: 2000,
     pollJitterMs: 250,
     heartbeatIntervalMs: 15000,
@@ -61,7 +61,7 @@ function loadOrCreateCfg(): Partial<DaemonConfig> {
     apiUrl: typeof raw.apiUrl === "string" ? raw.apiUrl : "http://localhost:8080",
     apiKey: typeof raw.apiKey === "string" ? raw.apiKey : "",
     maxConcurrency:
-      typeof raw.maxConcurrency === "number" ? raw.maxConcurrency : 4,
+      typeof raw.maxConcurrency === "number" ? raw.maxConcurrency : 1,
     profiles: Array.isArray(raw.profiles) ? (raw.profiles as Profile[]) : [],
     pollIntervalMs:
       typeof raw.pollIntervalMs === "number" ? raw.pollIntervalMs : 2000,

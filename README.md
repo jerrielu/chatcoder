@@ -155,12 +155,12 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 
 | Key               | Default           | Purpose                                                        |
 |-------------------|-------------------|----------------------------------------------------------------|
-| `stallTimeoutMs`  | `900000` (15 min) | Kill a tool process that emits no output for this long and relaunch the same task under the same session (`0` disables) |
+| `stallTimeoutMs`  | `3600000` (60 min) | Kill a tool process that emits no output for this long and relaunch the same task under the same session (`0` disables) |
 | `stallRetries`    | `3`               | How many times a stalled task is killed and relaunched before it fails with an error (`0` = fail on the first stall) |
 | `pollIntervalMs`  | `2000`            | How often the daemon polls the bot API for new instructions    |
 | `heartbeatIntervalMs` | `15000`       | How often the daemon reports liveness                          |
 | `idleShutdownMs`  | `3600000` (1 h)   | Shut down the daemon after this long with no work              |
-| `maxConcurrency`  | `4`               | Max tool processes running at once                             |
+| `maxConcurrency`  | `1`               | Max tool processes running at once                             |
 
 > **Reasonix permission mode:** all reasonix runs (bot sessions and TUI
 > launches) are forced to auto permission mode (`--permission-mode auto`,

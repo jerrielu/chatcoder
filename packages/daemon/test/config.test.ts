@@ -28,7 +28,7 @@ describe("DaemonConfig", () => {
     const cfg = DaemonConfig.parse(baseInput());
     expect(cfg.pollIntervalMs).toBe(2000);
     expect(cfg.idleShutdownMs).toBe(3_600_000);
-    expect(cfg.maxConcurrency).toBe(4);
+    expect(cfg.maxConcurrency).toBe(1);
     expect(cfg.profiles[0]!.tool).toBe("CLAUDE_CODE");
   });
 
