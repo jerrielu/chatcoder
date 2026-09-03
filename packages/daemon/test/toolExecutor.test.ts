@@ -573,7 +573,7 @@ describe("ToolExecutor", () => {
             "fs.writeFileSync(file, String(n));",
             "if (n === 1) {",
             "  process.stdout.write('first run started\\n');",
-            "  setInterval(() => {}, 1000);", // stall — killed by the watchdog
+            "  setInterval(() => {}, 2000);", // stall — killed by the watchdog
             "} else {",
             "  process.stdout.write('second run done\\n');",
             "  process.exit(0);",
@@ -587,7 +587,7 @@ describe("ToolExecutor", () => {
     const logs: Array<{ msg: string; extra?: unknown }> = [];
     const executor = new ToolExecutor({
       log: (msg, extra) => logs.push({ msg, extra }),
-      stallTimeoutMs: 200,
+      stallTimeoutMs: 600,
       stallRetries: 2
     });
 
@@ -614,7 +614,7 @@ describe("ToolExecutor", () => {
             "n++;",
             "fs.writeFileSync(file, String(n));",
             "process.stdout.write('run ' + n + '\\n');",
-            "setInterval(() => {}, 1000);"
+            "setInterval(() => {}, 3000);"
           ].join("")
         ],
         env: { COUNTER_FILE: counterFile },
@@ -624,7 +624,7 @@ describe("ToolExecutor", () => {
     const logs: Array<{ msg: string; extra?: unknown }> = [];
     const executor = new ToolExecutor({
       log: (msg, extra) => logs.push({ msg, extra }),
-      stallTimeoutMs: 150,
+      stallTimeoutMs: 800,
       stallRetries: 2 // 3 runs total before failing
     });
 
@@ -632,7 +632,7 @@ describe("ToolExecutor", () => {
     expect(fs.readFileSync(counterFile, "utf8").trim()).toBe("3");
     const relaunches = logs.filter((entry) => entry.msg.includes("relaunching the same task"));
     expect(relaunches.length).toBe(2);
-  });
+  }, 15000);
 
   it("does not stall a child that keeps producing output", async () => {
     const profile: Profile = {

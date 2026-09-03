@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.4 (2026-09-03)
+
+- **Test: Relax stall watchdog unit test timeouts to prevent flakes under CPU load** — In `packages/daemon/test/toolExecutor.test.ts`, the mock child process tests for stall relaunching (`custom-stall-once` and `custom-always-stall`) previously used 150ms–200ms watchdog timeouts. Under heavy CPU load, Node startup time (~215ms) exceeded the timeout window, tripping the watchdog before the child could write to its test counter file. Increased watchdog timeouts to 600ms–800ms and intervals to 2000ms–3000ms, making the test suite robust and consistent. (`packages/daemon/test/toolExecutor.test.ts`)
+
 ## 0.16.3 (2026-09-03)
 
 - **Fix: Remove unexpected `.` positional argument from Antigravity (`agy`) invocation** — `agy` takes prompts only via `--print`/`-i`/stdin and executes in the process working directory (`cwd`), rejecting trailing positional arguments with `Error: unexpected argument "."`. Removed the trailing `.` argument from `buildLaunch` so `agy` runs cleanly in the daemon-configured working directory. Added regression tests verifying launch arguments. (`packages/daemon/src/toolExecutor.ts`, `packages/daemon/test/toolExecutor.test.ts`; `design.md` §7.7, `README.md`)
