@@ -229,7 +229,6 @@ export function buildLaunch(
     // Forced: agy always runs in yolo mode (cannot be overridden by profile extraArgs).
     args.push("--dangerously-skip-permissions");
     if (resumeLastSession) args.push("-c");
-    args.push(".");
     return {
       cmd: "agy",
       args,

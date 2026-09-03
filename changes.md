@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.3 (2026-09-03)
+
+- **Fix: Remove unexpected `.` positional argument from Antigravity (`agy`) invocation** — `agy` takes prompts only via `--print`/`-i`/stdin and executes in the process working directory (`cwd`), rejecting trailing positional arguments with `Error: unexpected argument "."`. Removed the trailing `.` argument from `buildLaunch` so `agy` runs cleanly in the daemon-configured working directory. Added regression tests verifying launch arguments. (`packages/daemon/src/toolExecutor.ts`, `packages/daemon/test/toolExecutor.test.ts`; `design.md` §7.7, `README.md`)
+
 ## 0.16.2 (2026-09-02)
 
 - **Fix: Antigravity (`agy`) prompt placed immediately after `--print`** — Per requested form `agy --print "<instruction>" --model <id> --dangerously-skip-permissions .`, the instruction is now the first positional after `--print` (previously trailing after `-c`). Launches are `agy --print "<instruction>" [--model <m>] [--effort <e>] [extraArgs…] --dangerously-skip-permissions [-c] .` with `.` as the working-directory positional. (`packages/daemon/src/toolExecutor.ts`; `design.md` §7.7, `README.md`)

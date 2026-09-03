@@ -341,6 +341,48 @@ describe("buildLaunch", () => {
     ]);
   });
 
+  it("runs agy with --print <message> and forced --dangerously-skip-permissions (no trailing dot)", () => {
+    const profile: Profile = {
+      name: "agy-gemini",
+      tool: "ANTIGRAVITY",
+      antigravity: {
+        model: "gemini-3.8-flash-medium",
+        effortLevel: "medium",
+        extraArgs: []
+      }
+    };
+    const launch = buildLaunch(profile, "Hello", true);
+    expect(launch.cmd).toBe("agy");
+    expect(launch.args).toEqual([
+      "--print",
+      "Hello",
+      "--model",
+      "gemini-3.8-flash-medium",
+      "--effort",
+      "medium",
+      "--dangerously-skip-permissions",
+      "-c"
+    ]);
+    expect(launch.args).not.toContain(".");
+  });
+
+  it("omits -c when resumeLastSession is false for agy", () => {
+    const profile: Profile = {
+      name: "agy-bare",
+      tool: "ANTIGRAVITY",
+      antigravity: {
+        extraArgs: []
+      }
+    };
+    const launch = buildLaunch(profile, "Hello", false);
+    expect(launch.args).toEqual([
+      "--print",
+      "Hello",
+      "--dangerously-skip-permissions"
+    ]);
+    expect(launch.args).not.toContain(".");
+  });
+
   it("CUSTOM appended placement adds message as last arg", () => {
     const profile: Profile = {
       name: "c",

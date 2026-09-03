@@ -184,7 +184,7 @@ Notable options (full list in [design.md](./design.md#9-configuration)):
 
 > **Antigravity profiles:** profiles with tool kind `ANTIGRAVITY` run the
 > `agy` CLI non-interactively and always in yolo mode
-> (`agy --print "<instruction>" [--model <id>] [--effort <e>] --dangerously-skip-permissions [-c] .`) —
+> (`agy --print "<instruction>" [--model <id>] [--effort <e>] --dangerously-skip-permissions [-c]`) —
 > `--dangerously-skip-permissions` is forced after `extraArgs` and cannot be
 > disabled, and `-c` is appended when resuming a session. See [design.md §7.7](./design.md).
 
