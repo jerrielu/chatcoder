@@ -15,8 +15,10 @@ machine from Telegram. See [design.md](./design.md) for architecture.
 git clone https://github.com/jerrielu/chatcoder.git
 cd chatcoder
 npm install
-npm run build
+npm run build          # required for dev:* commands (uses compiled dist)
 ```
+
+`npm run pm2:start` and `npm run local` run the build automatically.
 
 ## Configuration
 
