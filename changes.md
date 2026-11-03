@@ -1,12 +1,5 @@
 # Changelog
 
-## 0.16.6 (2026-11-03)
-
-- **Docs: simplify README.md** — Removed global-install instructions and
-  verbose troubleshooting; README now runs everything from the repo checkout
-  with just the dev and PM2 commands plus minimal config reference.
-  (`README.md`)
-
 ## 0.16.5 (2026-09-03)
 
 - **Change: Stall watchdog timeout increased 15min → 60min** — The default `stallTimeoutMs` was too aggressive for slow providers or long-running tasks that produce no output for extended periods. Increased from 15 minutes to 60 minutes so commands are less likely to be killed prematurely. (`packages/daemon/src/toolExecutor.ts`, `packages/daemon/src/config.ts`)
