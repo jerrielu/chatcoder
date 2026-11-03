@@ -42,26 +42,12 @@ Daemon (`~/.chatcoder/config.yml`, created by the setup wizard):
 | `stallTimeoutMs` | `3600000` | Kill/restart tool after no output |
 | `maxConcurrency` | `1` | Max concurrent tool processes |
 
-Example `~/.chatcoder/config.yml` for running Command Code (`cmd`):
-
-```yaml
-apiUrl: http://localhost:8080
-apiKey: cc_xxxxxxxx
-cwd: /path/to/your/project
-pollIntervalMs: 2000
-maxConcurrency: 1
-profiles:
-  - name: cmd
-    tool: COMMAND_CODE
-    config:
-      model: <model-id from `cmd --list-models`>
-```
-
 ## Run (dev)
 
 ```bash
 npm run dev:chat              # bot HTTP API (port 8080)
-npm run dev:coder -- --daemon # daemon mode (reads ~/.chatcoder/config.yml)
+npm run dev:coder             # TUI menu
+npm run dev:coder -- --daemon # daemon mode
 npm run dev:dashboard         # web admin (port 8090)
 npm test                      # run tests
 npm run build                 # build all packages
