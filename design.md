@@ -61,6 +61,10 @@ script builds and then asks PM2 to run both services as named processes —
 PM2 process list. It is idempotent: it starts a new instance the first time
 and restarts an existing one on later runs. See `scripts/pm2-start.mjs`.
 
+**`npm stop` / `npm run pm2:stop`:** tears down the PM2-managed services by
+stopping and deleting the `chatcoder-chat` and `chatcoder-coder` processes (if
+present) and saving the PM2 process list. See `scripts/pm2-stop.mjs`.
+
 ---
 
 ## 2. Persistence layer

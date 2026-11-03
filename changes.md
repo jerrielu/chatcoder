@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.7 (2026-11-03)
+
+- **Feature: Add `npm stop` / `npm run pm2:stop`** — New script `scripts/pm2-stop.mjs` stops and deletes the `chatcoder-chat` and `chatcoder-coder` PM2 processes (if running) and persists the PM2 process list via `pm2 save`. Provides a one-command way to tear down the PM2-managed services. (`package.json`, `scripts/pm2-stop.mjs`, `README.md`)
+
 ## 0.16.6 (2026-11-03)
 
 - **Fix: Command Code (`cmd`) live progress restored during thinking/tool phases** — `packages/daemon/src/commandCodeStream.ts` (v0.16.1) had suppressed *all* non-text NDJSON events, so while Command Code was thinking or running a tool (often 30s+) the translator emitted nothing, `onOutput` never fired, and the Telegram "🔄 processing…" message froze. Meta events (`run_start`, `turn_*`, `model_*`, `api_retry`, `thinking`, and unknown types) are now surfaced again as deduplicated heartbeats (`\n[model_trace]`, …) and tool lifecycle events as `\n[tool: …]` / `\n[tool: … running]` / `\n[tool: … done]` notes, so the processing message stays alive. These notes are emitted only to `onOutput` (live progress) and never folded into `currentText`/`snapshot()`/`finalText`, so the final answer and `response.txt`'s final portion remain clean assistant text. (`packages/daemon/src/commandCodeStream.ts`, tests, `design.md` §7.6)

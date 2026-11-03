@@ -214,6 +214,8 @@ Run both services under PM2 for automatic restarts and logging:
 ```bash
 cd <chatcoder repo>
 npm run pm2:start          # builds and runs BOTH chat and coder under PM2
+npm run pm2:stop           # stops and deletes BOTH chatcoder PM2 processes
+npm stop                   # alias for pm2:stop
 ```
 
 Or start them manually:
