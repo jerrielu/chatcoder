@@ -1,263 +1,90 @@
 # chatcoder
 
 Telegram-driven remote codex control — drive AI coding sessions on a remote
-machine from Telegram.
+machine from Telegram. See [design.md](./design.md) for architecture.
 
-See [design.md](./design.md) for architecture and [worklog.md](./worklog.md)
-for the build history.
+## Prerequisites
 
----
+- Node 20+ (`.nvmrc` pins 24.15.0)
+- npm
+- Optional for voice transcription: `ffmpeg` and `whisper-node`
 
-## Install
-
-Requires Node 20+ and npm.
-
-### Global install (`npm install -g .`)
-
-`npm install -g .` is a **linked install**: npm symlinks the package to your
-source checkout and installs **none** of its dependencies into the global
-location. For the global `chatcoder` CLI to find its runtime dependencies
-(`fastify`, `grammy`, `better-sqlite3`, the private `@chatcoder/shared`
-workspace package, etc.), those must already be linked into the **repo's own
-`node_modules`**. So the reliable sequence is two steps, run **at the repo
-root**:
+## Setup
 
 ```bash
 git clone https://github.com/jerrielu/chatcoder.git
 cd chatcoder
-
-# 1. Install workspace deps + link @chatcoder/shared locally (run at repo root)
-npm install
-
-# 2. Link the CLI globally (resolves deps from the repo's node_modules above)
-npm install -g .
-```
-
-> **Why step 1 is required:** without it there is no `node_modules`, and the
-> globally linked CLI cannot resolve `@chatcoder/shared` (or any other dep).
-> The private `@chatcoder/shared` package is **never** published to npm, so it
-> must be linked from the local workspace.
-
-> **`npm install -g github:jerrielu/chatcoder` is not supported** — npm
-> 10.x/11.x pacote extracts empty directories for git deps. Clone + the two
-> steps above instead.
-
-### Troubleshooting: `404 Not Found - GET https://registry.npmjs.org/@chatcoder%2fshared`
-
-This means npm gave up on the local workspace link and tried to fetch the
-private `@chatcoder/shared` from the public registry (where it does not
-exist). It is **not** a packaging bug — it is stale lockfile/state. Fix:
-
-```bash
-# From the repo root, discard stale state and regenerate a clean lockfile
-rm -rf node_modules package-lock.json
-npm install          # links @chatcoder/shared to ./packages/shared
-```
-
-This happens if `package-lock.json` predates a version bump (the
-`@chatcoder/shared` reference must match the local workspace `version`), or
-was left over from a different branch/state. **Do not** run `npm install`
-from inside `packages/*` — workspaces only resolve from the repo root.
-
-### Development only (run from source)
-
-```bash
-git clone <this repo> && cd chatcoder
-nvm use
 npm install
 npm run build
 ```
 
-> **Voice transcription** (optional): to use voice messages, install `ffmpeg`
-> and the `whisper-node` npm dependency (its bundled whisper.cpp is compiled via
-> cmake on install):
-> ```bash
-> sudo apt-get install ffmpeg cmake build-essential
-> npm install whisper-node
-> ```
-> The multilingual `base` model (~142 MB) is downloaded automatically on first use.
-> If `whisper-node` is not installed, the bot keeps working normally — text
-> commands and menus are unaffected — but a voice message returns a notice that
-> transcription is unavailable and asks the user to type their instruction.
->
+## Configuration
 
----
+Bot (environment variables):
 
-## npm run dev Commands
+| Var | Required | Default | Purpose |
+|-----|----------|---------|---------|
+| `TELEGRAM_BOT_TOKEN` | yes | — | BotFather token |
+| `DATABASE_URL` | no | `sqlite:~/.chatcoder/chatcoder.db` | Database connection |
+| `BOT_LISTEN_HOST` | no | `0.0.0.0` | API bind host |
+| `BOT_LISTEN_PORT` | no | `8080` | API bind port |
 
-| Command | What it does |
-|---------|-------------|
-| `npm start` | Build release artifacts and run **both** the bot chat service and the coder daemon (`coder --daemon`) |
-| `npm run pm2:start` | Build and run **both** services under PM2 (`chatcoder-chat`, `chatcoder-coder`) |
-| `npm run dev:coder` | TUI interactive menu |
-| `npm run dev:coder -- --daemon` | Daemon mode (connects to bot) |
-| `npm run dev:chat` | Bot HTTP API service (port 8080) |
-| `npm run dev:dashboard` | Web admin panel (port 8090) |
-| `npm test` | Run all tests |
-| `npm run lint` | Lint all packages |
-| `npm run build` | Build all packages |
+Daemon (`~/.chatcoder/config.yml`, created by the setup wizard):
 
----
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `apiUrl` | — | Bot API URL |
+| `apiKey` | — | Session API key |
+| `cwd` | — | Working directory |
+| `pollIntervalMs` | `2000` | Poll interval |
+| `stallTimeoutMs` | `3600000` | Kill/restart tool after no output |
+| `maxConcurrency` | `1` | Max concurrent tool processes |
 
-## chatcoder CLI
-
-```
-usage: chatcoder <chat|coder> [options]
-
-commands:
-  chat          Bot HTTP API service (port 8080)
-  coder         Coder service (default: TUI menu)
-
-coder sub-commands:
-  (no args)     TUI interactive menu
-  --daemon      Daemon mode (connect to bot, poll queue)
-  --path        Print config file path
-
-options:
-  --systemd     Install and start a per-user systemd service
-  -h, --help    Show this help
-```
-
----
-
-## Quick Start
+## Run (dev)
 
 ```bash
-# One command: build and run both the bot (chat) and the coder daemon
-export TELEGRAM_BOT_TOKEN=123456:ABC-xxxxxxxx
-npm start
-
-# Or run them separately:
-# Terminal 1: start the bot
-export TELEGRAM_BOT_TOKEN=123456:ABC-xxxxxxxx
-chatcoder chat
-
-# Terminal 2: run the daemon
-chatcoder coder --daemon
-
-# Or use the TUI locally (no bot needed)
-chatcoder coder
+npm run dev:chat              # bot HTTP API (port 8080)
+npm run dev:coder             # TUI menu
+npm run dev:coder -- --daemon # daemon mode
+npm run dev:dashboard         # web admin (port 8090)
+npm test                      # run tests
+npm run build                 # build all packages
+npm run local                 # build + restart PM2 processes
 ```
 
-Environment variables for the bot:
-
-| Env var              | Default                 | Purpose                |
-|----------------------|-------------------------|------------------------|
-| `TELEGRAM_BOT_TOKEN` | (required)              | BotFather token        |
-| `DATABASE_URL`       | `sqlite:~/.chatcoder/chatcoder.db` | Database connection    |
-| `BOT_LISTEN_HOST`    | `0.0.0.0`               | API bind host          |
-| `BOT_LISTEN_PORT`    | `8080`                  | API bind port          |
-
-### Daemon configuration
-
-The daemon reads `~/.chatcoder/config.yml` (created by the setup wizard).
-Notable options (full list in [design.md](./design.md#9-configuration)):
-
-| Key               | Default           | Purpose                                                        |
-|-------------------|-------------------|----------------------------------------------------------------|
-| `stallTimeoutMs`  | `3600000` (60 min) | Kill a tool process that emits no output for this long and relaunch the same task under the same session (`0` disables) |
-| `stallRetries`    | `3`               | How many times a stalled task is killed and relaunched before it fails with an error (`0` = fail on the first stall) |
-| `pollIntervalMs`  | `2000`            | How often the daemon polls the bot API for new instructions    |
-| `heartbeatIntervalMs` | `15000`       | How often the daemon reports liveness                          |
-| `idleShutdownMs`  | `3600000` (1 h)   | Shut down the daemon after this long with no work              |
-| `maxConcurrency`  | `1`               | Max tool processes running at once                             |
-
-> **Reasonix permission mode:** all reasonix runs (bot sessions and TUI
-> launches) are forced to auto permission mode (`--permission-mode auto`,
-> appended after any profile `extraArgs`), so they auto-approve ordinary
-> writer fallbacks while still asking for genuinely risky operations. This
-> cannot be overridden per profile. See [design.md §7.5](./design.md).
-
-> **Command Code profiles:** profiles with tool kind `COMMAND_CODE` run the
-> `cmd` CLI headless and always non-interactively
-> (`cmd -p --yolo --output-format json -c --model <id> --max-turns 999999999 "<instruction>"`) —
-> `--yolo` (permission bypass), `--output-format json` (NDJSON event
-> stream; the daemon forwards only the human-readable `text`/`delta` keys to
-> Telegram progress and the final `response.txt`, ignoring tool/heartbeat
-> noise), and `--max-turns 999999999` (effectively-unlimited agent turns so
-> long-running tasks aren't cut off mid-turn) are forced and cannot be
-> disabled. Each Command Code profile is created manually in the setup
-> wizard: you type the model id (consult `cmd --list-models` to find it).
-> The daemon does not auto-discover or auto-generate Command Code profiles,
-> and does not adjust reasoning effort for them (effort is set by the upstream
-> provider). See [design.md §7.6](./design.md).
-
-> **Antigravity profiles:** profiles with tool kind `ANTIGRAVITY` run the
-> `agy` CLI non-interactively and always in yolo mode
-> (`agy --print "<instruction>" [--model <id>] [--effort <e>] --dangerously-skip-permissions [-c]`) —
-> `--dangerously-skip-permissions` is forced after `extraArgs` and cannot be
-> disabled, and `-c` is appended when resuming a session. See [design.md §7.7](./design.md).
-
-**Stale-process recovery (automatic):** the daemon keeps a single-instance
-registry at `~/.chatcoder/daemon-state.json`. On startup it kills any daemon
-from a previous run and its leftover tool processes, then claims sole
-ownership; on shutdown it kills its own tool children. Each claimed message
-is a leased lock: `processing_heartbeat_at` bumped every 30 s via
-`POST /v1/task-heartbeat` while the tool runs; if no heartbeat for 60 s the
-bot clears the in-progress row so queued messages can FIFO-drain (also swept
-every 30 s for sessions not polled). The bot additionally re-checks every
-30 s: any in-progress task whose daemon stopped heartbeating
-(`BOT_HEARTBEAT_STALE_MS`, default 60 s) is killed and re-queued so it reruns
-when a daemon reconnects — you get a Telegram notice when that happens. Restarts
-(PM2/systemd) now forward SIGINT/SIGTERM to the whole process tree, so orphaned
-processes and frozen progress messages can no longer accumulate.
-
-> If you see a `better_sqlite3` native module error after switching Node
-> versions, run `npm rebuild better-sqlite3`.
-
----
-
-## PM2 (Production)
-
-Run both services under PM2 for automatic restarts and logging:
+## Run (production, PM2)
 
 ```bash
-cd <chatcoder repo>
-npm run pm2:start          # builds and runs BOTH chat and coder under PM2
+npm run pm2:start   # build + run both chat and coder under PM2
 ```
 
-Or start them manually:
+Manual:
 
 ```bash
-npm install -g pm2
-pm2 start "$(which chatcoder)" --name chatcoder-chat -- chat
-pm2 start "$(which chatcoder)" --name chatcoder-coder -- coder --daemon
+pm2 start bin/chatcoder.js --name chatcoder-chat -- chat
+pm2 start bin/chatcoder.js --name chatcoder-coder -- coder --daemon
 pm2 save
-pm2 startup   # persist across reboots
 ```
 
-Useful commands:
-
-```bash
-pm2 logs chatcoder-coder          # tail daemon logs
-pm2 restart chatcoder-coder       # restart daemon
-pm2 stop chatcoder-coder          # stop daemon
-pm2 delete chatcoder-coder        # remove from PM2
-pm2 delete chatcoder-chat chatcoder-coder  # remove all chatcoder processes
-```
-
----
-
-## Telegram Menu
-
-The bot presents an inline keyboard with these actions:
+## Telegram menu
 
 | Button | Behaviour |
 |--------|-----------|
-| 💻 Code | Resume the last CLI session with a new instruction |
-| 🆕 New Code | Start a fresh CLI run with a new instruction |
-| 🔬 New Code + Review | Queues your instruction first, then separately queues a deep code review that also fixes all found issues |
-| 👤 Profile | Switch the active AI tool profile |
-| 📁 Folder | Pick a working directory |
-| 📋 Latest Progress | Show the latest daemon progress output |
-| ⏹ Stop | Request the daemon to stop the current task |
-| 🆕 New Session | Create a new session (revokes the current one) |
-| 📡 Status | Show daemon heartbeat and queue status |
-| 📦 vX.Y.Z | Show version and changelog |
+| 💻 Code | Resume last session with new instruction |
+| 🆕 New Code | Fresh CLI run |
+| 🔬 New Code + Review | Queue instruction, then deep code review |
+| 👤 Profile | Switch AI tool profile |
+| 📁 Folder | Pick working directory |
+| 📋 Latest Progress | Show latest daemon output |
+| ⏹ Stop | Stop current task |
+| 🆕 New Session | Create new session |
+| 📡 Status | Daemon heartbeat and queue status |
+| 📦 vX.Y.Z | Version and changelog |
 
-> **Keyboard-free shortcut:** typing the bare word `resume` (or `continue`,
-> `cont`, `res` — case-insensitive) while the bot is idle behaves exactly
-> like tapping 💻 Code: the bot enters resume mode and prompts you for the
-> next instruction, which is then launched with `-c` for the `cmd` binary
-> (and the equivalent continue flag for the other tool backends).
+Typing `resume` / `continue` / `cont` / `res` while idle behaves like 💻 Code.
 
+## Notes
+
+- Reasonix runs always use auto permission mode.
+- Command Code (`cmd`) and Antigravity (`agy`) profiles are added via the
+  setup wizard. See [design.md](./design.md) §7.6 / §7.7.
