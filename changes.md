@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.8 (2026-11-03)
+
+- **Fix: Command Code progress markers now include details** — `packages/daemon/src/commandCodeStream.ts` previously surfaced meta/tool events as bare markers (`[thinking_start]`, `[model_request_end]`, `[tool: grep]`, …) with no payload. Heartbeats and tool notes now carry the relevant fields: model id + stop reason, turn number, tool input/description/result/error, api_retry attempt/delay/error, notice level/message, thinking text, tokens saved, etc. Progress stays live and detailed while never leaking into `snapshot()`/`finalText`. (`packages/daemon/src/commandCodeStream.ts`, tests)
+
 ## 0.16.7 (2026-11-03)
 
 - **Feature: Add `npm stop` / `npm run pm2:stop`** — New script `scripts/pm2-stop.mjs` stops and deletes the `chatcoder-chat` and `chatcoder-coder` PM2 processes (if running) and persists the PM2 process list via `pm2 save`. Provides a one-command way to tear down the PM2-managed services. (`package.json`, `scripts/pm2-stop.mjs`, `README.md`)
