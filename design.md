@@ -569,8 +569,13 @@ cmd -p --yolo --output-format json [-c] [--model <id>] [extraArgs…] --max-turn
   flush cadence as Reasonix) and the final `response.txt` content. All other
   NDJSON lines — `tool_queued`/`tool_running`/`tool_update`/`tool_completed`,
   `run_start`/`turn_*`/`message_start`/`model_*`/`api_retry`/`thinking`,
-  boot banners, raw JSON — are ignored so progress and the final file
-  contain only the assistant's words, not tool traces.
+  boot banners, raw JSON — are **not** added to `currentText`/`snapshot()`/
+  `finalText`, so the final answer and `response.txt`'s final portion contain
+  only the assistant's words; however, meta and tool events ARE surfaced as
+  deduplicated live-progress heartbeats/tool notes (`\n[model_trace]`,
+  `\n[tool: … running]`) via `onOutput` so the processing message stays
+  alive during thinking/tool phases. These live notes never leak into
+  `finalText` (resolved from `result.finalText`).
   - The terminal `{"type":"result",…,"finalText":"…"}` line becomes the
     resolved output (falling back to the accumulated text when
     `finalText` is absent/empty); `response.txt` therefore contains the

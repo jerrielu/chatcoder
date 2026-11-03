@@ -45,7 +45,7 @@ describe("createCommandCodeStreamTranslator", () => {
     expect(finalised.finalText).toBe("Done.");
   });
 
-  it("ignores tool lifecycle events and does not emit them", () => {
+  it("surfaces tool lifecycle events as progress notes but not into snapshot", () => {
     const t = createCommandCodeStreamTranslator();
     t.ingest(line({ type: "event", event: { type: "text_delta", delta: "hello" } }) + "\n");
     const out1 = t.ingest(
@@ -72,10 +72,9 @@ describe("createCommandCodeStreamTranslator", () => {
         event: { type: "tool_completed", toolName: "shell_command" }
       }) + "\n"
     );
-    expect(out1).toBe("");
-    expect(out2).toBe("");
-    expect(out3).toBe("");
-    expect(out4).toBe("");
+    expect(out1).toContain("[tool:");
+    expect(out2).toContain("[tool:");
+    expect(out4).toContain("[tool:");
     expect(t.snapshot()).toBe("hello");
   });
 
@@ -110,7 +109,7 @@ describe("createCommandCodeStreamTranslator", () => {
     expect(t.snapshot()).toBe("");
   });
 
-  it("ignores heartbeat/meta events and does not emit them", () => {
+  it("surfaces meta/heartbeat events as progress but not into snapshot", () => {
     const t = createCommandCodeStreamTranslator();
     const events = [
       "run_start",
@@ -123,11 +122,13 @@ describe("createCommandCodeStreamTranslator", () => {
       "model_request_end",
       "thinking"
     ] as const;
+    let emitted = "";
     for (const evType of events) {
-      const out = t.ingest(line({ type: "event", event: { type: evType } }) + "\n");
-      expect(out).toBe("");
+      emitted += t.ingest(line({ type: "event", event: { type: evType } }) + "\n");
       expect(t.snapshot()).toBe("");
     }
+    // At least one heartbeat token was emitted for liveness.
+    expect(emitted).toContain("[");
     expect(t.finalize().hasResult).toBe(false);
   });
 

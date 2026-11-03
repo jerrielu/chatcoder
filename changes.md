@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.6 (2026-11-03)
+
+- **Fix: Command Code (`cmd`) live progress restored during thinking/tool phases** — `packages/daemon/src/commandCodeStream.ts` (v0.16.1) had suppressed *all* non-text NDJSON events, so while Command Code was thinking or running a tool (often 30s+) the translator emitted nothing, `onOutput` never fired, and the Telegram "🔄 processing…" message froze. Meta events (`run_start`, `turn_*`, `model_*`, `api_retry`, `thinking`, and unknown types) are now surfaced again as deduplicated heartbeats (`\n[model_trace]`, …) and tool lifecycle events as `\n[tool: …]` / `\n[tool: … running]` / `\n[tool: … done]` notes, so the processing message stays alive. These notes are emitted only to `onOutput` (live progress) and never folded into `currentText`/`snapshot()`/`finalText`, so the final answer and `response.txt`'s final portion remain clean assistant text. (`packages/daemon/src/commandCodeStream.ts`, tests, `design.md` §7.6)
+
 ## 0.16.5 (2026-09-03)
 
 - **Change: Stall watchdog timeout increased 15min → 60min** — The default `stallTimeoutMs` was too aggressive for slow providers or long-running tasks that produce no output for extended periods. Increased from 15 minutes to 60 minutes so commands are less likely to be killed prematurely. (`packages/daemon/src/toolExecutor.ts`, `packages/daemon/src/config.ts`)

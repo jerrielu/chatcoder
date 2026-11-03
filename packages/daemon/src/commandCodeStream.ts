@@ -26,6 +26,11 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
   let currentText = "";
   let emittedTextLen = 0;
   let result: CommandCodeStreamResult = { finalText: "", hasResult: false };
+  // Dedup slots for live-progress heartbeats / tool notes. These are emitted
+  // to `onOutput` for liveness but never folded into `currentText`, so they
+  // cannot leak into the final answer or `snapshot()`.
+  let lastHeartbeat = "";
+  let lastToolNote = "";
 
   const snapshot = (): string => currentText;
 
@@ -40,6 +45,25 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
     const delta = currentText.slice(emittedTextLen);
     emittedTextLen = currentText.length;
     return delta;
+  };
+
+  const heartbeat = (label: string): string => {
+    const token = `\n[${label}]`;
+    if (token === lastHeartbeat) return "";
+    lastHeartbeat = token;
+    return token;
+  };
+
+  const toolNote = (note: string): string => {
+    const token = `\n${note}`;
+    if (token === lastToolNote) return "";
+    lastToolNote = token;
+    return token;
+  };
+
+  const resetSuffixes = (): void => {
+    lastHeartbeat = "";
+    lastToolNote = "";
   };
 
   const ingest = (chunk: string): string => {
@@ -90,6 +114,7 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
       case "text_delta": {
         if (typeof ev["delta"] === "string") {
           currentText += ev["delta"] as string;
+          resetSuffixes();
           return emitDelta();
         }
         return "";
@@ -100,6 +125,7 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
         if (Array.isArray(content)) {
           const joined = extractAssistantText(content);
           if (joined !== null) {
+            resetSuffixes();
             if (joined === currentText) return "";
             if (joined.startsWith(currentText) && emittedTextLen === currentText.length) {
               currentText = joined;
@@ -124,13 +150,42 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
           if (typeof finalText === "string") {
             currentText = finalText as string;
             result = { finalText: currentText, hasResult: true };
+            resetSuffixes();
             return emitDelta();
           }
         }
         return "";
       }
-      default:
+      case "tool_queued": {
+        const name = typeof ev["toolName"] === "string" ? (ev["toolName"] as string) : "tool";
+        return toolNote(`[tool: ${name}]`);
+      }
+      case "tool_running":
+      case "tool_update": {
+        const name = typeof ev["toolName"] === "string" ? (ev["toolName"] as string) : "tool";
+        return toolNote(`[tool: ${name} running]`);
+      }
+      case "tool_completed": {
+        const name = typeof ev["toolName"] === "string" ? (ev["toolName"] as string) : "tool";
+        return toolNote(`[tool: ${name} done]`);
+      }
+      case "run_start":
+      case "turn_start":
+      case "turn_end":
+      case "message_start":
+      case "model_request_start":
+      case "model_request_end":
+      case "model_trace":
+      case "api_retry":
+      case "thinking": {
+        return heartbeat(typeof evType === "string" ? evType : String(evType));
+      }
+      default: {
+        if (typeof evType === "string" && evType.length > 0) {
+          return heartbeat(evType);
+        }
         return "";
+      }
     }
   };
 

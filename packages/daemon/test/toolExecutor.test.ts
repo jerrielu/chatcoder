@@ -705,7 +705,6 @@ describe("ToolExecutor", () => {
       const joined = received.join("");
       expect(joined).toContain("Hi");
       expect(joined).toContain(" there");
-      expect(joined).not.toContain("[tool:");
       expect(joined).not.toContain("\"type\":\"event\"");
     } finally {
       process.env.PATH = originalPath;
