@@ -87,5 +87,6 @@ Typing `resume` / `continue` / `cont` / `res` while idle behaves like 💻 Code.
 
 ## Notes
 
-- Command Code (`cmd`) profiles are added via the setup wizard. See
-  [design.md](./design.md) §7.6.
+- Reasonix runs always use auto permission mode.
+- Command Code (`cmd`) and Antigravity (`agy`) profiles are added via the
+  setup wizard. See [design.md](./design.md) §7.6 / §7.7.
