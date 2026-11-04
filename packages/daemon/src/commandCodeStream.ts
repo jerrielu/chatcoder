@@ -9,21 +9,17 @@
  * NDJSON stream, surfaces a human-readable progress string (only the assistant
  * `text` / `delta` content) for `onOutput`, and exposes the final text on close.
  */
-
 export interface CommandCodeStreamResult {
   finalText: string;
   hasResult: boolean;
 }
-
 export interface CommandCodeStreamTranslator {
   ingest(chunk: string): string;
   snapshot(): string;
   finalize(): CommandCodeStreamResult;
 }
-
 const truncate = (value: string, max = 120): string =>
   value.length > max ? `${value.slice(0, max)}…` : value;
-
 const summarizeInput = (input: unknown): string => {
   if (!input || typeof input !== "object" || Array.isArray(input)) return "";
   const obj = input as Record<string, unknown>;
@@ -41,7 +37,6 @@ const summarizeInput = (input: unknown): string => {
   });
   return `{${parts.join(", ")}}`;
 };
-
 const eventDetails = (ev: Record<string, unknown>): string => {
   const skip = new Set(["type"]);
   const parts: string[] = [];
@@ -54,52 +49,76 @@ const eventDetails = (ev: Record<string, unknown>): string => {
   }
   return parts.join(", ");
 };
-
+const extractToolResultText = (res: unknown): string => {
+  if (typeof res === "string") {
+    try {
+      const parsed = JSON.parse(res);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((p) => {
+            if (typeof p === "string") return p;
+            if (p && typeof p === "object" && typeof (p as Record<string, unknown>)["text"] === "string")
+              return (p as Record<string, unknown>)["text"] as string;
+            return "";
+          })
+          .join("");
+      }
+      if (parsed && typeof parsed === "object" && typeof (parsed as Record<string, unknown>)["text"] === "string")
+        return (parsed as Record<string, unknown>)["text"] as string;
+    } catch {
+      // not JSON; fall through
+    }
+    return res;
+  }
+  if (Array.isArray(res)) {
+    return res
+      .map((p) => {
+        if (typeof p === "string") return p;
+        if (p && typeof p === "object" && typeof (p as Record<string, unknown>)["text"] === "string")
+          return (p as Record<string, unknown>)["text"] as string;
+        return "";
+      })
+      .join("");
+  }
+  if (res && typeof res === "object" && typeof (res as Record<string, unknown>)["text"] === "string")
+    return (res as Record<string, unknown>)["text"] as string;
+  if (res === undefined) return "";
+  try { return JSON.stringify(res); } catch { return String(res); }
+};
 export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator {
   let buffer = "";
   let currentText = "";
   let emittedTextLen = 0;
   let result: CommandCodeStreamResult = { finalText: "", hasResult: false };
-  // Dedup slots for live-progress heartbeats / tool notes. These are emitted
-  // to `onOutput` for liveness but never folded into `currentText`, so they
-  // cannot leak into the final answer or `snapshot()`.
   let lastHeartbeat = "";
   let lastToolNote = "";
-
   const snapshot = (): string => currentText;
-
   const finalize = (): CommandCodeStreamResult => {
     if (result.hasResult) return result;
     if (currentText.length > 0) return { finalText: currentText, hasResult: true };
     return result;
   };
-
   const emitDelta = (): string => {
     if (currentText.length <= emittedTextLen) return "";
     const delta = currentText.slice(emittedTextLen);
     emittedTextLen = currentText.length;
     return delta;
   };
-
   const heartbeat = (label: string): string => {
-    const token = `\n[${label}]`;
+    if (label.length === 0) return "";
+    const token = `\n${label}`;
     if (token === lastHeartbeat) return "";
     lastHeartbeat = token;
     return token;
   };
-
   const toolNote = (note: string): string => {
+    if (note.length === 0) return "";
     const token = `\n${note}`;
     if (token === lastToolNote) return "";
     lastToolNote = token;
     return token;
   };
-
-  const resetSuffixes = (): void => {
-    lastHeartbeat = "";
-    lastToolNote = "";
-  };
-
+  const resetSuffixes = (): void => { lastHeartbeat = ""; lastToolNote = ""; };
   const ingest = (chunk: string): string => {
     if (chunk.length === 0) return "";
     buffer += chunk;
@@ -118,25 +137,16 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
     if (tailDelta.length > 0) emitted += tailDelta;
     return emitted;
   };
-
   const ingestLine = (line: string): string => {
     let parsed: unknown;
-    try {
-      parsed = JSON.parse(line);
-    } catch {
-      return "";
-    }
+    try { parsed = JSON.parse(line); } catch { return ""; }
     if (!parsed || typeof parsed !== "object") return "";
     const obj = parsed as Record<string, unknown>;
     if (obj["type"] === "result") {
       const finalText = typeof obj["finalText"] === "string" ? (obj["finalText"] as string) : "";
-      if (finalText.length > 0) {
-        result = { finalText, hasResult: true };
-      } else if (currentText.length > 0) {
-        result = { finalText: currentText, hasResult: true };
-      } else {
-        result = { finalText: "", hasResult: true };
-      }
+      if (finalText.length > 0) result = { finalText, hasResult: true };
+      else if (currentText.length > 0) result = { finalText: currentText, hasResult: true };
+      else result = { finalText: "", hasResult: true };
       return "";
     }
     if (obj["type"] !== "event") return "";
@@ -145,7 +155,6 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
     const ev = event as Record<string, unknown>;
     const evType = ev["type"];
     const strType = typeof evType === "string" ? evType : String(evType);
-
     switch (strType) {
       case "text_delta": {
         if (typeof ev["delta"] === "string") {
@@ -193,47 +202,42 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
         return "";
       }
       case "tool_queued": {
-        const name = typeof ev["toolName"] === "string" ? (ev["toolName"] as string) : "tool";
         const inputSummary = summarizeInput(ev["input"]);
-        return toolNote(inputSummary ? `[tool: ${name} ${inputSummary}]` : `[tool: ${name}]`);
+        return toolNote(inputSummary);
       }
       case "tool_running":
       case "tool_update": {
-        const name = typeof ev["toolName"] === "string" ? (ev["toolName"] as string) : "tool";
         const desc = ev["description"];
         const partial = ev["partial"];
-        let suffix = "";
-        if (typeof desc === "string" && desc.length > 0) suffix = `: ${truncate(desc, 120)}`;
-        else if (typeof partial === "string" && partial.length > 0) suffix = `: ${truncate(partial, 120)}`;
-        const state = strType === "tool_update" ? "update" : "running";
-        return toolNote(`[tool: ${name} ${state}${suffix}]`);
+        let note = "";
+        if (typeof desc === "string" && desc.length > 0) note = truncate(desc, 120);
+        else if (typeof partial === "string" && partial.length > 0) note = truncate(partial, 120);
+        return toolNote(note);
       }
       case "tool_completed": {
-        const name = typeof ev["toolName"] === "string" ? (ev["toolName"] as string) : "tool";
         const res = ev["result"];
-        const resStr = typeof res === "string" ? res : res !== undefined ? JSON.stringify(res) : "";
-        return toolNote(resStr.length > 0 ? `[tool: ${name} done: ${truncate(resStr, 120)}]` : `[tool: ${name} done]`);
+        const text = extractToolResultText(res);
+        return toolNote(text.length > 0 ? truncate(text, 120) : "");
       }
       case "tool_errored": {
-        const name = typeof ev["toolName"] === "string" ? (ev["toolName"] as string) : "tool";
         const err = ev["error"];
         const errStr = typeof err === "string" ? err : err !== undefined ? JSON.stringify(err) : "";
-        return toolNote(errStr.length > 0 ? `[tool: ${name} error: ${truncate(errStr, 120)}]` : `[tool: ${name} error]`);
+        return toolNote(errStr.length > 0 ? truncate(errStr, 120) : "");
       }
       case "thinking_start": {
-        return heartbeat("thinking_start");
+        return "";
       }
       case "thinking_delta": {
         const delta = typeof ev["delta"] === "string" ? ev["delta"] : typeof ev["text"] === "string" ? ev["text"] : "";
-        return heartbeat(delta.length > 0 ? `thinking_delta: ${truncate(delta, 80)}` : "thinking_delta");
+        return delta.length > 0 ? delta : "";
       }
       case "thinking_end": {
         const text = typeof ev["text"] === "string" ? ev["text"] : typeof ev["delta"] === "string" ? ev["delta"] : "";
-        return heartbeat(text.length > 0 ? `thinking_end: ${truncate(text, 120)}` : "thinking_end");
+        return text.length > 0 ? truncate(text, 120) : "";
       }
       case "model_request_start": {
         const model = ev["model"];
-        return heartbeat(typeof model === "string" && model.length > 0 ? `model_request_start: ${model}` : "model_request_start");
+        return typeof model === "string" && model.length > 0 ? model : "";
       }
       case "model_request_end": {
         const model = ev["model"];
@@ -241,77 +245,50 @@ export function createCommandCodeStreamTranslator(): CommandCodeStreamTranslator
         const parts: string[] = [];
         if (typeof model === "string" && model.length > 0) parts.push(model);
         if (typeof stopReason === "string" && stopReason.length > 0) parts.push(stopReason);
-        return heartbeat(parts.length > 0 ? `model_request_end: ${parts.join(" ")}` : "model_request_end");
+        return parts.length > 0 ? parts.join(" ") : "";
       }
       case "turn_start": {
-        const n = ev["turnNumber"];
-        return heartbeat(typeof n === "number" ? `turn_start: ${n}` : "turn_start");
+        return "";
       }
       case "turn_end": {
-        const n = ev["turnNumber"];
-        const had = ev["hadToolCalls"];
-        const parts: string[] = [];
-        if (typeof n === "number") parts.push(String(n));
-        if (typeof had === "boolean") parts.push(had ? "tools" : "no-tools");
-        return heartbeat(parts.length > 0 ? `turn_end: ${parts.join(" ")}` : "turn_end");
+        return "";
       }
       case "api_retry": {
-        const attempt = ev["attempt"];
-        const delayMs = ev["delayMs"];
         const error = ev["error"];
-        const parts: string[] = [];
-        if (typeof attempt === "number") parts.push(`attempt ${attempt}`);
-        if (typeof delayMs === "number") parts.push(`${delayMs}ms`);
-        if (typeof error === "string" && error.length > 0) parts.push(truncate(error, 80));
-        return heartbeat(parts.length > 0 ? `api_retry: ${parts.join(", ")}` : "api_retry");
+        return typeof error === "string" && error.length > 0 ? truncate(error, 80) : "";
       }
       case "notice": {
-        const level = ev["level"];
         const message = ev["message"];
-        const lvl = typeof level === "string" && level.length > 0 ? level : "info";
-        if (typeof message === "string" && message.length > 0) {
-          return heartbeat(`notice: ${lvl} ${truncate(message, 120)}`);
-        }
-        return heartbeat("notice");
+        return typeof message === "string" && message.length > 0 ? truncate(message, 120) : "";
       }
       case "compaction_start": {
-        return heartbeat("compaction_start");
+        return "";
       }
       case "compaction_done": {
-        const saved = ev["tokensSaved"];
-        return heartbeat(typeof saved === "number" ? `compaction_done: saved ${saved}` : "compaction_done");
+        return "";
       }
       case "continuation_recovery": {
-        const kind = ev["kind"];
-        const attempt = ev["attempt"];
-        const maxAttempts = ev["maxAttempts"];
-        const parts: string[] = [];
-        if (typeof kind === "string") parts.push(kind);
-        if (typeof attempt === "number" && typeof maxAttempts === "number") parts.push(`${attempt}/${maxAttempts}`);
-        return heartbeat(parts.length > 0 ? `continuation_recovery: ${parts.join(" ")}` : "continuation_recovery");
+        return "";
       }
       case "run_start": {
-        const sessionId = ev["sessionId"];
-        return heartbeat(typeof sessionId === "string" && sessionId.length > 0 ? `run_start: ${sessionId}` : "run_start");
+        return "";
       }
       case "model_trace": {
         const msg = ev["message"] ?? ev["text"] ?? ev["trace"];
-        return heartbeat(typeof msg === "string" && msg.length > 0 ? `model_trace: ${truncate(msg, 120)}` : "model_trace");
+        return typeof msg === "string" && msg.length > 0 ? truncate(msg, 120) : "";
       }
       case "message_start":
       case "thinking": {
-        return heartbeat(strType);
+        return "";
       }
       default: {
         const details = eventDetails(ev);
-        return heartbeat(details.length > 0 ? `${strType}: ${details}` : strType);
+        return details.length > 0 ? details : "";
       }
     }
   };
-
   return { ingest, snapshot, finalize };
 }
-
 function extractAssistantText(content: unknown[]): string | null {
   let out = "";
   let saw = false;

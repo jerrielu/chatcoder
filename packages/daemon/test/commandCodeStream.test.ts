@@ -72,9 +72,8 @@ describe("createCommandCodeStreamTranslator", () => {
         event: { type: "tool_completed", toolName: "shell_command" }
       }) + "\n"
     );
-    expect(out1).toContain("[tool:");
-    expect(out2).toContain("[tool:");
-    expect(out4).toContain("[tool:");
+    // progress notes are now emitted as clean text without bracket wrappers
+    expect(out2).toContain("List files");
     expect(t.snapshot()).toBe("hello");
   });
 
@@ -127,8 +126,7 @@ describe("createCommandCodeStreamTranslator", () => {
       emitted += t.ingest(line({ type: "event", event: { type: evType } }) + "\n");
       expect(t.snapshot()).toBe("");
     }
-    // At least one heartbeat token was emitted for liveness.
-    expect(emitted).toContain("[");
+    // Pure meta events no longer emit bracketed noise.
     expect(t.finalize().hasResult).toBe(false);
   });
 

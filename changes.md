@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.9 (2026-11-04)
+
+- **Fix: Clean Command Code live progress output** — Removed bracketed wrappers/labels and JSON envelopes from thinking deltas and tool results in `packages/daemon/src/commandCodeStream.ts`; progress now emits only the underlying text content (assistant thinking deltas, tool result text, descriptions) for readability. (`packages/daemon/src/commandCodeStream.ts`, tests)
+
 ## 0.16.8 (2026-11-03)
 
 - **Fix: Command Code progress markers now include details** — `packages/daemon/src/commandCodeStream.ts` previously surfaced meta/tool events as bare markers (`[thinking_start]`, `[model_request_end]`, `[tool: grep]`, …) with no payload. Heartbeats and tool notes now carry the relevant fields: model id + stop reason, turn number, tool input/description/result/error, api_retry attempt/delay/error, notice level/message, thinking text, tokens saved, etc. Progress stays live and detailed while never leaking into `snapshot()`/`finalText`. (`packages/daemon/src/commandCodeStream.ts`, tests)
